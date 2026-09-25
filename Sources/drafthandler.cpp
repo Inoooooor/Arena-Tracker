@@ -1846,6 +1846,10 @@ QStringList DraftHandler::getBundleCodes(const QString &code)
 {
     QMap<QString, QStringList> * bundlesMap = Utility::getBundlesMap();
 
+    //Bug Fix: HSR bundles map is never created when HSReplay download fails and there is no
+    //local HSRbundles.json (fresh install). It crashed on the first draft pick. No bundles then.
+    if(bundlesMap == nullptr || arenaHero < 0 || arenaHero >= NUM_HEROS)    return QStringList();
+
     if(multiclassArena)
     {
         if(bundlesMap[arenaHero].contains(code))
