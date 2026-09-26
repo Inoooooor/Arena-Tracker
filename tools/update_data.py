@@ -8,6 +8,7 @@
                                  for arena-pool cards that have no image yet
 - HearthstoneCards/<id>_premium.png <- first frame of the hearthpwn golden animation, same format
                                  (falls back to a copy of the plain image)
+- HearthArena/hearthArena.json <- heartharena.com tier list scores per class (bumps haVersion.json)
 
 Usage:  python3 tools/update_data.py [--dry-run] [--sets SET1,SET2,...]
 Requires Pillow (pip install pillow).
@@ -17,6 +18,7 @@ import argparse
 import gzip
 import io
 import json
+import re
 import sys
 import urllib.request
 from pathlib import Path
@@ -27,6 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent
 HSJ_CARDS_URL = "https://api.hearthstonejson.com/v1/latest/all/cards.json"
 HSJ_RENDER_URL = "https://art.hearthstonejson.com/v1/render/latest/enUS/256x/{}.png"
 HEARTHPWN_GOLDEN_URL = "https://cards.hearthpwn.com/enUS/anims/{}_premium_000.png"
+HEARTHARENA_TIERLIST_URL = "https://www.heartharena.com/tierlist"
 FIRE_GLOBAL_URL = "https://static.zerotoheroes.com/api/arena/stats/cards/arena-underground/last-patch/global.gz.json"
 USER_AGENT = "ArenaTracker-data-updater (+https://github.com/Inoooooor/Arena-Tracker)"
 
@@ -126,6 +129,36 @@ def update_arena_version(cards, forced_sets, dry_run):
     return ordered
 
 
+def update_hearth_arena(dry_run):
+    print("hearthArena.json")
+    html = fetch(HEARTHARENA_TIERLIST_URL).decode("utf-8", errors="replace")
+    sections = list(re.finditer(r'<section class="tab tierlist [^"]*" id="([a-z-]+)">', html))
+    # Each card: its render URL carries the card id, followed by the name and the score
+    card_re = re.compile(r'data-card-image="[^"]*/renders/[a-zA-Z]+/([A-Za-z0-9_]+)\.(?:webp|png)">[^<]*</dt>'
+                         r'<dd class="score[^"]*">(-?\d+)')
+    tierlist = {}
+    for i, section in enumerate(sections):
+        end = sections[i + 1].start() if i + 1 < len(sections) else len(html)
+        # Class sections hold the class cards plus neutrals (scored per class); "any" holds the neutrals
+        key = "Neutral" if section.group(1) == "any" else section.group(1).replace("-", " ").title()
+        tierlist[key] = {code: int(score) for code, score in card_re.findall(html[section.end():end])}
+    if len(tierlist) != 12 or min(len(v) for v in tierlist.values()) < 100:
+        sys.exit(f"  unexpected tier list page layout: { {k: len(v) for k, v in tierlist.items()} }")
+
+    path = ROOT / "HearthArena" / "hearthArena.json"
+    if path.exists() and read_json(path) == tierlist:
+        print("  up to date")
+        return
+    print("  " + ", ".join(f"{k} {len(v)}" for k, v in tierlist.items()))
+    print(f"  write {path.relative_to(ROOT)}")
+    if not dry_run:
+        path.write_text(json.dumps(tierlist, separators=(",", ":")), encoding="utf-8")
+    version_path = ROOT / "HearthArena" / "haVersion.json"
+    version = read_json(version_path)
+    version["haVersion"] += 1
+    write_json(version_path, version, dry_run)
+
+
 def crop_card(data, x, y, w):
     src = Image.open(io.BytesIO(data)).convert("RGBA")
     canvas = Image.new("RGBA", (w, round(w * OUT_H / OUT_W)), (0, 0, 0, 0))
@@ -191,6 +224,7 @@ def main():
 
     cards = update_cards_json(args.dry_run)
     sets = update_arena_version(cards, args.sets.split(",") if args.sets else None, args.dry_run)
+    update_hearth_arena(args.dry_run)
     failed = update_card_images(cards, sets, args.dry_run)
     return 1 if failed else 0
 
