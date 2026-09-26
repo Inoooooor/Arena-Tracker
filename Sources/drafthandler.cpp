@@ -723,6 +723,7 @@ void DraftHandler::clearLists(bool keepCounters)
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
         ocrCodes[i] = "";
+        ocrUnmatchedText[i] = "";
     }
     for(int i=0; i<5; i++)
     {
@@ -1476,6 +1477,7 @@ bool DraftHandler::isRepeatHero()
             draftCardMaps[i].clear();
             bestMatchesMaps[i].clear();
             ocrCodes[i] = "";
+            ocrUnmatchedText[i] = "";
         }
         numCaptured = 0;
         return true;
@@ -1623,7 +1625,17 @@ void DraftHandler::readCardNames(const cv::Mat &screenCapture)
         QImage image(crop.data, crop.cols, crop.rows, static_cast<qsizetype>(crop.step), QImage::Format_RGB32);
         const QStringList lines = MacOcr::recognizeLines(image.copy(), Utility::getLocalLang());
         QString code = matchCardName(lines);
-        if(code.isEmpty())  continue;
+        if(code.isEmpty())
+        {
+            //Log each different unmatched reading once, to find out why a banner isn't recognized
+            const QString text = lines.join(" ");
+            if(!text.isEmpty() && text != ocrUnmatchedText[i])
+            {
+                ocrUnmatchedText[i] = text;
+                emit pDebug("OCR slot " + QString::number(i+1) + " unmatched: \"" + text + "\"");
+            }
+            continue;
+        }
         if(recentPick && code == prevCodes[i])  continue;
 
         ocrCodes[i] = code;
@@ -1927,6 +1939,7 @@ void DraftHandler::pickCard(QString code)
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
         ocrCodes[i] = "";
+        ocrUnmatchedText[i] = "";
     }
 
     prevCodesTime = QDateTime::currentSecsSinceEpoch();
@@ -1963,6 +1976,7 @@ void DraftHandler::refreshCapturedCards()
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
         ocrCodes[i] = "";
+        ocrUnmatchedText[i] = "";
     }
 
     this->numCaptured = 0;
@@ -1995,6 +2009,7 @@ void DraftHandler::refreshDraft()
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
         ocrCodes[i] = "";
+        ocrUnmatchedText[i] = "";
 
         screenRects[i] = cv::Rect(0,0,0,0);
         manaRects[i] = cv::Rect(0,0,0,0);
@@ -2028,6 +2043,7 @@ void DraftHandler::refreshHeroes()
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
         ocrCodes[i] = "";
+        ocrUnmatchedText[i] = "";
     }
 
     numCaptured = 0;
@@ -4105,6 +4121,13 @@ void DraftHandler::finishReviewBestCards()
 
     for(int i=0; i<3; i++)
     {
+        //A card identified by its name is more reliable than the mana/rarity check: keep it
+        if(!bestCodes[i].isEmpty() && !ocrCodes[i].isEmpty() && degoldCode(draftCards[i].getCode()) == ocrCodes[i])
+        {
+            emit pDebug("reviewBestCards: keep OCR card " + ocrCodes[i] + " in slot " + QString::number(i+1) +
+                        " (mana/rarity review suggested " + bestCodes[i] + ")");
+            bestCodes[i] = "";
+        }
         if(!bestCodes[i].isEmpty())
         {
             needShowCards = true;

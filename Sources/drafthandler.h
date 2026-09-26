@@ -137,6 +137,7 @@ private:
     QList<cv::Mat> rarityTemplates;
     QString prevCodes[3];
     QString ocrCodes[3];    //Card of each slot read by its name (OCR, macOS only)
+    QString ocrUnmatchedText[3];    //Last OCR reading that matched no card, logged once
     qint64 prevCodesTime;
     QString bestCodesRedraftingReview[5];
 
