@@ -140,7 +140,21 @@ void HSCardDownloader::saveWebImage(QNetworkReply * reply)
     {
         QImage webImage;
         webImage.loadFromData(data);
-        if(!isHero && webImage.width()!=200)
+        //Hearthpwn now serves 600x830 images (plain and golden); the cuts below are for its old, smaller format.
+        //Cut fitted against the repo's HearthstoneCards images (same values as tools/update_data.py).
+        if(!isHero && webImage.width() >= 500)
+        {
+            QString plainCode = code;
+            if(plainCode.endsWith("_premium"))  plainCode.chop(8);
+            int x = -8, y = -65, w = 618;
+            if(Utility::getRarityFromCode(plainCode) == LEGENDARY)
+            {
+                if(Utility::getTypeFromCode(plainCode) == MINION)  {x = 10; y = -20; w = 584;}
+                else                                                {x = -10; y = -40; w = 596;}
+            }
+            webImage = webImage.copy(x, y, w, qRound(w*304/200.0)).scaledToWidth(200, Qt::SmoothTransformation);
+        }
+        else if(!isHero && webImage.width()!=200)
         {
             //Golden from hearthpwn
             if(code.endsWith("_premium"))
