@@ -77,6 +77,11 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     redraftWatchTimer->setInterval(REDRAFT_WATCH_TIME);
     connect(redraftWatchTimer, SIGNAL(timeout()), this, SLOT(checkRedraftScreen()));
     connect(&futureRedraftCounter, SIGNAL(finished()), this, SLOT(finishCheckRedraftScreen()));
+
+    redraftReviewTimer = new QTimer(this);
+    redraftReviewTimer->setInterval(REDRAFT_REVIEW_OCR_TIME);
+    connect(redraftReviewTimer, SIGNAL(timeout()), this, SLOT(captureRedraftReviewNames()));
+    connect(&futureRedraftReviewCodes, SIGNAL(finished()), this, SLOT(finishRedraftReviewNames()));
 }
 
 DraftHandler::~DraftHandler()
@@ -171,9 +176,51 @@ void DraftHandler::showRedraftTab()
 
     //Right after the draft tab, if there is one
     int index = (ui->tabWidget->indexOf(ui->tabDraft) != -1)?1:0;
-    ui->tabWidget->insertTab(index, redraftTab, QIcon(ThemeHandler::buttonRemoveDeckFile()), "");
+    ui->tabWidget->insertTab(index, redraftTab, redraftTabIcon(), "");
     ui->tabWidget->setTabToolTip(index, "Redraft: cards to remove");
     emit calculateMinimumWidth();
+}
+
+
+//The deck tab icon of the theme with a round "-" badge, so it matches the other tabs in any theme
+QIcon DraftHandler::redraftTabIcon()
+{
+    QImage image = QImage(ThemeHandler::tabDeckFile()).convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    if(image.isNull())  return QIcon(ThemeHandler::tabDeckFile());
+    const qreal size = image.width();
+
+    //Badge color: average of the opaque pixels of the bottom half of the icon
+    qint64 red = 0, green = 0, blue = 0, count = 0;
+    for(int y=image.height()/2; y<image.height(); y++)
+    {
+        for(int x=0; x<image.width(); x++)
+        {
+            QColor color = image.pixelColor(x, y);
+            if(color.alpha() < 200)     continue;
+            red += color.red();
+            green += color.green();
+            blue += color.blue();
+            count++;
+        }
+    }
+    QColor badgeColor = (count == 0)?QColor(Qt::white):QColor(red/count, green/count, blue/count);
+
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::NoPen);
+    QPointF center(size*0.7, size*0.7);
+    qreal radius = size*0.25;
+    painter.setCompositionMode(QPainter::CompositionMode_Clear);
+    painter.drawEllipse(center, radius + size*0.07, radius + size*0.07);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+    painter.setBrush(badgeColor);
+    painter.drawEllipse(center, radius, radius);
+    painter.setCompositionMode(QPainter::CompositionMode_Clear);
+    painter.drawRoundedRect(QRectF(center.x() - radius*0.6, center.y() - size*0.045, radius*1.2, size*0.09),
+                            size*0.03, size*0.03);
+    painter.end();
+
+    return QIcon(QPixmap::fromImage(image));
 }
 
 
@@ -1171,6 +1218,101 @@ void DraftHandler::checkRedraftScreen()
 }
 
 
+//Marks the cards picked in the redraft review screen, in the deck and in the suggestions
+void DraftHandler::setRedraftReviewCodes(const QStringList &codes)
+{
+    bool changed = false;
+    for(int i=0; i<5; i++)
+    {
+        QString code = (i < codes.count())?codes[i]:"";
+        if(code != bestCodesRedraftingReview[i])
+        {
+            bestCodesRedraftingReview[i] = code;
+            changed = true;
+        }
+    }
+    if(!changed)    return;
+
+    for(DeckCard &deckCard: *deckHandler->getDeckCardListRef())
+    {
+        QString code = deckCard.getCode();
+        if(code.isEmpty())    continue;
+        deckCard.setRedraftingReview(codes.contains(code));
+    }
+    updateRedraftRemoveMarks();
+}
+
+
+//Reads the Hearthstone window; the deck list on the right, from the "NN/30" counter to the right, is left out.
+void DraftHandler::captureRedraftReviewNames()
+{
+#ifdef Q_OS_MAC
+    if(!redraftingReview)
+    {
+        redraftReviewTimer->stop();
+        return;
+    }
+    if(futureRedraftReviewCodes.isRunning())    return;
+
+    QRect hsRect = MacOcr::hearthstoneWindowRect();
+    if(hsRect.isNull())     return;
+    QScreen *primaryScreen = QGuiApplication::primaryScreen();
+    if(primaryScreen == nullptr)    return;
+    QImage image = primaryScreen->grabWindow(0, hsRect.x(), hsRect.y(), hsRect.width(), hsRect.height()).toImage();
+    if(image.isNull())  return;
+    if(image.width() > 1400)    image = image.scaledToWidth(1400, Qt::SmoothTransformation);
+
+    const QMap<QString, QString> nameMap = redraftNameMap;
+    const QString language = Utility::getLocalLang();
+    futureRedraftReviewCodes.setFuture(QtConcurrent::run([image, nameMap, language]() {
+        static const QRegularExpression counterRe("\\d{2}\\s*/\\s*30\\b");
+        const QList<MacOcr::TextLine> lines = MacOcr::recognizeTextLines(image, language);
+
+        qreal deckListLeft = -1;
+        for(const MacOcr::TextLine &line: lines)
+        {
+            if(counterRe.match(line.text).hasMatch())
+            {
+                deckListLeft = line.rect.center().x() - image.height()*0.1;
+                break;
+            }
+        }
+        //Not the review screen
+        if(deckListLeft < 0)    return qMakePair(false, QStringList());
+
+        QStringList codes;
+        for(const MacOcr::TextLine &line: lines)
+        {
+            if(line.rect.left() >= deckListLeft)    continue;
+            QString code = matchCardName({line.text}, nameMap);
+            if(!code.isEmpty())     codes << code;
+        }
+        return qMakePair(true, codes.mid(0, 5));
+    }));
+#endif
+}
+
+
+void DraftHandler::finishRedraftReviewNames()
+{
+    QPair<bool, QStringList> result = futureRedraftReviewCodes.result();
+    //Keep the last picks when the screen is gone (Done pressed), they are removed from the deck at the end
+    if(!result.first || !redraftingReview)  return;
+
+    QStringList prevCodes;
+    for(int i=0; i<5; i++)  if(!bestCodesRedraftingReview[i].isEmpty())    prevCodes << bestCodesRedraftingReview[i];
+    QStringList codes = result.second;
+    std::sort(prevCodes.begin(), prevCodes.end());
+    std::sort(codes.begin(), codes.end());
+    if(codes == prevCodes)  return;
+
+    QStringList names;
+    for(const QString &code: qAsConst(codes))   names << Utility::cardEnNameFromCode(code);
+    emit pDebug("Redraft review picks: " + (names.isEmpty()?QString("none"):names.join(", ")));
+    setRedraftReviewCodes(codes);
+}
+
+
 void DraftHandler::finishCheckRedraftScreen()
 {
     int numCards = futureRedraftCounter.result();
@@ -1378,6 +1520,19 @@ void DraftHandler::beginRedraftReview()
     if(ui->tabWidget->indexOf(redraftTab) != -1)    ui->tabWidget->setCurrentWidget(redraftTab);
     cardsHist.clear();
 
+#ifdef Q_OS_MAC
+    redraftNameMap.clear();
+    for(DeckCard &deckCard: *deckHandler->getDeckCardListRef())
+    {
+        QString code = deckCard.getCode();
+        if(code.isEmpty())    continue;
+        QString name = Utility::removeAccents(Utility::cardLocalNameFromCode(code)).toLower().simplified().replace(" ", "");
+        redraftNameMap[name] = code;
+    }
+    redraftReviewTimer->start();
+    return;
+#endif
+
     QTimer::singleShot(REDRAFT_REVIEW_DELAY_TIME, this, [=] () {newFindScreenLoop(true);});
 
     //Por ahora no hacemos comprobacion mana/rarity
@@ -1484,6 +1639,7 @@ void DraftHandler::endRedraftReview()
     //Se llama si cerramos AT, start game o leave arena.
     emit pDebug("End redraft review.");
     //Debemos llamar directamente, no usar connects, ya que esto se llama desde MainWindow::leaveArena() que tambien borra el deck en DeckHandler.
+    redraftReviewTimer->stop();
     if(redraftingReview)    deckHandler->redraftReviewDeck(bestCodesRedraftingReview);
     deckHandler->saveDraftDeck(Utility::classEnum2classLogNumber(arenaHero));
     hideDeckScores();
@@ -1648,8 +1804,8 @@ void DraftHandler::captureDraftRedraftingReview()
         return;
     }
 
-    QStringList prevCodesRedraftingReview;
-    for(int i=0; i<5; i++)  prevCodesRedraftingReview << bestCodesRedraftingReview[i];
+    QStringList reviewCodes;
+    for(int i=0; i<5; i++)  reviewCodes << bestCodesRedraftingReview[i];
 
     double bestMatches[5];
     for(int i=0; i<5; i++)
@@ -1663,37 +1819,12 @@ void DraftHandler::captureDraftRedraftingReview()
             if(match < bestMatches[i])
             {
                 bestMatches[i] = match;
-                bestCodesRedraftingReview[i] = degoldCode(code);
+                reviewCodes[i] = degoldCode(code);
             }
         }
     }
 
-    //Show deck card selected
-    for(DeckCard &deckCard: *deckHandler->getDeckCardListRef())
-    {
-        bool showRedraft = false;
-        QString code = deckCard.getCode();
-        if(code.isEmpty())    continue;
-        for(int i=0; i<5; i++)
-        {
-            if(code == bestCodesRedraftingReview[i])
-            {
-                showRedraft = true;
-                deckCard.setRedraftingReview();
-                break;
-            }
-        }
-        if(!showRedraft)    deckCard.setRedraftingReview(false);
-    }
-
-    for(int i=0; i<5; i++)
-    {
-        if(prevCodesRedraftingReview[i] != bestCodesRedraftingReview[i])
-        {
-            updateRedraftRemoveMarks();
-            break;
-        }
-    }
+    setRedraftReviewCodes(reviewCodes);
 
     // qDebug()<<cardsHist.keys();
     // qDebug()<<endl;
@@ -1872,7 +2003,7 @@ void DraftHandler::readCardNames(const cv::Mat &screenCapture)
         cv::Mat crop = screenCapture(banner).clone();
         QImage image(crop.data, crop.cols, crop.rows, static_cast<qsizetype>(crop.step), QImage::Format_RGB32);
         const QStringList lines = MacOcr::recognizeLines(image.copy(), Utility::getLocalLang());
-        QString code = matchCardName(lines);
+        QString code = matchCardName(lines, cardsNameMap);
         if(code.isEmpty())
         {
             //Log each different unmatched reading once, to find out why a banner isn't recognized
@@ -1896,8 +2027,8 @@ void DraftHandler::readCardNames(const cv::Mat &screenCapture)
 }
 
 
-//Finds the arena pool name (cardsNameMap) closest to the OCR text.
-QString DraftHandler::matchCardName(const QStringList &lines)
+//Finds the name of nameMap (normalized name -> code) closest to the OCR text.
+QString DraftHandler::matchCardName(const QStringList &lines, const QMap<QString, QString> &nameMap)
 {
     auto normalize = [](const QString &text) {
         QString norm;
@@ -1931,7 +2062,7 @@ QString DraftHandler::matchCardName(const QStringList &lines)
 
     double best = 0, second = 0;
     QString bestCode;
-    for(QMap<QString, QString>::const_iterator it=cardsNameMap.constBegin(); it!=cardsNameMap.constEnd(); it++)
+    for(QMap<QString, QString>::const_iterator it=nameMap.constBegin(); it!=nameMap.constEnd(); it++)
     {
         const QString name = normalize(it.key());
         double sim = 0;

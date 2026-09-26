@@ -6,6 +6,14 @@
 QStringList MacOcr::recognizeLines(const QImage &image, const QString &language)
 {
     QStringList lines;
+    for(const TextLine &line: recognizeTextLines(image, language))  lines << line.text;
+    return lines;
+}
+
+
+QList<MacOcr::TextLine> MacOcr::recognizeTextLines(const QImage &image, const QString &language)
+{
+    QList<TextLine> lines;
     if(image.isNull())  return lines;
 
     @autoreleasepool
@@ -28,10 +36,16 @@ QStringList MacOcr::recognizeLines(const QImage &image, const QString &language)
         NSError *error = nil;
         if([handler performRequests:@[request] error:&error])
         {
+            const qreal w = image.width(), h = image.height();
             for(VNRecognizedTextObservation *observation in request.results)
             {
                 VNRecognizedText *text = [[observation topCandidates:1] firstObject];
-                if(text != nil) lines << QString::fromNSString(text.string);
+                if(text == nil) continue;
+                //Vision boxes are normalized with a bottom-left origin
+                CGRect box = observation.boundingBox;
+                lines << TextLine{QString::fromNSString(text.string),
+                                  QRectF(box.origin.x*w, (1 - box.origin.y - box.size.height)*h,
+                                         box.size.width*w, box.size.height*h)};
             }
         }
         CGImageRelease(cgImage);

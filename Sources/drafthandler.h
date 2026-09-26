@@ -22,6 +22,7 @@
 #define REDRAFT_REMOVE_CARDS        5
 #define REDRAFT_REMOVE_SPARES       3
 #define REDRAFT_WATCH_TIME          2000
+#define REDRAFT_REVIEW_OCR_TIME     1000
 #define FINDSCREEN_LOOP_TIME    1000
 #define FINDSCREEN_STABLE_TIME  400
 
@@ -145,6 +146,10 @@ private:
     //the redraft picks happened when AT could not see them (Hearthstone restarted in the review screen)
     QTimer *redraftWatchTimer;
     QFutureWatcher<int> futureRedraftCounter;
+    //macOS: the cards picked in the redraft review screen are found by reading their names
+    QTimer *redraftReviewTimer;
+    QFutureWatcher<QPair<bool, QStringList>> futureRedraftReviewCodes;
+    QMap<QString, QString> redraftNameMap;  //Normalized local name -> code, of the deck cards
     QList<cv::Mat> manaTemplates;
     QList<cv::Mat> rarityTemplates;
     QString prevCodes[3];
@@ -185,7 +190,7 @@ private:
     void buildBestMatchesMaps();
     void removeDuplicatedPicks(QStringList slotCodes[3]);
     void readCardNames(const cv::Mat &screenCapture);
-    QString matchCardName(const QStringList &lines);
+    static QString matchCardName(const QStringList &lines, const QMap<QString, QString> &nameMap);
     void applyOcrCodes(QStringList slotCodes[3]);
     CardRarity getBestRarity();
     void getBestCards(DraftCard bestCards[3]);
@@ -249,6 +254,7 @@ private:
     void hideDeckScores();
     void endRedraftReview();
     void captureDraftRedraftingReview();
+    void setRedraftReviewCodes(const QStringList &codes);
     void beginRedraftReview();
     void createRedraftRemoveList();
     void updateRedraftRemoveList();
@@ -275,6 +281,7 @@ public:
     QString getHSRFireCode(QString code, bool HSR, CardClass heroClass);
     void setDeckScores();
     QWidget *getRedraftTab();
+    static QIcon redraftTabIcon();
     void buildHeroCodesList();
     void reHistDownloadedCardImage(const QString &fileNameCode, bool missingOnWeb=false);
     void setMouseInApp(bool value);
@@ -371,6 +378,8 @@ private slots:
     void checkRedraftScreen();
     void finishCheckRedraftScreen();
     void redraftRemoveCardEntered(QListWidgetItem *item);
+    void captureRedraftReviewNames();
+    void finishRedraftReviewNames();
 };
 
 #endif // DRAFTHANDLER_H
