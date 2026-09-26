@@ -865,6 +865,12 @@ void Utility::setLocalLang(const QString &localLang)
 }
 
 
+QString Utility::getLocalLang()
+{
+    return Utility::localLang;
+}
+
+
 QString Utility::removeAccents(const QString &s)
 {
     if (diacriticLetters.isEmpty())

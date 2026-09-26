@@ -4,6 +4,9 @@
 #include "Synergies/mechaniccounter.h"
 #include <QtConcurrent/QtConcurrent>
 #include <QtWidgets>
+#ifdef Q_OS_MAC
+    #include "Utils/macocr.h"
+#endif
 
 #ifdef Q_OS_LINUX
 #include "Utils/capturemanager.h"
@@ -719,6 +722,7 @@ void DraftHandler::clearLists(bool keepCounters)
         cardDetected[i] = false;
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
+        ocrCodes[i] = "";
     }
     for(int i=0; i<5; i++)
     {
@@ -1471,6 +1475,7 @@ bool DraftHandler::isRepeatHero()
             cardDetected[i] = false;
             draftCardMaps[i].clear();
             bestMatchesMaps[i].clear();
+            ocrCodes[i] = "";
         }
         numCaptured = 0;
         return true;
@@ -1483,6 +1488,7 @@ bool DraftHandler::areCardsDetected()
 {
     for(int i=0; i<3; i++)
     {
+        if(!cardDetected[i] && !ocrCodes[i].isEmpty())  cardDetected[i] = true;
         if(!cardDetected[i] && (numCaptured > 2) &&
             (getMinMatch(draftCardMaps[i]) < (CARD_ACCEPTED_THRESHOLD + numCaptured*CARD_ACCEPTED_THRESHOLD_INCREASE)))
         {
@@ -1534,6 +1540,7 @@ void DraftHandler::buildBestMatchesMaps()
             }
         }
 
+        applyOcrCodes(slotCodes);
         removeDuplicatedPicks(slotCodes);
 
         for(int i=0; i<3; i++)
@@ -1588,6 +1595,141 @@ void DraftHandler::removeDuplicatedPicks(QStringList slotCodes[3])
             }
         }
         if(!changed)    break;
+    }
+}
+
+
+//Lee el nombre de cada carta en su cinta (debajo del arte). El nombre no cambia en las cartas golden animadas,
+//asi que es mas fiable que el histograma del arte. Solo macOS (Apple Vision).
+void DraftHandler::readCardNames(const cv::Mat &screenCapture)
+{
+#ifdef Q_OS_MAC
+    if(cardsNameMap.isEmpty())  return;
+
+    //Tras un pick, durante unos segundos, en pantalla pueden seguir las 3 cartas anteriores
+    bool recentPick = ((QDateTime::currentSecsSinceEpoch() - prevCodesTime) < PREV_CODES_TIME);
+
+    for(int i=0; i<3; i++)
+    {
+        if(!ocrCodes[i].isEmpty())  continue;
+
+        //Cinta del nombre, medida en arenaTemplate.png respecto al rect del arte
+        const cv::Rect &art = screenRects[i];
+        cv::Rect banner(art.x - art.width*0.65, art.y + art.height*1.08, art.width*2.4, art.height*0.44);
+        banner &= cv::Rect(0, 0, screenCapture.cols, screenCapture.rows);
+        if(banner.width < 10 || banner.height < 5)  continue;
+
+        cv::Mat crop = screenCapture(banner).clone();
+        QImage image(crop.data, crop.cols, crop.rows, static_cast<qsizetype>(crop.step), QImage::Format_RGB32);
+        const QStringList lines = MacOcr::recognizeLines(image.copy(), Utility::getLocalLang());
+        QString code = matchCardName(lines);
+        if(code.isEmpty())  continue;
+        if(recentPick && code == prevCodes[i])  continue;
+
+        ocrCodes[i] = code;
+        emit pDebug("OCR slot " + QString::number(i+1) + ": \"" + lines.join(" ") + "\" --> " +
+                    code + " " + Utility::cardEnNameFromCode(code));
+    }
+#else
+    (void)screenCapture;
+#endif
+}
+
+
+//Busca en el pool de arena (cardsNameMap) el nombre mas parecido a lo leido por OCR.
+QString DraftHandler::matchCardName(const QStringList &lines)
+{
+    auto normalize = [](const QString &text) {
+        QString norm;
+        for(const QChar &c: Utility::removeAccents(text).toLower())
+        {
+            if(c.isLetterOrNumber())    norm += c;
+        }
+        return norm;
+    };
+    //Similitud 0..1 basada en distancia de Levenshtein
+    auto similarity = [](const QString &a, const QString &b) {
+        if(a.isEmpty() || b.isEmpty())  return 0.0;
+        QVector<int> prev(b.length()+1), cur(b.length()+1);
+        for(int j=0; j<=b.length(); j++)    prev[j] = j;
+        for(int i=1; i<=a.length(); i++)
+        {
+            cur[0] = i;
+            for(int j=1; j<=b.length(); j++)
+            {
+                int cost = (a[i-1] == b[j-1])?0:1;
+                cur[j] = std::min({prev[j]+1, cur[j-1]+1, prev[j-1]+cost});
+            }
+            std::swap(prev, cur);
+        }
+        return 1.0 - prev[b.length()]/static_cast<double>(std::max(a.length(), b.length()));
+    };
+
+    QStringList texts;
+    for(const QString &line: lines)     texts << normalize(line);
+    if(lines.count() > 1)               texts << normalize(lines.join(""));
+
+    double best = 0, second = 0;
+    QString bestCode;
+    for(QMap<QString, QString>::const_iterator it=cardsNameMap.constBegin(); it!=cardsNameMap.constEnd(); it++)
+    {
+        const QString name = normalize(it.key());
+        double sim = 0;
+        for(const QString &text: qAsConst(texts))
+        {
+            sim = std::max(sim, similarity(text, name));
+            //Nombre cortado por un borde de la cinta ("Holy Eggbea", "cover Cultist"): comparamos con el principio
+            //o el final del nombre si se ha leido al menos el 60%.
+            if(text.length() < name.length() && text.length() >= 0.6*name.length())
+            {
+                sim = std::max(sim, similarity(text, name.left(text.length())));
+                sim = std::max(sim, similarity(text, name.right(text.length())));
+            }
+        }
+
+        if(sim > best)
+        {
+            if(it.value() != bestCode)  second = best;
+            best = sim;
+            bestCode = it.value();
+        }
+        else if(sim > second && it.value() != bestCode)
+        {
+            second = sim;
+        }
+    }
+
+    //Aceptamos solo si se parece mucho y no hay otra carta casi igual de parecida
+    if(best >= 0.8 && (best - second) >= 0.1)   return bestCode;
+    return "";
+}
+
+
+//Los huecos con nombre leido por OCR usan esa carta como la mejor, por encima del histograma.
+void DraftHandler::applyOcrCodes(QStringList slotCodes[3])
+{
+    for(int i=0; i<3; i++)
+    {
+        if(ocrCodes[i].isEmpty())   continue;
+
+        //Si el histograma ya la tenia (normal o golden) usamos esa version
+        QString chosen;
+        for(const QString &code: qAsConst(slotCodes[i]))
+        {
+            if(degoldCode(code) == ocrCodes[i])
+            {
+                chosen = code;
+                break;
+            }
+        }
+        if(chosen.isEmpty())
+        {
+            chosen = ocrCodes[i];
+            if(!draftCardMaps[i].contains(chosen))  draftCardMaps[i].insert(chosen, DraftCard(chosen, false));
+        }
+        draftCardMaps[i][chosen].setBestQualityMatch(0, true);
+        slotCodes[i].removeAll(chosen);
+        slotCodes[i].prepend(chosen);
     }
 }
 
@@ -1784,6 +1926,7 @@ void DraftHandler::pickCard(QString code)
         cardDetected[i] = false;
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
+        ocrCodes[i] = "";
     }
 
     prevCodesTime = QDateTime::currentSecsSinceEpoch();
@@ -1819,6 +1962,7 @@ void DraftHandler::refreshCapturedCards()
         cardDetected[i] = false;
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
+        ocrCodes[i] = "";
     }
 
     this->numCaptured = 0;
@@ -1850,6 +1994,7 @@ void DraftHandler::refreshDraft()
         cardDetected[i] = false;
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
+        ocrCodes[i] = "";
 
         screenRects[i] = cv::Rect(0,0,0,0);
         manaRects[i] = cv::Rect(0,0,0,0);
@@ -1882,6 +2027,7 @@ void DraftHandler::refreshHeroes()
         cardDetected[i] = false;
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
+        ocrCodes[i] = "";
     }
 
     numCaptured = 0;
@@ -2438,6 +2584,7 @@ bool DraftHandler::getScreenCardsHist(cv::MatND screenCardsHist[], int length)
 // #endif
 
     for(int i=0; i<length; i++)     screenCardsHist[i] = getHist(bigCards[i]);
+    if(drafting && length == 3)     readCardNames(screenCapture);
     return true;
 }
 

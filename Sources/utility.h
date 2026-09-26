@@ -126,6 +126,7 @@ public:
     static QString cardLocalCodeFromName(const QString &name);
     static void setCardsJson(QMap<QString, QJsonObject> *cardsJson);
     static void setLocalLang(const QString &localLang);
+    static QString getLocalLang();
     static QString removeAccents(const QString &s);
     static QPropertyAnimation *fadeInWidget(QWidget *widget, bool force=false);
     static QPropertyAnimation *fadeOutWidget(QWidget *widget, bool force=false);

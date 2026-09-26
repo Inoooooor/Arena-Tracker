@@ -134,6 +134,7 @@ private:
     QList<cv::Mat> manaTemplates;
     QList<cv::Mat> rarityTemplates;
     QString prevCodes[3];
+    QString ocrCodes[3];    //Carta de cada hueco leida por su nombre (OCR, solo macOS)
     qint64 prevCodesTime;
     QString bestCodesRedraftingReview[5];
 
@@ -168,6 +169,9 @@ private:
     bool isRepeatHero();
     void buildBestMatchesMaps();
     void removeDuplicatedPicks(QStringList slotCodes[3]);
+    void readCardNames(const cv::Mat &screenCapture);
+    QString matchCardName(const QStringList &lines);
+    void applyOcrCodes(QStringList slotCodes[3]);
     CardRarity getBestRarity();
     void getBestCards(DraftCard bestCards[3]);
     void addCardHist(QString code, bool premium, bool isHero=false);

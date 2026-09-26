@@ -182,6 +182,10 @@ win32: RC_ICONS = ArenaTracker.ico
 macx{
     ICON = ArenaTracker.icns
     LIBS += -liconv
+    OBJECTIVE_SOURCES += Sources/Utils/macocr.mm
+    HEADERS  += Sources/Utils/macocr.h
+    LIBS += -framework Foundation -framework Vision
+    QMAKE_OBJECTIVE_CFLAGS += -fobjc-arc
 }
 
 #Deploy MAC
