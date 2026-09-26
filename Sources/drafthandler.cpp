@@ -86,6 +86,7 @@ DraftHandler::~DraftHandler()
     deleteDraftMechanicsWindow();
     deleteTwitchHandler();
     if(synergyHandler != nullptr)  delete synergyHandler;
+    if(redraftTab != nullptr)  delete redraftTab;
 }
 
 
@@ -130,27 +131,75 @@ void DraftHandler::createScoreItems()
 }
 
 
-//Suggestions of deck cards to remove after a redraft, shown above the deck list
+//Suggestions of deck cards to remove after a redraft, in their own tab shown only during a redraft
 void DraftHandler::createRedraftRemoveList()
 {
-    redraftRemoveWidget = new QWidget(ui->tabDeck);
-    QVBoxLayout *layout = new QVBoxLayout(redraftRemoveWidget);
-    layout->setContentsMargins(0, 0, 0, 10);
-    layout->setSpacing(2);
+    redraftTab = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(redraftTab);
+    layout->setContentsMargins(0, 45, 0, 0);
+    layout->setSpacing(5);
 
-    redraftRemoveLabel = new QLabel(redraftRemoveWidget);
+    redraftRemoveLabel = new QLabel(redraftTab);
     redraftRemoveLabel->setAlignment(Qt::AlignCenter);
     redraftRemoveLabel->setToolTip("Lowest rated cards of your deck. Remove the first " + QString::number(REDRAFT_REMOVE_CARDS) +
                                    ";\nthe dimmed ones are spares if you want to keep one of them.");
     layout->addWidget(redraftRemoveLabel);
 
-    redraftRemoveListWidget = new MoveListWidget(redraftRemoveWidget);
+    redraftRemoveListWidget = new MoveListWidget(redraftTab);
     redraftRemoveListWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     redraftRemoveListWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    redraftRemoveListWidget->setMouseTracking(true);
     layout->addWidget(redraftRemoveListWidget);
+    layout->addStretch();
 
-    ui->tabDeckLayout->insertWidget(0, redraftRemoveWidget);
-    redraftRemoveWidget->hide();
+    connect(redraftRemoveListWidget, SIGNAL(itemEntered(QListWidgetItem*)),
+            this, SLOT(redraftRemoveCardEntered(QListWidgetItem*)));
+    connect(redraftRemoveListWidget, SIGNAL(leave()),
+            this, SIGNAL(cardLeave()));
+}
+
+
+QWidget *DraftHandler::getRedraftTab()
+{
+    return redraftTab;
+}
+
+
+void DraftHandler::showRedraftTab()
+{
+    if(ui->tabWidget->indexOf(redraftTab) != -1)    return;
+
+    //Right after the draft tab, if there is one
+    int index = (ui->tabWidget->indexOf(ui->tabDraft) != -1)?1:0;
+    ui->tabWidget->insertTab(index, redraftTab, QIcon(ThemeHandler::buttonRemoveDeckFile()), "");
+    ui->tabWidget->setTabToolTip(index, "Redraft: cards to remove");
+    emit calculateMinimumWidth();
+}
+
+
+void DraftHandler::hideRedraftTab()
+{
+    clearRedraftRemoveList();
+    int index = ui->tabWidget->indexOf(redraftTab);
+    if(index == -1)     return;
+
+    ui->tabWidget->removeTab(index);
+    emit calculateMinimumWidth();
+}
+
+
+void DraftHandler::redraftRemoveCardEntered(QListWidgetItem *item)
+{
+    int row = redraftRemoveListWidget->row(item);
+    if(row < 0 || row >= redraftRemoveCards.count())  return;
+
+    QRect rectCard = redraftRemoveListWidget->visualItemRect(item);
+    QPoint posCard = redraftRemoveListWidget->mapToGlobal(rectCard.topLeft());
+    QRect globalRectCard = QRect(posCard, rectCard.size());
+
+    int listTop = redraftRemoveListWidget->mapToGlobal(QPoint(0,0)).y();
+    int listBottom = redraftRemoveListWidget->mapToGlobal(QPoint(0,redraftRemoveListWidget->height())).y();
+    emit cardEntered(redraftRemoveCards[row].getCode(), globalRectCard, listTop, listBottom);
 }
 
 
@@ -892,16 +941,18 @@ void DraftHandler::hideDeckScores()
     {
         deckCard.hideScores();
     }
-
-    hideRedraftRemoveList();
 }
 
 
 //Sorted by the first enabled score source (Firestone, HearthArena, HSReplay) with data, or else by any source with data
 void DraftHandler::updateRedraftRemoveList()
 {
-    hideRedraftRemoveList();
-    if(!redrafting)  return;
+    clearRedraftRemoveList();
+    if(!redrafting)
+    {
+        hideRedraftTab();
+        return;
+    }
 
     QList<DeckCard> *deckCardList = deckHandler->getDeckCardListRef();
 
@@ -924,7 +975,11 @@ void DraftHandler::updateRedraftRemoveList()
             if(draftMethod != None)  break;
         }
     }
-    if(draftMethod == None)  return;
+    if(draftMethod == None)
+    {
+        hideRedraftTab();
+        return;
+    }
 
     //One entry per copy, so both copies of a card can be suggested. stable_sort keeps the deck mana order on ties.
     QList<DeckCard *> copies;
@@ -969,7 +1024,7 @@ void DraftHandler::updateRedraftRemoveList()
     else                                    sourceName = "HSReplay";
     redraftRemoveLabel->setText("Remove (" + sourceName + ")");
     redraftRemoveListWidget->setFixedHeight(redraftRemoveCards.count() * DeckCard::getCardHeight());
-    redraftRemoveWidget->show();
+    showRedraftTab();
 }
 
 
@@ -988,9 +1043,9 @@ void DraftHandler::updateRedraftRemoveMarks()
 }
 
 
-void DraftHandler::hideRedraftRemoveList()
+void DraftHandler::clearRedraftRemoveList()
 {
-    redraftRemoveWidget->hide();
+    emit cardLeave();
     redraftRemoveListWidget->clear();
     redraftRemoveCards.clear();
 }
@@ -1320,8 +1375,7 @@ void DraftHandler::beginRedraftReview()
     redraftingReview = true;
     cardsDownloading.clear();
 
-    //Show the removal suggestions, unless the deck is in its own window
-    if(ui->tabWidget->indexOf(ui->tabDeck) != -1)   ui->tabWidget->setCurrentWidget(ui->tabDeck);
+    if(ui->tabWidget->indexOf(redraftTab) != -1)    ui->tabWidget->setCurrentWidget(redraftTab);
     cardsHist.clear();
 
     QTimer::singleShot(REDRAFT_REVIEW_DELAY_TIME, this, [=] () {newFindScreenLoop(true);});
@@ -1433,6 +1487,7 @@ void DraftHandler::endRedraftReview()
     if(redraftingReview)    deckHandler->redraftReviewDeck(bestCodesRedraftingReview);
     deckHandler->saveDraftDeck(Utility::classEnum2classLogNumber(arenaHero));
     hideDeckScores();
+    hideRedraftTab();
     deleteDraftMechanicsWindow();
     clearLists(false);
     redrafting = false;

@@ -12,6 +12,7 @@
 #include "twitchhandler.h"
 #include <QObject>
 #include <QFutureWatcher>
+#include <QPointer>
 
 #define DRAFT_DELAY_TIME        2000
 #define HERODRAFT_DELAY_TIME    2000
@@ -80,7 +81,7 @@ private:
     SynergyHandler *synergyHandler;
     LavaButton *lavaButton;
     ScoreButton *scoreButtonLF, *scoreButtonHA, *scoreButtonHSR;
-    QWidget *redraftRemoveWidget;
+    QPointer<QWidget> redraftTab;   //Owned by the tab widget while shown, so it may be deleted before us
     QLabel *redraftRemoveLabel;
     MoveListWidget *redraftRemoveListWidget;
     QList<DeckCard> redraftRemoveCards;    //Deck cards suggested for removal after a redraft, worst first
@@ -252,7 +253,9 @@ private:
     void createRedraftRemoveList();
     void updateRedraftRemoveList();
     void updateRedraftRemoveMarks();
-    void hideRedraftRemoveList();
+    void clearRedraftRemoveList();
+    void showRedraftTab();
+    void hideRedraftTab();
     void startRedraftWatch();
     void stopRedraftWatch();
     bool posibleLegendaryPack();
@@ -271,6 +274,7 @@ public:
     QString getHACode(QString code);
     QString getHSRFireCode(QString code, bool HSR, CardClass heroClass);
     void setDeckScores();
+    QWidget *getRedraftTab();
     void buildHeroCodesList();
     void reHistDownloadedCardImage(const QString &fileNameCode, bool missingOnWeb=false);
     void setMouseInApp(bool value);
@@ -322,6 +326,8 @@ signals:
     void itemEnter(QList<SynergyCard> &synergyCardList, QRect &rectCard, int maxTop=-1, int maxBottom=-1);
     void itemEnterOverlay(QList<SynergyCard> &synergyCardList, QPoint &originList, int maxLeft=-1, int maxRight=-1);
     void itemLeave();
+    void cardEntered(QString code, QRect rectCard, int maxTop, int maxBottom);
+    void cardLeave();
     void showPremiumDialog();
     void calculateMinimumWidth();
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="DraftHandler");
@@ -364,6 +370,7 @@ private slots:
     void finishReviewBestCards();
     void checkRedraftScreen();
     void finishCheckRedraftScreen();
+    void redraftRemoveCardEntered(QListWidgetItem *item);
 };
 
 #endif // DRAFTHANDLER_H

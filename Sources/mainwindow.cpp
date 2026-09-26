@@ -1048,6 +1048,10 @@ void MainWindow::createCardWindow()
     cardWindow = new CardWindow(this);
     connect(deckHandler, SIGNAL(cardEntered(QString,QRect,int,int)),
             cardWindow, SLOT(loadCard(QString,QRect,int,int)));
+    connect(draftHandler, SIGNAL(cardEntered(QString,QRect,int,int)),
+            cardWindow, SLOT(loadCard(QString,QRect,int,int)));
+    connect(draftHandler, SIGNAL(cardLeave()),
+            cardWindow, SLOT(hide()));
     connect(enemyDeckHandler, SIGNAL(cardEntered(QString,QRect,int,int)),
             cardWindow, SLOT(loadCard(QString,QRect,int,int)));
     connect(graveyardHandler, SIGNAL(cardEntered(QString,QRect,int,int)),
@@ -2444,6 +2448,11 @@ void MainWindow::moveTabTo(QWidget *widget, QTabWidget *tabWidget)
         icon = QIcon(ThemeHandler::tabConfigFile());
         tooltip = "Config";
     }
+    else if(draftHandler != nullptr && widget == draftHandler->getRedraftTab())
+    {
+        icon = QIcon(ThemeHandler::buttonRemoveDeckFile());
+        tooltip = "Redraft: cards to remove";
+    }
     tabWidget->addTab(widget, icon, "");
     tabWidget->setTabToolTip(tabWidget->count()-1, tooltip);
 }
@@ -3284,10 +3293,13 @@ void MainWindow::updateTabIcons()
 
     bool drafting = false;
     if(ui->tabWidget->indexOf(ui->tabDraft) != -1)  drafting = true;
+    QWidget *redraftTab = (draftHandler == nullptr)?nullptr:draftHandler->getRedraftTab();
+    bool redrafting = (redraftTab != nullptr && ui->tabWidget->indexOf(redraftTab) != -1);
 
     ui->tabWidget->hide();
     ui->tabWidget->clear();
     if(drafting)                                        moveTabTo(ui->tabDraft, ui->tabWidget);
+    if(redrafting)                                      moveTabTo(redraftTab, ui->tabWidget);
     if(arenaWindow == nullptr)                          moveTabTo(ui->tabArena, ui->tabWidget);
     if(enemyWindow == nullptr)                          moveTabTo(ui->tabEnemy, ui->tabWidget);
     if(deckWindow == nullptr)                           moveTabTo(ui->tabDeck, ui->tabWidget);
