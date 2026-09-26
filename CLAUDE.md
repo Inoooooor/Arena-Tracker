@@ -60,4 +60,6 @@ The installed app downloads data directly from this repo's `master` branch via `
 
 Clients only re-download a JSON when its companion `*Version.json` number increases — bump the version number whenever the data file changes.
 
+`tools/update_data.py` refreshes cards.json, arena sets, card images and the HearthArena tier list (bumping the versions). `.github/workflows/update-data.yml` runs it on the 1st and 15th of each month (or manually from the Actions tab) and opens a "Data update" pull request.
+
 
