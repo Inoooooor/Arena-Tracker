@@ -19,6 +19,7 @@
 // #define CONTINUEDRAFT_DELAY_TIME    3000
 #define REDRAFT_REVIEW_DELAY_TIME   1500
 #define FINDSCREEN_LOOP_TIME    1000
+#define FINDSCREEN_STABLE_TIME  400
 
 #define CAPTUREDRAFT_DELAY_TIME         1500
 #define CAPTUREDRAFT_LOOP_TIME          100
@@ -124,6 +125,7 @@ private:
     bool multiclassArena;
     bool needSaveCardHist;
     int cardsJsonWaits;
+    ScreenDetection prevScreenDetection;    //Last detection, to wait for a stable screen
     //Usado en busqueda manual (name -> code)
     QMap<QString, QString> cardsNameMap;
     int editComboBoxNum;//Numero de combo box que estamos editando
@@ -196,6 +198,7 @@ private:
     bool loadTemplateSettings();
     bool saveTemplateSettings();
     bool isFindScreenOk(ScreenDetection &screenDetection);
+    bool isFindScreenStable(ScreenDetection &screenDetection);
     bool isFindScreenAsSettings(ScreenDetection &screenDetection);
     void refreshHeroes();
     void refreshCapturedCards();

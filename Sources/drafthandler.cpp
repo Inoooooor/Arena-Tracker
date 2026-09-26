@@ -2904,7 +2904,57 @@ bool DraftHandler::isFindScreenOk(ScreenDetection &screenDetection)
             return false;
         }
     }
+
+    //All slots have the same size on screen. A skewed homography (e.g. a frame caught during the draft intro
+    //animation) gives slots of different sizes, and cards 2/3 lower or higher than card 1.
+    const int numRects = redraftingReview?5:3;
+    const cv::Rect *rects = screenDetection.screenRects;
+    int minW = rects[0].width, maxW = rects[0].width, minH = rects[0].height, maxH = rects[0].height;
+    for(int i=1; i<numRects; i++)
+    {
+        minW = std::min(minW, rects[i].width);  maxW = std::max(maxW, rects[i].width);
+        minH = std::min(minH, rects[i].height); maxH = std::max(maxH, rects[i].height);
+    }
+    bool badShape = (maxW > minW*1.1 || maxH > minH*1.1);
+    if(!redraftingReview)
+    {
+        //Three slots in a row, evenly spaced
+        int dx1 = rects[1].x - rects[0].x;
+        int dx2 = rects[2].x - rects[1].x;
+        if(std::abs(dx1 - dx2) > dx1*0.1)   badShape = true;
+        for(int i=1; i<3; i++)
+        {
+            if(std::abs(rects[i].y - rects[0].y) > rects[0].height*0.1)    badShape = true;
+        }
+    }
+    if(badShape)
+    {
+        emit pDebug("WARNING: Hearthstone arena screen detected: Uneven slots (" +
+                    QString::number(rects[0].x) + "," + QString::number(rects[0].y) + "," + QString::number(rects[0].width) + ") (" +
+                    QString::number(rects[1].x) + "," + QString::number(rects[1].y) + "," + QString::number(rects[1].width) + ") (" +
+                    QString::number(rects[2].x) + "," + QString::number(rects[2].y) + "," + QString::number(rects[2].width) + "). Retrying...");
+        return false;
+    }
     return true;
+}
+
+
+//Two detections in a row give the same slots: the screen is not moving anymore (draft intro animation finished).
+bool DraftHandler::isFindScreenStable(ScreenDetection &screenDetection)
+{
+    bool stable = (prevScreenDetection.screenIndex == screenDetection.screenIndex);
+    for(int i=0; i<(redraftingReview?5:3) && stable; i++)
+    {
+        const cv::Rect &a = prevScreenDetection.screenRects[i];
+        const cv::Rect &b = screenDetection.screenRects[i];
+        int maxDiff = std::max(3, b.width/20);
+        if(std::abs(a.x - b.x) > maxDiff || std::abs(a.y - b.y) > maxDiff || std::abs(a.width - b.width) > maxDiff)
+        {
+            stable = false;
+        }
+    }
+    prevScreenDetection = screenDetection;
+    return stable;
 }
 
 
@@ -2995,8 +3045,18 @@ void DraftHandler::finishFindScreenRects()
         emit pDebug("Hearthstone arena screen not found. Retrying...");
         QTimer::singleShot(FINDSCREEN_LOOP_TIME, this, SLOT(startFindScreenRects()));
     }
-    else if(isFindScreenOk(screenDetection))
+    else if(!isFindScreenOk(screenDetection))
     {
+        QTimer::singleShot(FINDSCREEN_LOOP_TIME, this, SLOT(startFindScreenRects()));
+    }
+    else if(!isFindScreenStable(screenDetection))
+    {
+        emit pDebug("Hearthstone arena screen detected, waiting for a stable screen...");
+        QTimer::singleShot(FINDSCREEN_STABLE_TIME, this, SLOT(startFindScreenRects()));
+    }
+    else
+    {
+        prevScreenDetection = ScreenDetection();
         bool isSame = isFindScreenAsSettings(screenDetection);
         bool needCreate = (screenIndex == -1);
         findingFrame = false;
@@ -3033,7 +3093,6 @@ void DraftHandler::finishFindScreenRects()
             }
         }
     }
-    else    QTimer::singleShot(FINDSCREEN_LOOP_TIME, this, SLOT(startFindScreenRects()));
 }
 
 
