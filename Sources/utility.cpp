@@ -965,7 +965,17 @@ ulong Utility::findTemplateOnMat(const QString &templateImage, cv::Mat &mat, con
     std::vector<KeyPoint> keypoints_object, keypoints_scene;
     Mat descriptors_object, descriptors_scene;
 
-    sift->detectAndCompute( img_object, cv::noArray(), keypoints_object, descriptors_object );
+    //The cards in the draft templates are different from the ones on screen, and the three card frames look
+    //alike, so SIFT matched template cards to neighbouring screen cards and the found rects were shifted by
+    //one card. Only use the static screen frame (mask out the card area, template coordinates).
+    cv::Mat objectMask;
+    if(templateImage.startsWith("arenaTemplate"))
+    {
+        objectMask = cv::Mat(img_object.size(), CV_8UC1, cv::Scalar(255));
+        objectMask(cv::Rect(150, 190, 840, 385) & cv::Rect(0, 0, img_object.cols, img_object.rows)).setTo(0);
+    }
+
+    sift->detectAndCompute( img_object, objectMask, keypoints_object, descriptors_object );
     sift->detectAndCompute( img_scene, cv::noArray(), keypoints_scene, descriptors_scene );
     if(keypoints_object.empty() || keypoints_scene.size() < 2)
     {
