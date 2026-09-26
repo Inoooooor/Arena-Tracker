@@ -87,6 +87,8 @@
 #define OBJECTION QString("MAW_006")
 #define AZERITE_VEIN QString("WW_422")
 #define SUMMONING_WARD QString("DEEP_000")
+#define FLAMES_OF_INFINITY QString("END_024")
+#define MYSTIC_MISDIRECTION QString("JAIL_315")
 
 //ROGUE
 #define CHEAT_DEATH QString("LOOT_204")

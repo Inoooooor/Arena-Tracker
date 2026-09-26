@@ -1840,6 +1840,13 @@ bool PlanHandler::isReckoningTested(bool isHeroTo, int id1, int id2)
 
 
 //Test secreto de no danar al rival en tu turno
+int PlanHandler::getNumPlayerMinions()
+{
+    if(nowBoard == nullptr) return 0;
+    return nowBoard->playerMinions.count();
+}
+
+
 bool PlanHandler::isEnemyHeroHealthChanged()
 {
     if(turnBoards.count()<2)    return false;

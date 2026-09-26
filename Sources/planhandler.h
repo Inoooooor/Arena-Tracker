@@ -188,6 +188,7 @@ public:
     //SecretsHandler
     bool isReckoningTested(bool isHeroTo, int id1, int id2);
     bool isEnemyHeroHealthChanged();
+    int getNumPlayerMinions();
     bool isRecentCard(int id);
 
 signals:

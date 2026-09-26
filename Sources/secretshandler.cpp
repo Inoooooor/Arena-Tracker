@@ -294,8 +294,10 @@ ActiveSecret * SecretsHandler::getActiveSecret(CardClass hero, bool inArena)
                 unknownSecretPlayedAddOption(DDUPLICATE, inArena, activeSecret);
                 unknownSecretPlayedAddOption(FLAME_WARD, inArena, activeSecret);
                 unknownSecretPlayedAddOption(ICE_BARRIER, inArena, activeSecret);
+                unknownSecretPlayedAddOption(FLAMES_OF_INFINITY, inArena, activeSecret);
                 //RARE
                 unknownSecretPlayedAddOption(EXPLOSIVE_RUNES, inArena, activeSecret);
+                unknownSecretPlayedAddOption(MYSTIC_MISDIRECTION, inArena, activeSecret);
                 unknownSecretPlayedAddOption(POTION_OF_POLIMORPH, inArena, activeSecret);
                 unknownSecretPlayedAddOption(EFFIGY, inArena, activeSecret);
                 unknownSecretPlayedAddOption(VAPORIZE, inArena, activeSecret);
@@ -696,6 +698,9 @@ void SecretsHandler::newTurn(bool isPlayerTurn, int numTurn, int enemyMinions)
         if(enemyMinions > 1)    discardSecretOptionNow(OPEN_THE_CAGES);
 
         if(planHandler->isEnemyHeroHealthChanged()) discardSecretOptionNow(RIGGED_FAIRE_GAME);
+
+        //Triggers at the end of the player's turn if the player controls a minion
+        if(planHandler->getNumPlayerMinions() > 0)  discardSecretOptionNow(FLAMES_OF_INFINITY);
     }
 
     Q_UNUSED(numTurn)
@@ -919,6 +924,7 @@ void SecretsHandler::playerAttack(bool isHeroFrom, bool isHeroTo, int playerMini
             discardSecretOption(VAPORIZE);//Ocultado por FLAME_WARD
             discardSecretOptionNow(ICE_BARRIER);//No necesita objetivo
             discardSecretOption(VENGEFUL_VISAGE);//Ocultado por VAPORIZE
+            discardSecretOption(MYSTIC_MISDIRECTION);//Hidden by VAPORIZE (the attacker dies first)
 
             discardSecretOptionNow(EXPLOSIVE_TRAP);//No necesita objetivo
             discardSecretOptionNow(BEAR_TRAP);
@@ -939,6 +945,7 @@ void SecretsHandler::playerAttack(bool isHeroFrom, bool isHeroTo, int playerMini
         else
         {
             discardSecretOptionNow(FREEZING_TRAP);
+            discardSecretOptionNow(MYSTIC_MISDIRECTION);
             discardSecretOptionNow(VENOMSTRIKE_TRAP);
             discardSecretOptionNow(SNAKE_TRAP);
             discardSecretOptionNow(PACK_TACTICS);
@@ -1056,7 +1063,7 @@ void SecretsHandler::createSecretsByPickrate()
     secretsByPickrate[MAGE] << NETHERWIND_PORTAL << MIRROR_ENTITY << FROZEN_CLONE << DDUPLICATE << FLAME_WARD << ICE_BARRIER
                             << EXPLOSIVE_RUNES << POTION_OF_POLIMORPH << EFFIGY << VAPORIZE << COUNTERSPELL << MANA_BIND
                             << SPLITTING_IMAGE << SPELLBENDER << ICE_BLOCK << RIGGED_FAIRE_GAME << OASIS_ALLY << VENGEFUL_VISAGE
-                            << OBJECTION << AZERITE_VEIN << SUMMONING_WARD;
+                            << OBJECTION << AZERITE_VEIN << SUMMONING_WARD << FLAMES_OF_INFINITY << MYSTIC_MISDIRECTION;
 
     secretsByPickrate[ROGUE] << DIRTY_TRICKS << SUDDEN_BETRAYAL << CHEAT_DEATH << AMBUSH << BAMBOOZLE << EVASION << PLAGIARIZE
                              << SHADOW_CLONE << SHENANIGANS << KIDNAP << STICKY_SITUATION << DOUBLE_CROSS << PERJURY;
