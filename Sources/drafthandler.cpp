@@ -565,8 +565,8 @@ void DraftHandler::initLightForgeTiers(const CardClass heroClass, const bool mul
 //continueDraft y heroDrafts esperan a buscar el template ya que hay una pantalla pasillo.
 void DraftHandler::initCodesAndHistMaps(QList<DeckCard> &deckCardList, bool skipScreenSettings)
 {
-    //Si continuamos un draft al arrancar, cards.json nuevo puede no haber llegado todavia y el pool de arena
-    //se calcularia sin las cartas nuevas. Esperamos (max 30s, por si no hay conexion).
+    //When a draft is resumed at startup the new cards.json may not have arrived yet, and the arena pool
+    //would be built without the new cards. Wait for it (max 30s, in case there is no connection).
     if(!heroDrafting && !Utility::isCardsJsonUpToDate() && cardsJsonWaits < 30)
     {
         if(cardsJsonWaits == 0)  emit pDebug("Waiting for cards.json update before building arena hists.");
@@ -1517,7 +1517,7 @@ void DraftHandler::buildBestMatchesMaps()
 {
     if(drafting)
     {
-        QStringList slotCodes[3];   //Candidatos de cada hueco ordenados por match, sin repetir carta (golden o no)
+        QStringList slotCodes[3];   //Candidates of each slot sorted by match, each card once (golden or not)
         for(int i=0; i<3; i++)
         {
             QMultiMap<double, QString> bestMatchesDups;
@@ -1568,8 +1568,8 @@ void DraftHandler::buildBestMatchesMaps()
     }
 }
 
-//Las 3 opciones de un pick son siempre cartas distintas. Si dos huecos tienen la misma mejor carta
-//(p.ej. una golden animada mal reconocida), el hueco que peor la ve pasa a su siguiente candidata.
+//The 3 options of a pick are always different cards. If two slots have the same best card
+//(e.g. a misread animated golden card), the slot with the worse match moves to its next candidate.
 void DraftHandler::removeDuplicatedPicks(QStringList slotCodes[3])
 {
     for(int iteration=0; iteration<3; iteration++)
@@ -1599,21 +1599,21 @@ void DraftHandler::removeDuplicatedPicks(QStringList slotCodes[3])
 }
 
 
-//Lee el nombre de cada carta en su cinta (debajo del arte). El nombre no cambia en las cartas golden animadas,
-//asi que es mas fiable que el histograma del arte. Solo macOS (Apple Vision).
+//Reads each card's name from its banner (below the art). The name doesn't change on animated golden cards,
+//so it's more reliable than the art histogram. macOS only (Apple Vision).
 void DraftHandler::readCardNames(const cv::Mat &screenCapture)
 {
 #ifdef Q_OS_MAC
     if(cardsNameMap.isEmpty())  return;
 
-    //Tras un pick, durante unos segundos, en pantalla pueden seguir las 3 cartas anteriores
+    //For a few seconds after a pick the previous 3 cards can still be on screen
     bool recentPick = ((QDateTime::currentSecsSinceEpoch() - prevCodesTime) < PREV_CODES_TIME);
 
     for(int i=0; i<3; i++)
     {
         if(!ocrCodes[i].isEmpty())  continue;
 
-        //Cinta del nombre, medida en arenaTemplate.png respecto al rect del arte
+        //Name banner, measured on arenaTemplate.png relative to the art rect
         const cv::Rect &art = screenRects[i];
         cv::Rect banner(art.x - art.width*0.65, art.y + art.height*1.08, art.width*2.4, art.height*0.44);
         banner &= cv::Rect(0, 0, screenCapture.cols, screenCapture.rows);
@@ -1636,7 +1636,7 @@ void DraftHandler::readCardNames(const cv::Mat &screenCapture)
 }
 
 
-//Busca en el pool de arena (cardsNameMap) el nombre mas parecido a lo leido por OCR.
+//Finds the arena pool name (cardsNameMap) closest to the OCR text.
 QString DraftHandler::matchCardName(const QStringList &lines)
 {
     auto normalize = [](const QString &text) {
@@ -1647,7 +1647,7 @@ QString DraftHandler::matchCardName(const QStringList &lines)
         }
         return norm;
     };
-    //Similitud 0..1 basada en distancia de Levenshtein
+    //Similarity 0..1 based on Levenshtein distance
     auto similarity = [](const QString &a, const QString &b) {
         if(a.isEmpty() || b.isEmpty())  return 0.0;
         QVector<int> prev(b.length()+1), cur(b.length()+1);
@@ -1678,8 +1678,8 @@ QString DraftHandler::matchCardName(const QStringList &lines)
         for(const QString &text: qAsConst(texts))
         {
             sim = std::max(sim, similarity(text, name));
-            //Nombre cortado por un borde de la cinta ("Holy Eggbea", "cover Cultist"): comparamos con el principio
-            //o el final del nombre si se ha leido al menos el 60%.
+            //Name cut by a banner edge ("Holy Eggbea", "cover Cultist"): compare with the start
+            //or the end of the name if at least 60% of it was read.
             if(text.length() < name.length() && text.length() >= 0.6*name.length())
             {
                 sim = std::max(sim, similarity(text, name.left(text.length())));
@@ -1699,20 +1699,20 @@ QString DraftHandler::matchCardName(const QStringList &lines)
         }
     }
 
-    //Aceptamos solo si se parece mucho y no hay otra carta casi igual de parecida
+    //Accept only a close match with no other card almost as close
     if(best >= 0.8 && (best - second) >= 0.1)   return bestCode;
     return "";
 }
 
 
-//Los huecos con nombre leido por OCR usan esa carta como la mejor, por encima del histograma.
+//Slots whose name was read by OCR use that card as the best one, over the histogram.
 void DraftHandler::applyOcrCodes(QStringList slotCodes[3])
 {
     for(int i=0; i<3; i++)
     {
         if(ocrCodes[i].isEmpty())   continue;
 
-        //Si el histograma ya la tenia (normal o golden) usamos esa version
+        //If the histogram already had it (plain or golden) use that version
         QString chosen;
         for(const QString &code: qAsConst(slotCodes[i]))
         {

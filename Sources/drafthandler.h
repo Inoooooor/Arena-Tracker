@@ -134,7 +134,7 @@ private:
     QList<cv::Mat> manaTemplates;
     QList<cv::Mat> rarityTemplates;
     QString prevCodes[3];
-    QString ocrCodes[3];    //Carta de cada hueco leida por su nombre (OCR, solo macOS)
+    QString ocrCodes[3];    //Card of each slot read by its name (OCR, macOS only)
     qint64 prevCodesTime;
     QString bestCodesRedraftingReview[5];
 

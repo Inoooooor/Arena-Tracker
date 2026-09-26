@@ -4,10 +4,10 @@
 #include <QImage>
 #include <QStringList>
 
-//Reconocimiento de texto con Apple Vision (solo macOS). Se usa para leer el nombre de las cartas del draft.
+//Text recognition with Apple Vision (macOS only). Used to read the names of the draft cards.
 namespace MacOcr
 {
-    //language: codigo de idioma de Hearthstone (enUS, esES...). Devuelve las lineas de texto encontradas.
+    //language: Hearthstone language code (enUS, esES...). Returns the text lines found.
     QStringList recognizeLines(const QImage &image, const QString &language);
 }
 

@@ -741,7 +741,7 @@ bool Utility::getTrustHA()
 }
 
 
-//Cards.json local puede estar desactualizado hasta que comprobamos cardsVersion.json (y bajamos el nuevo).
+//The local cards.json can be outdated until cardsVersion.json is checked (and the new one downloaded).
 bool Utility::isCardsJsonUpToDate()
 {
     return Utility::cardsJsonUpToDate;
@@ -778,8 +778,8 @@ QMap<QString, QStringList> * Utility::getBundlesMap()
 }
 
 
-//Los .dat (MANA, RARITY, Histograms) guardan el tipo de cv::Mat con la codificacion de OpenCV <= 4 (CV_CN_SHIFT 3).
-//OpenCV 5 cambio CV_CN_SHIFT a 5, asi que traducimos al leer/escribir para mantener el formato de los ficheros.
+//The .dat files (MANA, RARITY, Histograms) store the cv::Mat type with the OpenCV <= 4 encoding (CV_CN_SHIFT 3).
+//OpenCV 5 changed CV_CN_SHIFT to 5, so translate on read/write to keep the file format.
 int Utility::cvTypeFromFile(int fileType)
 {
     return CV_MAKETYPE(fileType & 7, (fileType >> 3) + 1);

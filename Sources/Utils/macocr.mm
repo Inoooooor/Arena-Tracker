@@ -14,7 +14,7 @@ QStringList MacOcr::recognizeLines(const QImage &image, const QString &language)
 
         VNRecognizeTextRequest *request = [[VNRecognizeTextRequest alloc] init];
         request.recognitionLevel = VNRequestTextRecognitionLevelAccurate;
-        //Los nombres de cartas no son palabras de diccionario
+        //Card names are not dictionary words
         request.usesLanguageCorrection = NO;
         //enUS --> en-US
         if(language.length() == 4)

@@ -13,7 +13,7 @@
 #include <QPropertyAnimation>
 
 
-//Repo desde el que la app descarga sus datos (cards, arena sets, synergies, imagenes...)
+//Repo the app downloads its data from (cards, arena sets, synergies, images...)
 #define AT_REPO_RAW_URL "https://raw.githubusercontent.com/Inoooooor/Arena-Tracker/master"
 
 #define REMOVE_CARDS_ON_VERSION_UPDATE false
