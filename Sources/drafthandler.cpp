@@ -2276,29 +2276,9 @@ void DraftHandler::showFireScores(QString hsrCodes[], QString cardNames[])
             wrFire[i] = fireWRMap[this->arenaHero][code];
             samplesFire[i] = fireSamplesMap[this->arenaHero][code];
 
-            //Bundle
-            if(isEmptyDeck())
-            {
-                const auto &codesSub = getBundleCodes(hsrCodes[i]);
-                if(!codesSub.isEmpty())
-                {
-                    int numScores = 0;
-                    if(wrFire[i] != 0)  numScores++;
-                    samplesFire[i] = std::min(samplesFire[i], MIN_HSR_DECKS);
-
-                    for(const QString &codeSub: codesSub)
-                    {
-                        QString code = getFireCode(codeSub);
-                        float score = fireWRMap[this->arenaHero][code];
-                        if(score != 0)  numScores++;
-                        wrFire[i] += score;
-                        samplesFire[i] += std::min(fireSamplesMap[this->arenaHero][code], MIN_HSR_DECKS);
-                    }
-                    int bundleCount = codesSub.count()+1;
-                    wrFire[i] = wrFire[i] / std::max(1, numScores);
-                    samplesFire[i] = round(samplesFire[i] / (float)std::max(1, bundleCount));
-                }
-            }
+            //Legendary groups: no bundle averaging. The legendary is only drafted together with its group,
+            //so the winrate of decks with the legendary is already the group winrate, while the group cards
+            //are mostly drafted on their own and their winrates come from other decks.
         }
     }
 
