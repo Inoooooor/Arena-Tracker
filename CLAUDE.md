@@ -62,4 +62,6 @@ Clients only re-download a JSON when its companion `*Version.json` number increa
 
 `tools/update_data.py` refreshes cards.json, arena sets, card images and the HearthArena tier list (bumping the versions). `.github/workflows/update-data.yml` runs it on the 1st and 15th of each month (or manually from the Actions tab) and opens a "Data update" pull request.
 
+Synergy tags (`Synergies/synergies.json`) are not automated: the script only warns (at the top of the PR) about arena cards missing from it. Tag them by hand from each card's text, using the suggestions of `SynergyHandler::debugSynergiesCode` and the tags of similar existing cards; only tags accepted by `SynergyHandler::isValidSynergyCode` are valid. Add new entries just before `"DIRECT_LINKS":`, one line per card, and bump `synergiesVersion.json`. Don't add partial entries: a card listed in the file loses the app's heuristic fallback tags.
+
 

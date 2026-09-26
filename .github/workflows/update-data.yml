@@ -36,6 +36,8 @@ jobs:
           {
             echo "Automatic run of \`tools/update_data.py\`. Check the arena sets before merging, especially in the first days of a new expansion."
             echo
+            grep "^WARNING" update.log | sed 's/^/> [!WARNING]\n> /' || true
+            echo
             echo '```'
             tail -c 60000 update.log
             echo '```'
