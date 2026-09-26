@@ -67,10 +67,16 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     }
 
     createScoreItems();
+    createRedraftRemoveList();
     createSynergyHandler();
     completeUI();
 
     connect(&futureFindScreenRects, SIGNAL(finished()), this, SLOT(finishFindScreenRects()));
+
+    redraftWatchTimer = new QTimer(this);
+    redraftWatchTimer->setInterval(REDRAFT_WATCH_TIME);
+    connect(redraftWatchTimer, SIGNAL(timeout()), this, SLOT(checkRedraftScreen()));
+    connect(&futureRedraftCounter, SIGNAL(finished()), this, SLOT(finishCheckRedraftScreen()));
 }
 
 DraftHandler::~DraftHandler()
@@ -121,6 +127,30 @@ void DraftHandler::createScoreItems()
 
     ui->draftVerticalLayout->addLayout(scoresLayout);
     ui->draftVerticalLayout->addSpacing(10);
+}
+
+
+//Suggestions of deck cards to remove after a redraft, shown above the deck list
+void DraftHandler::createRedraftRemoveList()
+{
+    redraftRemoveWidget = new QWidget(ui->tabDeck);
+    QVBoxLayout *layout = new QVBoxLayout(redraftRemoveWidget);
+    layout->setContentsMargins(0, 0, 0, 10);
+    layout->setSpacing(2);
+
+    redraftRemoveLabel = new QLabel(redraftRemoveWidget);
+    redraftRemoveLabel->setAlignment(Qt::AlignCenter);
+    redraftRemoveLabel->setToolTip("Lowest rated cards of your deck. Remove the first " + QString::number(REDRAFT_REMOVE_CARDS) +
+                                   ";\nthe dimmed ones are spares if you want to keep one of them.");
+    layout->addWidget(redraftRemoveLabel);
+
+    redraftRemoveListWidget = new MoveListWidget(redraftRemoveWidget);
+    redraftRemoveListWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    redraftRemoveListWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    layout->addWidget(redraftRemoveListWidget);
+
+    ui->tabDeckLayout->insertWidget(0, redraftRemoveWidget);
+    redraftRemoveWidget->hide();
 }
 
 
@@ -768,6 +798,7 @@ void DraftHandler::leaveArena()
 {
     emit pDebug("Leave arena.");
     stopLoops = true;
+    stopRedraftWatch();
 
 #ifdef Q_OS_LINUX
     if(CaptureManager::isWaylandSession())
@@ -827,17 +858,13 @@ CardClass DraftHandler::findMulticlassPower(QList<DeckCard> &deckCardList)
 
 void DraftHandler::setDeckScores()
 {
-    if(!patreonVersion || !redrafting)  return;
+    if(!redrafting)  return;
 
     hideDeckScores();
 
     QList<DeckCard> *deckCardList = deckHandler->getDeckCardListRef();
 
     //Set scores
-    QList<QPair<int, DeckCard *>> listaHA;
-    QList<QPair<float, DeckCard *>> listaHSR;
-    QList<QPair<float, DeckCard *>> listaFire;
-
     for(DeckCard &deckCard: *deckCardList)
     {
         QString code = deckCard.getCode();
@@ -850,30 +877,10 @@ void DraftHandler::setDeckScores()
         float scoreFire = (fireWRMap == nullptr) ? 0 : fireWRMap[this->arenaHero][fireCode];
         int samplesFire = (fireSamplesMap == nullptr) ? 0 : fireSamplesMap[this->arenaHero][fireCode];
         deckCard.setScores(scoreHA, scoreHSR, scoreFire, arenaHero, includedDecks, samplesFire);
-        if(scoreHA != 0)    listaHA << qMakePair(scoreHA, &deckCard);
-        if(scoreHSR != 0)   listaHSR << qMakePair(scoreHSR, &deckCard);
-        if(scoreFire != 0)  listaFire << qMakePair(scoreFire, &deckCard);
-    }
-
-    //Bad scores
-    std::sort(listaHA.begin(), listaHA.end(), [](const QPair<int, DeckCard *> &a, const QPair<int, DeckCard *> &b) {
-        return a.first < b.first;
-    });
-    std::sort(listaHSR.begin(), listaHSR.end(), [](const QPair<float, DeckCard *> &a, const QPair<float, DeckCard *> &b) {
-        return a.first < b.first;
-    });
-    std::sort(listaFire.begin(), listaFire.end(), [](const QPair<float, DeckCard *> &a, const QPair<float, DeckCard *> &b) {
-        return a.first < b.first;
-    });
-
-    for(int i=0; i<5; i++)
-    {
-        if(listaHA.count()>i)   listaHA[i].second->setBadScoreHA();
-        if(listaHSR.count()>i)  listaHSR[i].second->setBadScoreHSR();
-        if(listaFire.count()>i) listaFire[i].second->setBadScoreFire();
     }
 
     setDraftMethodDeck();
+    updateRedraftRemoveList();
 }
 
 
@@ -885,6 +892,107 @@ void DraftHandler::hideDeckScores()
     {
         deckCard.hideScores();
     }
+
+    hideRedraftRemoveList();
+}
+
+
+//Sorted by the first enabled score source (Firestone, HearthArena, HSReplay) with data, or else by any source with data
+void DraftHandler::updateRedraftRemoveList()
+{
+    hideRedraftRemoveList();
+    if(!redrafting)  return;
+
+    QList<DeckCard> *deckCardList = deckHandler->getDeckCardListRef();
+
+    const QList<DraftMethod> draftMethods = {FireStone, HearthArena, HSReplay};
+    DraftMethod draftMethod = None;
+    for(int pass=0; pass<2 && draftMethod==None; pass++)
+    {
+        for(const DraftMethod dm: draftMethods)
+        {
+            bool enabled = (dm==FireStone && draftMethodFire) || (dm==HearthArena && draftMethodHA) || (dm==HSReplay && draftMethodHSR);
+            if(pass==0 && !enabled)  continue;
+            for(const DeckCard &deckCard: *deckCardList)
+            {
+                if(!deckCard.getCode().isEmpty() && deckCard.getScore(dm) != 0)
+                {
+                    draftMethod = dm;
+                    break;
+                }
+            }
+            if(draftMethod != None)  break;
+        }
+    }
+    if(draftMethod == None)  return;
+
+    //One entry per copy, so both copies of a card can be suggested. stable_sort keeps the deck mana order on ties.
+    QList<DeckCard *> copies;
+    for(DeckCard &deckCard: *deckCardList)
+    {
+        if(deckCard.getCode().isEmpty() || deckCard.getScore(draftMethod) == 0)  continue;
+        for(int i=0; i<deckCard.total; i++)  copies << &deckCard;
+    }
+    std::stable_sort(copies.begin(), copies.end(), [draftMethod](const DeckCard *a, const DeckCard *b) {
+        return a->getScore(draftMethod) < b->getScore(draftMethod);
+    });
+
+    //Spares are drawn disabled (remaining = 0)
+    const int numCopies = std::min(static_cast<int>(copies.count()), REDRAFT_REMOVE_CARDS + REDRAFT_REMOVE_SPARES);
+    for(int i=0; i<numCopies; i++)
+    {
+        bool spare = (i >= REDRAFT_REMOVE_CARDS);
+        if(!redraftRemoveCards.isEmpty() && redraftRemoveCards.last().isCode(copies[i]->getCode()) &&
+            (redraftRemoveCards.last().remaining == 0) == spare)
+        {
+            redraftRemoveCards.last().total++;
+            if(!spare)  redraftRemoveCards.last().remaining++;
+            continue;
+        }
+        DeckCard deckCard = *copies[i];
+        deckCard.total = 1;
+        deckCard.remaining = spare?0:1;
+        redraftRemoveCards << deckCard;
+    }
+
+    for(DeckCard &deckCard: redraftRemoveCards)
+    {
+        deckCard.listItem = new QListWidgetItem(redraftRemoveListWidget);
+        deckCard.resetManaLimits();
+        deckCard.setEachShowScores(draftMethod==HearthArena, draftMethod==HSReplay, draftMethod==FireStone, false);
+    }
+    updateRedraftRemoveMarks();
+
+    QString sourceName;
+    if(draftMethod == FireStone)            sourceName = "Firestone";
+    else if(draftMethod == HearthArena)     sourceName = "HearthArena";
+    else                                    sourceName = "HSReplay";
+    redraftRemoveLabel->setText("Remove (" + sourceName + ")");
+    redraftRemoveListWidget->setFixedHeight(redraftRemoveCards.count() * DeckCard::getCardHeight());
+    redraftRemoveWidget->show();
+}
+
+
+//Frames the suggested cards already picked for removal in the redraft review screen
+void DraftHandler::updateRedraftRemoveMarks()
+{
+    for(DeckCard &deckCard: redraftRemoveCards)
+    {
+        bool picked = false;
+        for(int i=0; i<5 && !picked; i++)
+        {
+            picked = deckCard.isCode(bestCodesRedraftingReview[i]);
+        }
+        deckCard.setRedraftingReview(picked);
+    }
+}
+
+
+void DraftHandler::hideRedraftRemoveList()
+{
+    redraftRemoveWidget->hide();
+    redraftRemoveListWidget->clear();
+    redraftRemoveCards.clear();
 }
 
 
@@ -952,6 +1060,75 @@ void DraftHandler::redraft()
 void DraftHandler::checkRedraft()
 {
     if(redrafting)  continueDraft();
+    else            startRedraftWatch();
+}
+
+
+void DraftHandler::startRedraftWatch()
+{
+#ifdef Q_OS_MAC
+    if(redraftWatchTimer->isActive())   return;
+    emit pDebug("Start watching for the redraft review screen.");
+    redraftWatchTimer->start();
+#endif
+}
+
+
+void DraftHandler::stopRedraftWatch()
+{
+    if(!redraftWatchTimer->isActive())  return;
+    emit pDebug("Stop watching for the redraft review screen.");
+    redraftWatchTimer->stop();
+}
+
+
+//Reads the deck counter in the bottom right corner of the Hearthstone window.
+//Only the review screen has more than 30 cards in the deck.
+void DraftHandler::checkRedraftScreen()
+{
+#ifdef Q_OS_MAC
+    if(drafting || heroDrafting || redrafting || arenaHero == INVALID_CLASS)  return;
+    if(futureRedraftCounter.isRunning())    return;
+
+    QRect hsRect = MacOcr::hearthstoneWindowRect();
+    if(hsRect.isNull())     return;
+    QRect counterRect(hsRect.x() + hsRect.width()*7/10, hsRect.y() + hsRect.height()*3/4,
+                      hsRect.width()*3/10, hsRect.height()/4);
+
+    QScreen *primaryScreen = QGuiApplication::primaryScreen();
+    if(primaryScreen == nullptr)    return;
+    QImage image = primaryScreen->grabWindow(0, counterRect.x(), counterRect.y(),
+                                             counterRect.width(), counterRect.height()).toImage();
+    if(image.isNull())  return;
+    if(image.width() > 800)     image = image.scaledToWidth(800, Qt::SmoothTransformation);
+
+    futureRedraftCounter.setFuture(QtConcurrent::run([image]() {
+        static const QRegularExpression counterRe("(\\d{2})\\s*/\\s*30\\b");
+        const QStringList lines = MacOcr::recognizeLines(image, "");
+        for(const QString &line: lines)
+        {
+            QRegularExpressionMatch match = counterRe.match(line);
+            if(match.hasMatch())    return match.captured(1).toInt();
+        }
+        return 0;
+    }));
+#endif
+}
+
+
+void DraftHandler::finishCheckRedraftScreen()
+{
+    int numCards = futureRedraftCounter.result();
+    if(numCards <= 30 || !redraftWatchTimer->isActive())   return;
+    if(drafting || heroDrafting || redrafting || arenaHero == INVALID_CLASS)  return;
+
+    emit pDebug("Redraft review screen found: " + QString::number(numCards) + "/30 cards.");
+    stopRedraftWatch();
+
+    redrafting = true;
+    initTierLists(arenaHero);
+    setDeckScores();
+    beginRedraftReview();
 }
 
 
@@ -1142,6 +1319,9 @@ void DraftHandler::beginRedraftReview()
     redrafting = true;
     redraftingReview = true;
     cardsDownloading.clear();
+
+    //Show the removal suggestions, unless the deck is in its own window
+    if(ui->tabWidget->indexOf(ui->tabDeck) != -1)   ui->tabWidget->setCurrentWidget(ui->tabDeck);
     cardsHist.clear();
 
     QTimer::singleShot(REDRAFT_REVIEW_DELAY_TIME, this, [=] () {newFindScreenLoop(true);});
@@ -1215,6 +1395,7 @@ void DraftHandler::endDraftShowMechanicsWindow()
 void DraftHandler::endDraftHideMechanicsWindow()
 {
     stopLoops = true;
+    stopRedraftWatch();
 
 #ifdef Q_OS_LINUX
     if(CaptureManager::isWaylandSession())
@@ -1412,6 +1593,9 @@ void DraftHandler::captureDraftRedraftingReview()
         return;
     }
 
+    QStringList prevCodesRedraftingReview;
+    for(int i=0; i<5; i++)  prevCodesRedraftingReview << bestCodesRedraftingReview[i];
+
     double bestMatches[5];
     for(int i=0; i<5; i++)
     {
@@ -1445,6 +1629,15 @@ void DraftHandler::captureDraftRedraftingReview()
             }
         }
         if(!showRedraft)    deckCard.setRedraftingReview(false);
+    }
+
+    for(int i=0; i<5; i++)
+    {
+        if(prevCodesRedraftingReview[i] != bestCodesRedraftingReview[i])
+        {
+            updateRedraftRemoveMarks();
+            break;
+        }
     }
 
     // qDebug()<<cardsHist.keys();
@@ -3561,6 +3754,10 @@ void DraftHandler::setTheme()
     synergyHandler->setTheme();
 
     ui->refreshDraftButton->setIcon(QIcon(ThemeHandler::buttonDraftRefreshFile()));
+    redraftRemoveListWidget->setTheme();
+    QFont redraftFont(ThemeHandler::bigFont());
+    redraftFont.setPixelSize(16);
+    redraftRemoveLabel->setFont(redraftFont);
 
     QFont font(ThemeHandler::bigFont());
     font.setPixelSize(24);
@@ -3715,7 +3912,11 @@ void DraftHandler::setDraftMethod(bool draftMethodHA, bool draftMethodFire, bool
     this->draftMethodFire = draftMethodFire;
     this->draftMethodHSR = draftMethodHSR;
 
-    if(redrafting)  setDraftMethodDeck();
+    if(redrafting)
+    {
+        setDraftMethodDeck();
+        updateRedraftRemoveList();
+    }
     if(!isDrafting())   return;
 
     if(draftScoreWindow != nullptr)
@@ -3730,8 +3931,6 @@ void DraftHandler::setDraftMethod(bool draftMethodHA, bool draftMethodFire, bool
 
 void DraftHandler::setDraftMethodDeck()
 {
-    if(!patreonVersion) return;
-
     QList<DeckCard> *deckCardList = deckHandler->getDeckCardListRef();
 
     for(DeckCard &deckCard: *deckCardList)
@@ -3798,6 +3997,7 @@ void DraftHandler::updateAvgScoresVisibility()
 
 void DraftHandler::redrawAllCards()
 {
+    if(redrafting)  updateRedraftRemoveList();
     if(!drafting)   return;
 
     for(int i=0; i<3; i++)

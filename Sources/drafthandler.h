@@ -18,6 +18,9 @@
 #define MECHANICS_DELAY_TIME    1000
 // #define CONTINUEDRAFT_DELAY_TIME    3000
 #define REDRAFT_REVIEW_DELAY_TIME   1500
+#define REDRAFT_REMOVE_CARDS        5
+#define REDRAFT_REMOVE_SPARES       3
+#define REDRAFT_WATCH_TIME          2000
 #define FINDSCREEN_LOOP_TIME    1000
 #define FINDSCREEN_STABLE_TIME  400
 
@@ -77,6 +80,10 @@ private:
     SynergyHandler *synergyHandler;
     LavaButton *lavaButton;
     ScoreButton *scoreButtonLF, *scoreButtonHA, *scoreButtonHSR;
+    QWidget *redraftRemoveWidget;
+    QLabel *redraftRemoveLabel;
+    MoveListWidget *redraftRemoveListWidget;
+    QList<DeckCard> redraftRemoveCards;    //Deck cards suggested for removal after a redraft, worst first
     QMap<QString, int> hearthArenaTiers;
     QMap<QString, int> lightForgeTiers;
     //Guarda los codes en la rotacion. Parte de todos los arena sets o se limita a la tier list de HA (si trustHA)
@@ -133,6 +140,10 @@ private:
     QString lastThreadText;
     bool wantedMechanics[M_NUM_MECHANICS];
     QFutureWatcher<QString *> futureReviewBestCards;
+    //Looks for the redraft review screen ("35/30" deck counter) while in the arena menu, in case
+    //the redraft picks happened when AT could not see them (Hearthstone restarted in the review screen)
+    QTimer *redraftWatchTimer;
+    QFutureWatcher<int> futureRedraftCounter;
     QList<cv::Mat> manaTemplates;
     QList<cv::Mat> rarityTemplates;
     QString prevCodes[3];
@@ -238,6 +249,12 @@ private:
     void endRedraftReview();
     void captureDraftRedraftingReview();
     void beginRedraftReview();
+    void createRedraftRemoveList();
+    void updateRedraftRemoveList();
+    void updateRedraftRemoveMarks();
+    void hideRedraftRemoveList();
+    void startRedraftWatch();
+    void stopRedraftWatch();
     bool posibleLegendaryPack();
     bool areScreenPointsValid(std::vector<Point2f> screenPoints, int screenHeight);
     void showHAScores(QString ogCodes[], QString hsrCodes[], QString cardNames[]);
@@ -345,6 +362,8 @@ private slots:
     void editCardNameFinish();
     void finishFindCodeFromText();
     void finishReviewBestCards();
+    void checkRedraftScreen();
+    void finishCheckRedraftScreen();
 };
 
 #endif // DRAFTHANDLER_H

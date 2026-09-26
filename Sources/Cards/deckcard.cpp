@@ -21,7 +21,7 @@ DeckCard::DeckCard(QString code, bool outsider)
     scoreHA = 0;
     scoreHSR = scoreFire = 0;
     includedDecks = samplesFire = 0;
-    showScores = badScoreHA = badScoreHSR = badScoreFire = false;
+    showScores = false;
     showHA = showHSR = showFire = true;
     redraftingReview = false;
     classOrder = -1;
@@ -48,30 +48,21 @@ void DeckCard::setRedraftingReview(bool show)
 }
 
 
-void DeckCard::setBadScoreHA(bool badScore)
+float DeckCard::getScore(DraftMethod draftMethod) const
 {
-    this->badScoreHA = badScore;
-}
-
-
-void DeckCard::setBadScoreHSR(bool badScore)
-{
-    this->badScoreHSR = badScore;
-}
-
-
-void DeckCard::setBadScoreFire(bool badScore)
-{
-    this->badScoreFire = badScore;
+    switch(draftMethod)
+    {
+        case HearthArena:   return scoreHA;
+        case HSReplay:      return scoreHSR;
+        case FireStone:     return scoreFire;
+        default:            return 0;
+    }
 }
 
 
 void DeckCard::hideScores()
 {
     setShowScores(false);
-    setBadScoreHA(false);
-    setBadScoreHSR(false);
-    setBadScoreFire(false);
     setRedraftingReview(false);
 }
 
@@ -441,23 +432,6 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
 
             painter.setBrush(Qt::NoBrush);
 
-            int numBads = 0;
-            if(badScoreHA && showHA && scoreHA!=0)
-            {
-                numBads++;
-                drawBadScore(painter, canvas, Score_HearthArena, numBads);
-            }
-            if(badScoreHSR && showHSR && scoreHSR!=0)
-            {
-                numBads++;
-                drawBadScore(painter, canvas, Score_HSReplay, numBads);
-            }
-            if(badScoreFire && showFire && scoreFire!=0)
-            {
-                numBads++;
-                drawBadScore(painter, canvas, Score_Fire, numBads);
-            }
-
             int numScores = 0;
             const int offsetScore = 6*height/8;
             const int offsetLegendary = 29*width/218;
@@ -499,43 +473,6 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
     painter.end();
 
     return canvas;
-}
-
-
-void DeckCard::drawBadScore(QPainter &painter, QPixmap &canvas, ScoreSource scoreSource, int num)
-{
-    QColor color = Qt::blue;
-    if(scoreSource == Score_HearthArena)        color = Qt::darkYellow;
-    else if(scoreSource == Score_HSReplay)      color = Qt::darkRed;
-    else if(scoreSource == Score_Fire)          color = DARK_ORANGE;
-
-    painter.setPen(QPen(color, 8));
-
-    switch(num)
-    {
-    case 1:
-        painter.drawRect(canvas.rect());
-        break;
-    case 2:
-        painter.drawLines(QVector<QLine>{
-            QLine(0, 0, canvas.width(), 0),
-            QLine(0, 0, 0, canvas.height()/2),
-            QLine(canvas.width(), 0, canvas.width(), canvas.height()/2)
-        });
-        break;
-    case 3:
-        painter.drawLines(QVector<QLine>{
-            QLine(0, 0, 0, canvas.height()),
-            QLine(canvas.width(), 0, canvas.width(), canvas.height()),
-
-            QLine(0, 0, canvas.width()/9, 0),
-            QLine(canvas.width()*8/9, 0, canvas.width(), 0),
-
-            QLine(0, canvas.height(), canvas.width()/9, canvas.height()),
-            QLine(canvas.width()*8/9, canvas.height(), canvas.width(), canvas.height()),
-        });
-        break;
-    }
 }
 
 

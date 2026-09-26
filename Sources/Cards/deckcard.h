@@ -46,7 +46,6 @@ private:
     bool outsider;
     //Usados para pintar los score
     bool showScores, showHA, showHSR, showFire;
-    bool badScoreHA, badScoreHSR, badScoreFire;
     bool redraftingReview;
     int scoreHA;
     float scoreHSR, scoreFire;
@@ -55,7 +54,6 @@ private:
 
 //Metodos
 private:
-    void drawBadScore(QPainter &painter, QPixmap &canvas, ScoreSource scoreSource, int num);
 
 protected:
     QPixmap draw(int total, bool drawRarity, QColor nameColor=BLACK, QString manaText="", int cardWidth=0, QStringList mechanics={});
@@ -85,9 +83,7 @@ public:
     void hideScores();
     void setShowScores(bool showScores);
     void setScores(int haTier, float hsrWR, float fireWR, int classOrder, int includedDecks, int samplesFire);
-    void setBadScoreHA(bool badScore=true);
-    void setBadScoreHSR(bool badScore=true);
-    void setBadScoreFire(bool badScore=true);
+    float getScore(DraftMethod draftMethod) const;
     void setRedraftingReview(bool show=true);
     bool operator<(const DeckCard &other) const;
     bool operator==(const DeckCard& other) const;

@@ -184,7 +184,7 @@ macx{
     LIBS += -liconv
     OBJECTIVE_SOURCES += Sources/Utils/macocr.mm
     HEADERS  += Sources/Utils/macocr.h
-    LIBS += -framework Foundation -framework Vision
+    LIBS += -framework Foundation -framework Vision -framework CoreGraphics
     QMAKE_OBJECTIVE_CFLAGS += -fobjc-arc
 }
 
