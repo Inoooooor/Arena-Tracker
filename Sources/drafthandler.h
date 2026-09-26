@@ -167,6 +167,7 @@ private:
     bool areCardsDetected();
     bool isRepeatHero();
     void buildBestMatchesMaps();
+    void removeDuplicatedPicks(QStringList slotCodes[3]);
     CardRarity getBestRarity();
     void getBestCards(DraftCard bestCards[3]);
     void addCardHist(QString code, bool premium, bool isHero=false);

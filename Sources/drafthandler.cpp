@@ -1511,6 +1511,7 @@ void DraftHandler::buildBestMatchesMaps()
 {
     if(drafting)
     {
+        QStringList slotCodes[3];   //Candidatos de cada hueco ordenados por match, sin repetir carta (golden o no)
         for(int i=0; i<3; i++)
         {
             QMultiMap<double, QString> bestMatchesDups;
@@ -1521,18 +1522,28 @@ void DraftHandler::buildBestMatchesMaps()
                 bestMatchesDups.insert(match, code);
             }
 
-            comboBoxCard[i]->clear();
             QStringList insertedCodes;
             const QList<QString> codeListBest = bestMatchesDups.values();
             for(const QString &code: codeListBest)
             {
                 if(!insertedCodes.contains(degoldCode(code)))
                 {
-                    double match = draftCardMaps[i][code].getBestQualityMatches();
-                    bestMatchesMaps[i].insert(match, code);
-                    draftCardMaps[i][code].draw(comboBoxCard[i]);
+                    slotCodes[i].append(code);
                     insertedCodes.append(degoldCode(code));
                 }
+            }
+        }
+
+        removeDuplicatedPicks(slotCodes);
+
+        for(int i=0; i<3; i++)
+        {
+            comboBoxCard[i]->clear();
+            for(const QString &code: qAsConst(slotCodes[i]))
+            {
+                double match = draftCardMaps[i][code].getBestQualityMatches();
+                bestMatchesMaps[i].insert(match, code);
+                draftCardMaps[i][code].draw(comboBoxCard[i]);
             }
         }
     }
@@ -1549,6 +1560,37 @@ void DraftHandler::buildBestMatchesMaps()
         }
     }
 }
+
+//Las 3 opciones de un pick son siempre cartas distintas. Si dos huecos tienen la misma mejor carta
+//(p.ej. una golden animada mal reconocida), el hueco que peor la ve pasa a su siguiente candidata.
+void DraftHandler::removeDuplicatedPicks(QStringList slotCodes[3])
+{
+    for(int iteration=0; iteration<3; iteration++)
+    {
+        bool changed = false;
+        for(int i=0; i<3; i++)
+        {
+            for(int j=i+1; j<3; j++)
+            {
+                if(slotCodes[i].isEmpty() || slotCodes[j].isEmpty())                        continue;
+                if(degoldCode(slotCodes[i].first()) != degoldCode(slotCodes[j].first()))   continue;
+
+                double matchI = draftCardMaps[i][slotCodes[i].first()].getBestQualityMatches();
+                double matchJ = draftCardMaps[j][slotCodes[j].first()].getBestQualityMatches();
+                int loser = (matchI > matchJ)?i:j;
+                if(slotCodes[loser].count() < 2)    continue;
+
+                emit pDebug("Duplicate pick " + degoldCode(slotCodes[loser].first()) +
+                            " in slots " + QString::number(i+1) + "/" + QString::number(j+1) +
+                            ", slot " + QString::number(loser+1) + " uses " + slotCodes[loser].at(1));
+                slotCodes[loser].removeFirst();
+                changed = true;
+            }
+        }
+        if(!changed)    break;
+    }
+}
+
 
 //Distingue grupos de legendarias de no legendarias
 //En los eventos las cartas legendarias introducidas no tienen rareza legendaria, para ellas no analizaremos rarezas
