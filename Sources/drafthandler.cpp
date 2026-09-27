@@ -144,23 +144,28 @@ void DraftHandler::createRedraftRemoveList()
     layout->setContentsMargins(0, 45, 0, 0);
     layout->setSpacing(5);
 
-    redraftRemoveLabel = new QLabel(redraftTab);
-    redraftRemoveLabel->setAlignment(Qt::AlignCenter);
-    redraftRemoveLabel->setToolTip("Lowest rated cards of your deck. Remove the first " + QString::number(REDRAFT_REMOVE_CARDS) +
-                                   ";\nthe dimmed ones are spares if you want to keep one of them.");
-    layout->addWidget(redraftRemoveLabel);
+    for(int section=0; section<REDRAFT_REMOVE_SECTIONS; section++)
+    {
+        if(section > 0)     layout->addSpacing(10);
 
-    redraftRemoveListWidget = new MoveListWidget(redraftTab);
-    redraftRemoveListWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    redraftRemoveListWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    redraftRemoveListWidget->setMouseTracking(true);
-    layout->addWidget(redraftRemoveListWidget);
+        redraftRemoveLabel[section] = new QLabel(redraftTab);
+        redraftRemoveLabel[section]->setAlignment(Qt::AlignCenter);
+        redraftRemoveLabel[section]->setToolTip("Lowest rated cards of your deck. Remove the first " + QString::number(REDRAFT_REMOVE_CARDS) +
+                                                ";\nthe dimmed ones are spares if you want to keep one of them.");
+        layout->addWidget(redraftRemoveLabel[section]);
+
+        redraftRemoveListWidget[section] = new MoveListWidget(redraftTab);
+        redraftRemoveListWidget[section]->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        redraftRemoveListWidget[section]->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        redraftRemoveListWidget[section]->setMouseTracking(true);
+        layout->addWidget(redraftRemoveListWidget[section]);
+
+        connect(redraftRemoveListWidget[section], SIGNAL(itemEntered(QListWidgetItem*)),
+                this, SLOT(redraftRemoveCardEntered(QListWidgetItem*)));
+        connect(redraftRemoveListWidget[section], SIGNAL(leave()),
+                this, SIGNAL(cardLeave()));
+    }
     layout->addStretch();
-
-    connect(redraftRemoveListWidget, SIGNAL(itemEntered(QListWidgetItem*)),
-            this, SLOT(redraftRemoveCardEntered(QListWidgetItem*)));
-    connect(redraftRemoveListWidget, SIGNAL(leave()),
-            this, SIGNAL(cardLeave()));
 }
 
 
@@ -237,16 +242,23 @@ void DraftHandler::hideRedraftTab()
 
 void DraftHandler::redraftRemoveCardEntered(QListWidgetItem *item)
 {
-    int row = redraftRemoveListWidget->row(item);
-    if(row < 0 || row >= redraftRemoveCards.count())  return;
+    for(int section=0; section<REDRAFT_REMOVE_SECTIONS; section++)
+    {
+        MoveListWidget *listWidget = redraftRemoveListWidget[section];
+        if(item->listWidget() != listWidget)    continue;
 
-    QRect rectCard = redraftRemoveListWidget->visualItemRect(item);
-    QPoint posCard = redraftRemoveListWidget->mapToGlobal(rectCard.topLeft());
-    QRect globalRectCard = QRect(posCard, rectCard.size());
+        int row = listWidget->row(item);
+        if(row < 0 || row >= redraftRemoveCards[section].count())  return;
 
-    int listTop = redraftRemoveListWidget->mapToGlobal(QPoint(0,0)).y();
-    int listBottom = redraftRemoveListWidget->mapToGlobal(QPoint(0,redraftRemoveListWidget->height())).y();
-    emit cardEntered(redraftRemoveCards[row].getCode(), globalRectCard, listTop, listBottom);
+        QRect rectCard = listWidget->visualItemRect(item);
+        QPoint posCard = listWidget->mapToGlobal(rectCard.topLeft());
+        QRect globalRectCard = QRect(posCard, rectCard.size());
+
+        int listTop = listWidget->mapToGlobal(QPoint(0,0)).y();
+        int listBottom = listWidget->mapToGlobal(QPoint(0,listWidget->height())).y();
+        emit cardEntered(redraftRemoveCards[section][row].getCode(), globalRectCard, listTop, listBottom);
+        return;
+    }
 }
 
 
@@ -991,7 +1003,7 @@ void DraftHandler::hideDeckScores()
 }
 
 
-//Sorted by the first enabled score source (Firestone, HearthArena, HSReplay) with data, or else by any source with data
+//One section sorted by Firestone and one by HearthArena, each shown if it has data. HSReplay is used only if neither has.
 void DraftHandler::updateRedraftRemoveList()
 {
     clearRedraftRemoveList();
@@ -1001,32 +1013,24 @@ void DraftHandler::updateRedraftRemoveList()
         return;
     }
 
-    QList<DeckCard> *deckCardList = deckHandler->getDeckCardListRef();
-
-    const QList<DraftMethod> draftMethods = {FireStone, HearthArena, HSReplay};
-    DraftMethod draftMethod = None;
-    for(int pass=0; pass<2 && draftMethod==None; pass++)
-    {
-        for(const DraftMethod dm: draftMethods)
-        {
-            bool enabled = (dm==FireStone && draftMethodFire) || (dm==HearthArena && draftMethodHA) || (dm==HSReplay && draftMethodHSR);
-            if(pass==0 && !enabled)  continue;
-            for(const DeckCard &deckCard: *deckCardList)
-            {
-                if(!deckCard.getCode().isEmpty() && deckCard.getScore(dm) != 0)
-                {
-                    draftMethod = dm;
-                    break;
-                }
-            }
-            if(draftMethod != None)  break;
-        }
-    }
-    if(draftMethod == None)
+    bool hasFire = fillRedraftRemoveSection(0, FireStone);
+    bool hasHA = fillRedraftRemoveSection(1, HearthArena);
+    if(!hasFire && !hasHA && !fillRedraftRemoveSection(0, HSReplay))
     {
         hideRedraftTab();
         return;
     }
+
+    updateRedraftRemoveMarks();
+    showRedraftTab();
+}
+
+
+//Returns false, leaving the section hidden, if no deck card has a score of draftMethod
+bool DraftHandler::fillRedraftRemoveSection(int section, DraftMethod draftMethod)
+{
+    QList<DeckCard> *deckCardList = deckHandler->getDeckCardListRef();
+    QList<DeckCard> &removeCards = redraftRemoveCards[section];
 
     //One entry per copy, so both copies of a card can be suggested. stable_sort keeps the deck mana order on ties.
     QList<DeckCard *> copies;
@@ -1035,6 +1039,7 @@ void DraftHandler::updateRedraftRemoveList()
         if(deckCard.getCode().isEmpty() || deckCard.getScore(draftMethod) == 0)  continue;
         for(int i=0; i<deckCard.total; i++)  copies << &deckCard;
     }
+    if(copies.isEmpty())    return false;
     std::stable_sort(copies.begin(), copies.end(), [draftMethod](const DeckCard *a, const DeckCard *b) {
         return a->getScore(draftMethod) < b->getScore(draftMethod);
     });
@@ -1044,48 +1049,52 @@ void DraftHandler::updateRedraftRemoveList()
     for(int i=0; i<numCopies; i++)
     {
         bool spare = (i >= REDRAFT_REMOVE_CARDS);
-        if(!redraftRemoveCards.isEmpty() && redraftRemoveCards.last().isCode(copies[i]->getCode()) &&
-            (redraftRemoveCards.last().remaining == 0) == spare)
+        if(!removeCards.isEmpty() && removeCards.last().isCode(copies[i]->getCode()) &&
+            (removeCards.last().remaining == 0) == spare)
         {
-            redraftRemoveCards.last().total++;
-            if(!spare)  redraftRemoveCards.last().remaining++;
+            removeCards.last().total++;
+            if(!spare)  removeCards.last().remaining++;
             continue;
         }
         DeckCard deckCard = *copies[i];
         deckCard.total = 1;
         deckCard.remaining = spare?0:1;
-        redraftRemoveCards << deckCard;
+        removeCards << deckCard;
     }
 
-    for(DeckCard &deckCard: redraftRemoveCards)
+    for(DeckCard &deckCard: removeCards)
     {
-        deckCard.listItem = new QListWidgetItem(redraftRemoveListWidget);
+        deckCard.listItem = new QListWidgetItem(redraftRemoveListWidget[section]);
         deckCard.resetManaLimits();
         deckCard.setEachShowScores(draftMethod==HearthArena, draftMethod==HSReplay, draftMethod==FireStone, false);
     }
-    updateRedraftRemoveMarks();
 
     QString sourceName;
     if(draftMethod == FireStone)            sourceName = "Firestone";
     else if(draftMethod == HearthArena)     sourceName = "HearthArena";
     else                                    sourceName = "HSReplay";
-    redraftRemoveLabel->setText("Remove (" + sourceName + ")");
-    redraftRemoveListWidget->setFixedHeight(redraftRemoveCards.count() * DeckCard::getCardHeight());
-    showRedraftTab();
+    redraftRemoveLabel[section]->setText("Remove (" + sourceName + ")");
+    redraftRemoveListWidget[section]->setFixedHeight(removeCards.count() * DeckCard::getCardHeight());
+    redraftRemoveLabel[section]->show();
+    redraftRemoveListWidget[section]->show();
+    return true;
 }
 
 
 //Frames the suggested cards already picked for removal in the redraft review screen
 void DraftHandler::updateRedraftRemoveMarks()
 {
-    for(DeckCard &deckCard: redraftRemoveCards)
+    for(int section=0; section<REDRAFT_REMOVE_SECTIONS; section++)
     {
-        bool picked = false;
-        for(int i=0; i<5 && !picked; i++)
+        for(DeckCard &deckCard: redraftRemoveCards[section])
         {
-            picked = deckCard.isCode(bestCodesRedraftingReview[i]);
+            bool picked = false;
+            for(int i=0; i<5 && !picked; i++)
+            {
+                picked = deckCard.isCode(bestCodesRedraftingReview[i]);
+            }
+            deckCard.setRedraftingReview(picked);
         }
-        deckCard.setRedraftingReview(picked);
     }
 }
 
@@ -1093,8 +1102,13 @@ void DraftHandler::updateRedraftRemoveMarks()
 void DraftHandler::clearRedraftRemoveList()
 {
     emit cardLeave();
-    redraftRemoveListWidget->clear();
-    redraftRemoveCards.clear();
+    for(int section=0; section<REDRAFT_REMOVE_SECTIONS; section++)
+    {
+        redraftRemoveLabel[section]->hide();
+        redraftRemoveListWidget[section]->hide();
+        redraftRemoveListWidget[section]->clear();
+        redraftRemoveCards[section].clear();
+    }
 }
 
 
@@ -3940,10 +3954,13 @@ void DraftHandler::setTheme()
     synergyHandler->setTheme();
 
     ui->refreshDraftButton->setIcon(QIcon(ThemeHandler::buttonDraftRefreshFile()));
-    redraftRemoveListWidget->setTheme();
     QFont redraftFont(ThemeHandler::bigFont());
     redraftFont.setPixelSize(16);
-    redraftRemoveLabel->setFont(redraftFont);
+    for(int section=0; section<REDRAFT_REMOVE_SECTIONS; section++)
+    {
+        redraftRemoveListWidget[section]->setTheme();
+        redraftRemoveLabel[section]->setFont(redraftFont);
+    }
 
     QFont font(ThemeHandler::bigFont());
     font.setPixelSize(24);

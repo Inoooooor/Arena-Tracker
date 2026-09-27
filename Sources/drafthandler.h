@@ -21,6 +21,7 @@
 #define REDRAFT_REVIEW_DELAY_TIME   1500
 #define REDRAFT_REMOVE_CARDS        5
 #define REDRAFT_REMOVE_SPARES       3
+#define REDRAFT_REMOVE_SECTIONS     2
 #define REDRAFT_WATCH_TIME          2000
 #define REDRAFT_REVIEW_OCR_TIME     1000
 #define FINDSCREEN_LOOP_TIME    1000
@@ -95,9 +96,10 @@ private:
     LavaButton *lavaButton;
     ScoreButton *scoreButtonLF, *scoreButtonHA, *scoreButtonHSR;
     QPointer<QWidget> redraftTab;   //Owned by the tab widget while shown, so it may be deleted before us
-    QLabel *redraftRemoveLabel;
-    MoveListWidget *redraftRemoveListWidget;
-    QList<DeckCard> redraftRemoveCards;    //Deck cards suggested for removal after a redraft, worst first
+    //Deck cards suggested for removal after a redraft, worst first: one section by Firestone, one by HearthArena
+    QLabel *redraftRemoveLabel[REDRAFT_REMOVE_SECTIONS];
+    MoveListWidget *redraftRemoveListWidget[REDRAFT_REMOVE_SECTIONS];
+    QList<DeckCard> redraftRemoveCards[REDRAFT_REMOVE_SECTIONS];
     QMap<QString, int> hearthArenaTiers;
     QMap<QString, int> lightForgeTiers;
     //Guarda los codes en la rotacion. Parte de todos los arena sets o se limita a la tier list de HA (si trustHA)
@@ -271,6 +273,7 @@ private:
     void beginRedraftReview();
     void createRedraftRemoveList();
     void updateRedraftRemoveList();
+    bool fillRedraftRemoveSection(int section, DraftMethod draftMethod);
     void updateRedraftRemoveMarks();
     void clearRedraftRemoveList();
     void showRedraftTab();
