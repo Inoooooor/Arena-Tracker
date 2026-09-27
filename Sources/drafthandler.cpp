@@ -1076,7 +1076,8 @@ void DraftHandler::updateRedraftRemoveList()
     }
 
     updateRedraftRemoveMarks();
-    showRedraftTab();
+    //Only in the discard screen, not while the new cards are drafted
+    if(redraftingReview)    showRedraftTab();
 }
 
 
@@ -1590,6 +1591,7 @@ void DraftHandler::beginRedraftReview()
     redraftingReview = true;
     cardsDownloading.clear();
 
+    updateRedraftRemoveList();
     if(ui->tabWidget->indexOf(redraftTab) != -1)    ui->tabWidget->setCurrentWidget(redraftTab);
     cardsHist.clear();
 
