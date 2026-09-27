@@ -79,6 +79,14 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     connect(redraftWatchTimer, SIGNAL(timeout()), this, SLOT(checkRedraftScreen()));
     connect(&futureRedraftCounter, SIGNAL(finished()), this, SLOT(finishCheckRedraftScreen()));
 
+    bundlePending = bundlePreviewSeen = false;
+    bundleMisses = 0;
+    bundleTimer = new QTimer(this);
+    bundleTimer->setInterval(REDRAFT_REVIEW_OCR_TIME);
+    connect(bundleTimer, SIGNAL(timeout()), this, SLOT(captureBundlePreview()));
+    connect(&futureBundle, SIGNAL(finished()), this, SLOT(finishBundlePreview()));
+    connect(&futureDeckList, SIGNAL(finished()), this, SLOT(finishDeckList()));
+
     redraftReviewTimer = new QTimer(this);
     redraftReviewTimer->setInterval(REDRAFT_REVIEW_OCR_TIME);
     connect(redraftReviewTimer, SIGNAL(timeout()), this, SLOT(captureRedraftReviewNames()));
@@ -878,6 +886,7 @@ void DraftHandler::resetTab(bool alreadyDrafting)
 
 void DraftHandler::clearLists(bool keepCounters)
 {
+    resetBundle();
     clearAndDisconnectAllComboBox();
     hearthArenaTiers.clear();
     lightForgeTiers.clear();
@@ -1838,6 +1847,13 @@ void DraftHandler::captureDraft()
             {
                 DraftCard bestCards[3];
                 getBestCards(bestCards);
+                //Only a pick leaves the bundle preview for other cards than the legendaries
+                if(bundlePending)
+                {
+                    bool legendaries = true;
+                    for(int i=0; i<3; i++)  if(bestCards[i].getRarity() != LEGENDARY)   legendaries = false;
+                    if(!legendaries)    confirmBundle();
+                }
                 showNewCards(bestCards);
                 startReviewBestCards();
             }
@@ -2158,6 +2174,204 @@ void DraftHandler::readHeroClasses(const cv::Mat &screenCapture)
 }
 
 
+#ifdef Q_OS_MAC
+//The Hearthstone window, scaled down to maxWidth
+static QImage grabHearthstoneWindow(int maxWidth)
+{
+    QRect hsRect = MacOcr::hearthstoneWindowRect();
+    QScreen *primaryScreen = QGuiApplication::primaryScreen();
+    if(hsRect.isNull() || primaryScreen == nullptr)     return QImage();
+    QImage image = primaryScreen->grabWindow(0, hsRect.x(), hsRect.y(), hsRect.width(), hsRect.height()).toImage();
+    if(image.width() > maxWidth)    image = image.scaledToWidth(maxWidth, Qt::SmoothTransformation);
+    return image;
+}
+#endif
+
+
+//Card name of an OCR line without the mana cost before it or the copies count after it
+static QString trimCardLine(const QString &line)
+{
+    int start = 0, end = line.length();
+    while(start < end && !line[start].isLetter())   start++;
+    while(end > start && !line[end-1].isLetter())   end--;
+    return line.mid(start, end - start);
+}
+
+
+void DraftHandler::resetBundle()
+{
+    bundleTimer->stop();
+    bundlePending = bundlePreviewSeen = false;
+    bundleMisses = 0;
+    bundleLegendary = "";
+    bundlePreviews.clear();
+}
+
+
+void DraftHandler::startBundlePreview(const QString &code)
+{
+    //The pick of the bundle itself can log its legendary again
+    for(DeckCard &deckCard: *deckHandler->getDeckCardListRef())
+    {
+        if(deckCard.getCode() == code)  return;
+    }
+
+    emit pDebug("Bundle preview: " + code + " " + Utility::cardEnNameFromCode(code));
+    bundleLegendary = code;
+    bundlePending = true;
+    bundlePreviewSeen = false;
+    bundleMisses = 0;
+    if(draftScoreWindow != nullptr)    draftScoreWindow->hideScores(true);
+    setDraftStatus("Analyzing bundle...");
+    emit showMessageProgressBar("Analyzing bundle...", 3000);
+    bundleTimer->start();
+}
+
+
+void DraftHandler::captureBundlePreview()
+{
+#ifdef Q_OS_MAC
+    if(!bundlePending || !drafting)
+    {
+        bundleTimer->stop();
+        return;
+    }
+    if(futureBundle.isRunning())    return;
+
+    QImage image = grabHearthstoneWindow(1400);
+    if(image.isNull())  return;
+
+    const QMap<QString, QString> nameMap = cardsNameMap;
+    const QString legendary = bundleLegendary;
+    const QString language = Utility::getLocalLang();
+    futureBundle.setFuture(QtConcurrent::run([image, nameMap, legendary, language]() {
+        bool previewVisible = false;
+        QStringList codes;
+        for(const MacOcr::TextLine &line: MacOcr::recognizeTextLines(image, language))
+        {
+            //The deck list, right, is not part of the preview
+            if(line.rect.center().x() > image.width()*0.75)     continue;
+            QString code = matchCardName({trimCardLine(line.text)}, nameMap);
+            if(code.isEmpty())  continue;
+            if(code == legendary)           previewVisible = true;
+            else if(!codes.contains(code))  codes << code;
+        }
+        return qMakePair(previewVisible, codes.mid(0, 3));
+    }));
+#endif
+}
+
+
+void DraftHandler::finishBundlePreview()
+{
+    QPair<bool, QStringList> result = futureBundle.result();
+    if(!bundlePending)  return;
+
+    if(result.first)
+    {
+        bundlePreviewSeen = true;
+        bundleMisses = 0;
+        QStringList &codes = bundlePreviews[bundleLegendary];
+        if(result.second.count() > codes.count())
+        {
+            codes = result.second;
+            QStringList names;
+            for(const QString &code: qAsConst(codes))   names << Utility::cardEnNameFromCode(code);
+            emit pDebug("Bundle of " + Utility::cardEnNameFromCode(bundleLegendary) + ": " + names.join(", "));
+        }
+        if(codes.count() >= 3)  setDraftStatus("Bundle read: 3 cards");
+        else
+        {
+            setDraftStatus("Analyzing bundle...");
+            emit showMessageProgressBar("Analyzing bundle...", 3000);
+        }
+    }
+    //Preview closed: picked, or back to the legendaries. The next cards tell.
+    else if(bundlePreviewSeen || ++bundleMisses >= 3)
+    {
+        bundleTimer->stop();
+        setDraftStatus("Reading the next cards...");
+        newCaptureDraftLoop();
+    }
+}
+
+
+void DraftHandler::confirmBundle()
+{
+    bundlePending = false;
+    bundleTimer->stop();
+    const QString legendary = bundleLegendary;
+    const QStringList codes = bundlePreviews.value(legendary);
+    bundlePreviews.clear();
+
+    emit pDebug("Bundle picked: " + legendary + " + " + codes.join(" "));
+    emit newDeckCard(legendary);
+    for(const QString &code: codes)     emit newDeckCard(code);
+
+    if(codes.count() >= 3)
+    {
+        emit showMessageProgressBar("Bundle added: " + Utility::cardLocalNameFromCode(legendary) + " + 3 cards", 5000);
+    }
+    else
+    {
+        //Give the deck list time to show the new cards
+        emit showMessageProgressBar("Reading the deck list...", 5000);
+        QTimer::singleShot(1500, this, [this]() {readDeckList();});
+    }
+}
+
+
+//Adds the deck list cards (right of the draft screen) the tracker doesn't have, at most a bundle
+void DraftHandler::readDeckList()
+{
+#ifdef Q_OS_MAC
+    if(!drafting || futureDeckList.isRunning())     return;
+
+    QImage image = grabHearthstoneWindow(1400);
+    if(image.isNull())  return;
+
+    const QMap<QString, QString> nameMap = cardsNameMap;
+    const QString language = Utility::getLocalLang();
+    futureDeckList.setFuture(QtConcurrent::run([image, nameMap, language]() {
+        QStringList codes;
+        for(const MacOcr::TextLine &line: MacOcr::recognizeTextLines(image, language))
+        {
+            if(line.rect.center().x() < image.width()*0.75)     continue;
+            QString code = matchCardName({trimCardLine(line.text)}, nameMap);
+            if(!code.isEmpty() && !codes.contains(code))    codes << code;
+        }
+        return codes;
+    }));
+#endif
+}
+
+
+void DraftHandler::finishDeckList()
+{
+    QStringList listCodes = futureDeckList.result();
+    if(!drafting)   return;
+
+    QStringList deckNames;
+    for(DeckCard &deckCard: *deckHandler->getDeckCardListRef())
+    {
+        if(!deckCard.getCode().isEmpty())   deckNames << Utility::cardEnNameFromCode(deckCard.getCode());
+    }
+
+    QStringList added;
+    for(const QString &code: qAsConst(listCodes))
+    {
+        if(added.count() >= 3)  break;
+        if(deckNames.contains(Utility::cardEnNameFromCode(code)))   continue;
+        emit newDeckCard(code);
+        added << Utility::cardEnNameFromCode(code);
+    }
+
+    emit pDebug("Deck list read: +" + QString::number(added.count()) + " " + added.join(", "));
+    if(added.isEmpty())     emit showMessageProgressBar("Bundle cards not found in the deck list", 5000);
+    else                    emit showMessageProgressBar("Deck list read: +" + QString::number(added.count()) + " cards", 5000);
+}
+
+
 //Finds the name of nameMap (normalized name -> code) closest to the OCR text.
 QString DraftHandler::matchCardName(const QStringList &lines, const QMap<QString, QString> &nameMap)
 {
@@ -2325,6 +2539,13 @@ void DraftHandler::pickCard(QString code)
         emit pDebug("WARNING: Duplicate pick code detected: " + code);
         return;
     }
+#ifdef Q_OS_MAC
+    if(!redrafting && Utility::getRarityFromCode(code) == LEGENDARY)
+    {
+        startBundlePreview(code);
+        return;
+    }
+#endif
     //Saltamos legendary bundles
     if(!redrafting && Utility::getRarityFromCode(code) == LEGENDARY)
     {

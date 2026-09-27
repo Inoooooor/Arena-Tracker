@@ -166,6 +166,15 @@ private:
     //macOS: the cards picked in the redraft review screen are found by reading their names
     QTimer *redraftReviewTimer;
     QFutureWatcher<QPair<bool, QStringList>> futureRedraftReviewCodes;
+    //Legendary bundles (macOS). The log only names the previewed legendary, when its preview opens;
+    //the bundle cards are read from the preview, or else from the deck list once it is picked.
+    QTimer *bundleTimer;
+    QFutureWatcher<QPair<bool, QStringList>> futureBundle;
+    QFutureWatcher<QStringList> futureDeckList;
+    QString bundleLegendary;
+    QMap<QString, QStringList> bundlePreviews;  //Legendary -> its bundle cards, as read
+    bool bundlePending, bundlePreviewSeen;
+    int bundleMisses;
     QMap<QString, QString> redraftNameMap;  //Normalized local name -> code, of the deck cards
     QList<cv::Mat> manaTemplates;
     QList<cv::Mat> rarityTemplates;
@@ -274,6 +283,10 @@ private:
     void endRedraftReview();
     void captureDraftRedraftingReview();
     void setRedraftReviewCodes(const QStringList &codes);
+    void startBundlePreview(const QString &code);
+    void confirmBundle();
+    void resetBundle();
+    void readDeckList();
     void beginRedraftReview();
     void createRedraftRemoveList();
     void createDraftStatus();
@@ -401,6 +414,9 @@ private slots:
     void finishCheckRedraftScreen();
     void redraftRemoveCardEntered(QListWidgetItem *item);
     void captureRedraftReviewNames();
+    void captureBundlePreview();
+    void finishBundlePreview();
+    void finishDeckList();
     void finishRedraftReviewNames();
 };
 
