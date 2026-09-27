@@ -266,7 +266,7 @@ void ScoreButton::drawPixmap(QPixmap &canvas, QRect &targetAll, bool bigFont)
     if(hideScore)
     {
         if(scoreSource == Score_HearthArena)        painter.drawPixmap(targetAll, QPixmap(ThemeHandler::haCloseFile()));
-        else if(scoreSource == Score_Heroes_Player ||
+        else if(scoreSource == Score_Heroes_Player || scoreSource == Score_Heroes ||
                  scoreSource == Score_Fire)         painter.drawPixmap(targetAll, QPixmap(ThemeHandler::lfCloseFile()));
         else/* if(scoreSource == Score_HSReplay)*/  painter.drawPixmap(targetAll, QPixmap(ThemeHandler::hsrCloseFile()));
     }
@@ -276,7 +276,7 @@ void ScoreButton::drawPixmap(QPixmap &canvas, QRect &targetAll, bool bigFont)
         if(bestScoreOpacity==1)
         {
             if(scoreSource == Score_HearthArena)        painter.drawPixmap(targetAll, QPixmap(ThemeHandler::haBestFile()));
-            else if(scoreSource == Score_Heroes_Player ||
+            else if(scoreSource == Score_Heroes_Player || scoreSource == Score_Heroes ||
                      scoreSource == Score_Fire)         painter.drawPixmap(targetAll, QPixmap(ThemeHandler::lfBestFile()));
             else/* if(scoreSource == Score_HSReplay)*/  painter.drawPixmap(targetAll, QPixmap(ThemeHandler::hsrBestFile()));
         }
@@ -323,7 +323,7 @@ void ScoreButton::drawPixmap(QPixmap &canvas, QRect &targetAll, bool bigFont)
         }
 
         if(scoreSource == Score_HearthArena)        painter.drawPixmap(targetAll, QPixmap(ThemeHandler::haOpenFile()));
-        else if(scoreSource == Score_Heroes_Player ||
+        else if(scoreSource == Score_Heroes_Player || scoreSource == Score_Heroes ||
                  scoreSource == Score_Fire)         painter.drawPixmap(targetAll, QPixmap(ThemeHandler::lfOpenFile()));
         else/* if(scoreSource == Score_HSReplay)*/  painter.drawPixmap(targetAll, QPixmap(ThemeHandler::hsrOpenFile()));
 
@@ -332,7 +332,8 @@ void ScoreButton::drawPixmap(QPixmap &canvas, QRect &targetAll, bool bigFont)
         {
             painter.setOpacity(bestScoreOpacity);
             if(scoreSource == Score_HearthArena)        painter.drawPixmap(targetAll, QPixmap(ThemeHandler::haTextFile()));
-            else if(scoreSource == Score_Fire)          painter.drawPixmap(targetAll, QPixmap(ThemeHandler::lfTextFile()));
+            else if(scoreSource == Score_Fire || scoreSource == Score_Heroes)
+                                                        painter.drawPixmap(targetAll, QPixmap(ThemeHandler::lfTextFile()));
             else if(scoreSource == Score_Heroes_Player) painter.drawPixmap(targetAll, QPixmap(ThemeHandler::youTextFile()));
             else/* if(scoreSource == Score_HSReplay)*/  painter.drawPixmap(targetAll, QPixmap(ThemeHandler::hsrTextFile()));
             painter.setOpacity(1.0);

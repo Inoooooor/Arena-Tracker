@@ -96,9 +96,9 @@ void WinratesDownloader::replyFinished(QNetworkReply *reply)
         {
             localHSRCards();
         }
-        else if(fullUrl == HSR_HEROES_WINRATE_URL)
+        else if(fullUrl == FIRE_CLASSES_URL)
         {
-            localHSRHeroesWinrate();
+            localHeroesWinrate();
         }
         else if(fullUrl == HSR_BUNDLES_URL)
         {
@@ -129,13 +129,13 @@ void WinratesDownloader::replyFinished(QNetworkReply *reply)
             Utility::dumpOnFile(jsonData, Utility::extraPath() + "/" + filename);
             startProcessFireCards(QJsonDocument::fromJson(jsonData).object(), classOrder);
         }
-        //HSR Heroes Winrate
-        else if(fullUrl == HSR_HEROES_WINRATE_URL)
+        //Fire Heroes Winrate
+        else if(fullUrl == FIRE_CLASSES_URL)
         {
             emit pDebug("Heroes winrate --> Download Success.");
             QByteArray jsonData = reply->readAll();
-            Utility::dumpOnFile(jsonData, Utility::extraPath() + "/" + HSR_HEROES_FILE);
-            processHSRHeroesWinrate(QJsonDocument::fromJson(jsonData).object());
+            Utility::dumpOnFile(jsonData, Utility::extraPath() + "/" + FIRE_CLASSES_FILE);
+            processHeroesWinrate(QJsonDocument::fromJson(jsonData).object());
         }
         //HSR Cards Pickrate/Winrate
         else if(fullUrl == HSR_CARDS)
@@ -177,50 +177,58 @@ void WinratesDownloader::showDataProgressBar()
 }
 
 
-void WinratesDownloader::initHSRHeroesWinrate()
+//Class winrates of the arena from Firestone
+void WinratesDownloader::initHeroesWinrate()
 {
-    QFileInfo fi(Utility::extraPath() + "/" + HSR_HEROES_FILE);
+    QFileInfo fi(Utility::extraPath() + "/" + FIRE_CLASSES_FILE);
     if(fi.exists() && (fi.lastModified().addDays(1)>QDateTime::currentDateTime()))
     {
-        localHSRHeroesWinrate();
+        localHeroesWinrate();
     }
     else
     {
-        emit pDebug("Heroes winrate --> Download from: " + QString(HSR_HEROES_WINRATE_URL));
-        networkManager->get(QNetworkRequest(QUrl(HSR_HEROES_WINRATE_URL)));
+        emit pDebug("Heroes winrate --> Download from: " + QString(FIRE_CLASSES_URL));
+        networkManager->get(QNetworkRequest(QUrl(FIRE_CLASSES_URL)));
     }
 }
 
 
-void WinratesDownloader::localHSRHeroesWinrate()
+void WinratesDownloader::localHeroesWinrate()
 {
-    emit pDebug(QStringLiteral("Heroes winrate --> Use local %1").arg(HSR_HEROES_FILE));
+    emit pDebug(QStringLiteral("Heroes winrate --> Use local %1").arg(FIRE_CLASSES_FILE));
 
-    QFile file(Utility::extraPath() + "/" + HSR_HEROES_FILE);
+    QFile file(Utility::extraPath() + "/" + FIRE_CLASSES_FILE);
     if(!file.open(QIODevice::ReadOnly))
     {
-        emit pDebug(QStringLiteral("ERROR: Failed to open %1").arg(HSR_HEROES_FILE));
+        emit pDebug(QStringLiteral("ERROR: Failed to open %1").arg(FIRE_CLASSES_FILE));
         return;
     }
     QByteArray jsonData = file.readAll();
     file.close();
-    processHSRHeroesWinrate(QJsonDocument::fromJson(jsonData).object());
+    processHeroesWinrate(QJsonDocument::fromJson(jsonData).object());
 }
 
 
-void WinratesDownloader::processHSRHeroesWinrate(const QJsonObject &jsonObject)
+//Each class has one entry per hero power seen with it (Discover effects);
+//the one with the most games is the class with its own hero power.
+void WinratesDownloader::processHeroesWinrate(const QJsonObject &jsonObject)
 {
-    float heroScores[NUM_HEROS];
-    const QJsonArray &data = jsonObject["data"].toArray();
+    float heroScores[NUM_HEROS] = {0};
+    int heroGames[NUM_HEROS] = {0};
+    const QJsonArray stats = jsonObject["stats"].toArray();
 
-    for(const QJsonValue &jv: data)
+    for(const QJsonValue &jv: stats)
     {
-        const QJsonObject &jo = jv.toObject();
-        int classOrder = Utility::hsrHero2classEnum(jo["deck_class"].toInt());
-        float wr = round(jo["win_rate"].toDouble() * 10)/10.0;
-        heroScores[classOrder] = wr;
+        const QJsonObject jo = jv.toObject();
+        int classOrder = Utility::className2classOrder(jo["playerClass"].toString());
+        int games = jo["totalGames"].toInt();
+        if(classOrder < 0 || classOrder >= NUM_HEROS || games <= heroGames[classOrder])    continue;
+
+        heroGames[classOrder] = games;
+        heroScores[classOrder] = round(jo["totalsWins"].toDouble() / games * 1000)/10.0;
     }
 
+    emit pDebug("Heroes winrate (Firestone) ready.");
     ScoreButton::setHeroScores(heroScores);
 }
 

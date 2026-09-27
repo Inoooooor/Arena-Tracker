@@ -545,7 +545,7 @@ void MainWindow::initCardsJson()
 
 void MainWindow::initHSRHeroesWinrate()
 {
-    winratesDownloader->initHSRHeroesWinrate();
+    winratesDownloader->initHeroesWinrate();
 }
 
 

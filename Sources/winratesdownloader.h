@@ -6,12 +6,12 @@
 #include <QObject>
 #include <QNetworkAccessManager>
 
-#define HSR_HEROES_WINRATE_URL "https://hsreplay.net/api/v1/arena/classes_stats/"
 #define HSR_CARDS "https://hsreplay.net/api/v1/arena/card_stats/free/?format=json"
 #define HSR_BUNDLES_URL "https://hsreplay.net/api/v1/arena/card_packages/free/?format=json"
 #define FIRE_CARDS_URL "https://static.zerotoheroes.com/api/arena/stats/cards/arena-underground/last-patch/"
+#define FIRE_CLASSES_URL "https://static.zerotoheroes.com/api/arena/stats/classes/arena-underground/last-patch/overview.gz.json"
 
-#define HSR_HEROES_FILE "HSRheroes.json"
+#define FIRE_CLASSES_FILE "fireClasses.json"
 #define HSR_CARDS_FILE "HSRcards.json"
 #define HSR_BUNDLES_FILE "HSRbundles.json"
 
@@ -57,7 +57,7 @@ private:
     void initHSRCards();
     void initHSRBundles();
     void initFireCards();
-    void localHSRHeroesWinrate();
+    void localHeroesWinrate();
     void localHSRCards();
     void localHSRBundles();
     void localFireCards(const int classOrder);
@@ -66,7 +66,7 @@ private:
     void startProcessFireCards(const QJsonObject &jsonObject, const int classOrder);
     void processHSRCardClassDouble(const QJsonArray &jsonArray, const QString &tag, QMap<QString, float> &cardsMap, bool trunk=false);
     void processHSRCardClassInt(const QJsonArray &jsonArray, const QString &tag, QMap<QString, int> &cardsMap);
-    void processHSRHeroesWinrate(const QJsonObject &jsonObject);
+    void processHeroesWinrate(const QJsonObject &jsonObject);
     void showDataProgressBar();
     int url2classOrder(QString url);
     int runningThreads();
@@ -74,7 +74,7 @@ private:
 
 public:
     void initWRCards();
-    void initHSRHeroesWinrate();
+    void initHeroesWinrate();
     void waitFinishThreads();
 
 signals:
