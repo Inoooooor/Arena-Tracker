@@ -98,6 +98,9 @@ private:
     QPointer<QWidget> redraftTab;   //Owned by the tab widget while shown, so it may be deleted before us
     //Deck cards suggested for removal after a redraft, worst first: one section by Firestone, one by HearthArena
     QLabel *redraftRemoveLabel[REDRAFT_REMOVE_SECTIONS];
+    //What the draft recognition is doing, shown in the draft and redraft tabs (bottom bar in the hero choice)
+    QLabel *draftStatusLabel, *redraftStatusLabel;
+    int findScreenFails;
     MoveListWidget *redraftRemoveListWidget[REDRAFT_REMOVE_SECTIONS];
     QList<DeckCard> redraftRemoveCards[REDRAFT_REMOVE_SECTIONS];
     QMap<QString, int> hearthArenaTiers;
@@ -273,6 +276,8 @@ private:
     void setRedraftReviewCodes(const QStringList &codes);
     void beginRedraftReview();
     void createRedraftRemoveList();
+    void createDraftStatus();
+    void setDraftStatus(const QString &text);
     void updateRedraftRemoveList();
     bool fillRedraftRemoveSection(int section, DraftMethod draftMethod);
     void updateRedraftRemoveMarks();

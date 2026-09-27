@@ -168,10 +168,10 @@ int WinratesDownloader::runningThreads()
 void WinratesDownloader::showDataProgressBar()
 {
     int numThreads = runningThreads();
-    emit advanceProgressBar(numThreads);
+    emit advanceProgressBar(numThreads, QStringLiteral("Firestone: card stats %1/%2").arg(NUM_HEROS - numThreads).arg(NUM_HEROS));
     if(numThreads == 0)
     {
-        emit showMessageProgressBar("WR data ready");
+        emit showMessageProgressBar("Firestone card stats ready");
         // deleteDbfIdMap();
     }
 }
@@ -236,14 +236,17 @@ void WinratesDownloader::processHeroesWinrate(const QJsonObject &jsonObject)
 
 void WinratesDownloader::initWRCards()
 {
-    hsrdataPickratesThreads = hsrdataWRThreads = hsrdataSamplesThreads = hsrdataPlayedThreads = hsrdataBundlesThreads = fireDataThreads = NUM_HEROS;
-    emit startProgressBar(runningThreads(), "Building WR data...");
+    //HSReplay is behind Cloudflare and its cached data is outdated: its users get empty maps
+    hsrdataPickratesThreads = hsrdataWRThreads = hsrdataSamplesThreads = hsrdataPlayedThreads = hsrdataBundlesThreads = 0;
+    emit readyHSRPickratesMap(hsrPickratesMap);
+    emit readyHSRWRMap(hsrWRMap);
+    emit readyHSRSamplesMap(hsrSamplesMap);
+    emit readyHSRPlayedWRMap(hsrPlayedWRMap);
+    emit readyHSRBundlesMap(hsrBundlesMap);
 
-    initHSRBundles();
+    fireDataThreads = NUM_HEROS;
+    emit startProgressBar(runningThreads(), QStringLiteral("Firestone: card stats 0/%1").arg(NUM_HEROS));
     initFireCards();
-
-    // Utility::buildDbfIdMap(dbfIdMap);
-    initHSRCards();
 }
 
 
@@ -539,7 +542,10 @@ void WinratesDownloader::localFireCards(const int classOrder)
     QFile file(Utility::extraPath() + "/" + filename);
     if(!file.open(QIODevice::ReadOnly))
     {
+        //Count the class as done, or the progress bar would wait forever
         emit pDebug("ERROR: Failed to open " + filename);
+        fireDataThreads--;
+        showDataProgressBar();
         return;
     }
     QByteArray jsonData = file.readAll();

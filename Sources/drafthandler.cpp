@@ -68,6 +68,7 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
 
     createScoreItems();
     createRedraftRemoveList();
+    createDraftStatus();
     createSynergyHandler();
     completeUI();
 
@@ -168,6 +169,43 @@ void DraftHandler::createRedraftRemoveList()
                 this, SIGNAL(cardLeave()));
     }
     layout->addStretch();
+}
+
+
+void DraftHandler::createDraftStatus()
+{
+    findScreenFails = 0;
+
+    draftStatusLabel = new QLabel(ui->tabDraft);
+    draftStatusLabel->setAlignment(Qt::AlignCenter);
+    draftStatusLabel->setWordWrap(true);
+    draftStatusLabel->hide();
+    ui->draftVerticalLayout->insertWidget(0, draftStatusLabel);
+
+    redraftStatusLabel = new QLabel(redraftTab);
+    redraftStatusLabel->setAlignment(Qt::AlignCenter);
+    redraftStatusLabel->setWordWrap(true);
+    redraftStatusLabel->hide();
+    //Before the final stretch
+    QVBoxLayout *layout = static_cast<QVBoxLayout *>(redraftTab->layout());
+    layout->insertWidget(layout->count()-1, redraftStatusLabel);
+}
+
+
+//Empty text hides the status
+void DraftHandler::setDraftStatus(const QString &text)
+{
+    if(heroDrafting)
+    {
+        if(!text.isEmpty())     emit showMessageProgressBar(text, 3000);
+        return;
+    }
+
+    QLabel *label = (redrafting && !drafting)?redraftStatusLabel:draftStatusLabel;
+    QLabel *other = (label == draftStatusLabel)?redraftStatusLabel:draftStatusLabel;
+    other->hide();
+    label->setText(text);
+    label->setVisible(!text.isEmpty());
 }
 
 
@@ -766,7 +804,8 @@ void DraftHandler::initCodesAndHistMaps(QList<DeckCard> &deckCardList, bool skip
         }
         else
         {
-            emit startProgressBar(cardsDownloading.count(), "Downloading cards...");
+            emit startProgressBar(cardsDownloading.count(), "Downloading card images...");
+            setDraftStatus("Downloading card images...");
         }
     }
 }
@@ -907,6 +946,7 @@ void DraftHandler::clearLists(bool keepCounters)
 void DraftHandler::leaveArena()
 {
     emit pDebug("Leave arena.");
+    setDraftStatus("");
     stopLoops = true;
     stopRedraftWatch();
 
@@ -1313,8 +1353,10 @@ void DraftHandler::captureRedraftReviewNames()
 void DraftHandler::finishRedraftReviewNames()
 {
     QPair<bool, QStringList> result = futureRedraftReviewCodes.result();
+    if(!redraftingReview)   return;
+    setDraftStatus(result.first?"":"Looking for the discard screen...");
     //Keep the last picks when the screen is gone (Done pressed), they are removed from the deck at the end
-    if(!result.first || !redraftingReview)  return;
+    if(!result.first)   return;
 
     QStringList prevCodes;
     for(int i=0; i<5; i++)  if(!bestCodesRedraftingReview[i].isEmpty())    prevCodes << bestCodesRedraftingReview[i];
@@ -1480,6 +1522,7 @@ void DraftHandler::endDraft(bool createNewArena)
     if(!drafting)    return;
 
     emit pDebug("End draft.");
+    setDraftStatus("");
 
     //SizeDraft
     QMainWindow *mainWindow = static_cast<QMainWindow*>(parent());
@@ -1529,6 +1572,7 @@ void DraftHandler::endDraft(bool createNewArena)
 void DraftHandler::beginRedraftReview()
 {
     emit pDebug("Begin redraft review.");
+    setDraftStatus("Looking for the discard screen...");
 
     redrafting = true;
     redraftingReview = true;
@@ -1567,7 +1611,7 @@ void DraftHandler::beginRedraftReview()
 
     //Wait for cards
     if(cardsDownloading.isEmpty())  newCaptureDraftLoop();
-    else                            emit startProgressBar(cardsDownloading.count(), "Downloading cards...");
+    else                            emit startProgressBar(cardsDownloading.count(), "Downloading card images...");
 }
 
 
@@ -1655,6 +1699,7 @@ void DraftHandler::endRedraftReview()
 {
     //Se llama si cerramos AT, start game o leave arena.
     emit pDebug("End redraft review.");
+    setDraftStatus("");
     //Debemos llamar directamente, no usar connects, ya que esto se llama desde MainWindow::leaveArena() que tambien borra el deck en DeckHandler.
     redraftReviewTimer->stop();
     if(redraftingReview)    deckHandler->redraftReviewDeck(bestCodesRedraftingReview);
@@ -2418,6 +2463,7 @@ void DraftHandler::pickCard(QString code)
 
     this->justPickedCard = code;
 
+    setDraftStatus("Reading the next cards...");
     newCaptureDraftLoop(delayCapture);
 }
 
@@ -2757,6 +2803,7 @@ void DraftHandler::showFireScores(QString hsrCodes[], QString cardNames[])
 
 void DraftHandler::showNewCards(DraftCard bestCards[])
 {
+    setDraftStatus("");
     for(int i=0; i<3; i++)  prevCodes[i] = "";
 
     //Load cards
@@ -3451,6 +3498,7 @@ bool DraftHandler::isFindScreenAsSettings(ScreenDetection &screenDetection)
 void DraftHandler::newFindScreenLoop(bool skipScreenSettings)
 {
     stopLoops = false;
+    findScreenFails = 0;
 
     //skipScreenSettings = Force Draft / Continue Draft: No mostramos puntuaciones antes de encontrar el template
     //para asegurarnos que no estamos en la screen intermedia de arena, previo a llegar al draft desde main menu.
@@ -3505,6 +3553,11 @@ void DraftHandler::finishFindScreenRects()
     if(screenDetection.screenIndex == -1)
     {
         emit pDebug("Hearthstone arena screen not found. Retrying...");
+        //Once a second: about 10 s without seeing it
+        if(++findScreenFails >= 10)
+            setDraftStatus("Can't see the arena screen. If Hearthstone shows it, check that Screen Recording is allowed for this app.");
+        else
+            setDraftStatus("Looking for the Hearthstone arena screen...");
         QTimer::singleShot(FINDSCREEN_LOOP_TIME, this, SLOT(startFindScreenRects()));
     }
     else if(!isFindScreenOk(screenDetection))
@@ -3514,6 +3567,7 @@ void DraftHandler::finishFindScreenRects()
     else if(!isFindScreenStable(screenDetection))
     {
         emit pDebug("Hearthstone arena screen detected, waiting for a stable screen...");
+        setDraftStatus("Arena screen found, waiting for the cards to settle...");
         QTimer::singleShot(FINDSCREEN_STABLE_TIME, this, SLOT(startFindScreenRects()));
     }
     else
@@ -3531,6 +3585,8 @@ void DraftHandler::finishFindScreenRects()
             this->manaRects[i] = screenDetection.manaRects[i];
             this->rarityRects[i] = screenDetection.rarityRects[i];
         }
+        findScreenFails = 0;
+        setDraftStatus(heroDrafting?"Reading the heroes...":"Reading the cards...");
         emit pDebug("Hearthstone arena screen detected on screen " + QString::number(screenIndex) +
                     ". " + (isSame?QString("It's"):QString("Not")) + " the same.");
 
@@ -3783,6 +3839,7 @@ bool DraftHandler::areScreenPointsValid(std::vector<Point2f> screenPoints, int s
 void DraftHandler::beginHeroDraft()
 {
     emit pDebug("Begin hero draft.");
+    findScreenFails = 0;
 
     deleteDraftMechanicsWindow();
     clearLists(false);
@@ -3833,6 +3890,7 @@ void DraftHandler::updateHeroScores()
 
 void DraftHandler::showNewHeroes()
 {
+    emit showMessageProgressBar("Heroes read", 2000);
     int classOrder[3];
     for(int i=0; i<3; i++)
     {
@@ -4050,6 +4108,10 @@ void DraftHandler::setTheme()
         redraftRemoveListWidget[section]->setTheme();
         redraftRemoveLabel[section]->setFont(redraftFont);
     }
+    QFont statusFont(ThemeHandler::defaultFont());
+    statusFont.setPixelSize(14);
+    draftStatusLabel->setFont(statusFont);
+    redraftStatusLabel->setFont(statusFont);
 
     QFont font(ThemeHandler::bigFont());
     font.setPixelSize(24);

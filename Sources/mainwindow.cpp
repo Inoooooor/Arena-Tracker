@@ -2048,8 +2048,11 @@ void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, 
 
     ui->configCheckHA->setChecked(draftMethodHA);
     ui->configCheckLF->setChecked(draftMethodLF);
-    ui->configCheckHSR->setChecked(draftMethodHSR);
-    spreadDraftMethod(draftMethodHA, draftMethodLF, draftMethodHSR);
+    //HSReplay data is not loaded (Cloudflare)
+    Q_UNUSED(draftMethodHSR);
+    ui->configCheckHSR->setChecked(false);
+    ui->configCheckHSR->hide();
+    spreadDraftMethod(draftMethodHA, draftMethodLF, false);
 
     initConfigAvgScore(draftAvg);
     initWantedMechanics(wantedMechanics);
