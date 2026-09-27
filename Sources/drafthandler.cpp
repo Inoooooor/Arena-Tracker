@@ -836,7 +836,7 @@ void DraftHandler::reHistDownloadedCardImage(const QString &fileNameCode, bool m
     {
         if(needSaveCardHist)    saveCardHist();
         if(heroDrafting)    emit showMessageProgressBar("All cards downloaded");
-        else                setDraftStatus("Reading the cards...");
+        else                setDraftStatus("Scanning cards...");
         newCaptureDraftLoop();
     }
 }
@@ -2348,7 +2348,7 @@ void DraftHandler::finishBundlePreview()
     else if(bundlePreviewVisible || ++bundleMisses == 3)
     {
         bundlePreviewVisible = false;
-        setDraftStatus("Reading the next cards...");
+        setDraftStatus("Scanning the next cards...");
         newCaptureDraftLoop();
     }
 }
@@ -2373,7 +2373,7 @@ void DraftHandler::confirmBundle()
     else
     {
         //Give the deck list time to show the new cards
-        setDraftStatus("Reading the deck list...");
+        setDraftStatus("Scanning the deck list...");
         QTimer::singleShot(1500, this, [this]() {readDeckList();});
     }
 }
@@ -2744,7 +2744,7 @@ void DraftHandler::pickCard(QString code)
 
     this->justPickedCard = code;
 
-    setDraftStatus("Reading the next cards...");
+    setDraftStatus("Scanning the next cards...");
     newCaptureDraftLoop(delayCapture);
 }
 
@@ -3849,7 +3849,7 @@ void DraftHandler::finishFindScreenRects()
     else if(!isFindScreenStable(screenDetection))
     {
         emit pDebug("Hearthstone arena screen detected, waiting for a stable screen...");
-        if(draftCards[0].getCode().isEmpty())   setDraftStatus(heroDrafting?"Waiting for the heroes...":"Waiting for the cards...");
+        if(draftCards[0].getCode().isEmpty())   setDraftStatus(heroDrafting?"Scanning heroes...":"Scanning cards...");
         QTimer::singleShot(FINDSCREEN_STABLE_TIME, this, SLOT(startFindScreenRects()));
     }
     else
@@ -3868,7 +3868,7 @@ void DraftHandler::finishFindScreenRects()
             this->rarityRects[i] = screenDetection.rarityRects[i];
         }
         findScreenFails = 0;
-        if(draftCards[0].getCode().isEmpty())   setDraftStatus(heroDrafting?"Reading the heroes...":"Reading the cards...");
+        if(draftCards[0].getCode().isEmpty())   setDraftStatus(heroDrafting?"Scanning heroes...":"Scanning cards...");
         emit pDebug("Hearthstone arena screen detected on screen " + QString::number(screenIndex) +
                     ". " + (isSame?QString("It's"):QString("Not")) + " the same.");
 
