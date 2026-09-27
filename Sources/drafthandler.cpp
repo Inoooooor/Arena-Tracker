@@ -4471,16 +4471,56 @@ void DraftHandler::comboBoxActivated()
 //Review Best Cards hebra
 void DraftHandler::startReviewBestCards()
 {
-    if(!futureReviewBestCards.isRunning()) futureReviewBestCards.setFuture(QtConcurrent::run(&DraftHandler::reviewBestCards, this));
-    else    emit pDebug("reviewBestCards: Avoid new run, already running.");
+    if(futureReviewBestCards.isRunning())
+    {
+        emit pDebug("reviewBestCards: Avoid new run, already running.");
+        return;
+    }
+
+    //The worker thread gets copies: the maps and combo boxes change in the GUI thread on each pick
+    QList<QList<DraftCard>> candidates;
+    QList<DraftCard> slotCards;
+    for(int i=0; i<3; i++)
+    {
+        slotCards << draftCards[i];
+        QList<DraftCard> slotCandidates;
+        for(const QString &code: (const QList<QString>)bestMatchesMaps[i].values())
+        {
+            slotCandidates << draftCardMaps[i][code];
+        }
+        candidates << slotCandidates;
+    }
+    futureReviewBestCards.setFuture(QtConcurrent::run(&DraftHandler::reviewBestCards, this, candidates, slotCards));
 }
 void DraftHandler::finishReviewBestCards()
 {
-    QString *bestCodes = futureReviewBestCards.result();
-    if(bestCodes == nullptr)
+    QList<ReviewSlot> reviewSlots = futureReviewBestCards.result();
+    if(reviewSlots.isEmpty() || capturing)
     {
         emit pDebug("reviewBestCards: manaRects/draftCards not ready or picked a card.");
         return;
+    }
+
+    QString bestCodes[3];
+    for(int i=0; i<3; i++)
+    {
+        const ReviewSlot &reviewSlot = reviewSlots[i];
+        //The slot changed while reviewing
+        if(draftCards[i].getCode() != reviewSlot.slotCode)  continue;
+
+        const QString newCode = reviewSlot.newCard.getCode();
+        if(!newCode.isEmpty())
+        {
+            DraftCard newCard = reviewSlot.newCard;
+            bestMatchesMaps[i].insert(1, newCode);
+            draftCardMaps[i].insert(newCode, newCard);
+            newCard.draw(comboBoxCard[i]);
+        }
+        if(reviewSlot.comboIndex >= 0 && reviewSlot.comboIndex < comboBoxCard[i]->count())
+        {
+            comboBoxCard[i]->setCurrentIndex(reviewSlot.comboIndex);
+        }
+        bestCodes[i] = reviewSlot.code;
     }
 
     bool needShowCards = false;
@@ -4517,39 +4557,46 @@ void DraftHandler::finishReviewBestCards()
         this->resetTwitchScores = false;
         showNewCards(bestCards);
     }
-    delete [] bestCodes;
 }
 
 
-QString * DraftHandler::reviewBestCards()
+//Worker thread: only reads its arguments and the screen, returns an empty list to abort
+QList<ReviewSlot> DraftHandler::reviewBestCards(QList<QList<DraftCard>> candidates, QList<DraftCard> slotCards)
 {
     //manaRect no iniciado, estamos leyendo screenRects de settings
-    if(manaRects[1].width<1 || manaRects[1].height<1 || draftCards[0].getCode().isEmpty())
+    if(manaRects[1].width<1 || manaRects[1].height<1 || slotCards[0].getCode().isEmpty())
     {
-        return nullptr;
+        return {};
     }
 
     const cv::Mat screenBig = getScreenMat();
-    if(screenBig.empty())   return nullptr;
+    if(screenBig.empty())   return {};
 
     double fx = 24.0/manaRects[1].width;
     double fy = 32.0/manaRects[1].height;
     cv::Mat screenSmall;
     resize(screenBig, screenSmall, Size(), fx, fy, cv::INTER_AREA);
 
-    DraftCard bestCards[3];
+    int legendaries = 0;
+    for(DraftCard &slotCard: slotCards)     if(slotCard.getRarity() == LEGENDARY)  legendaries++;
+    const bool posibleLegendaryPack = (legendaries > 1);
+
+    QList<ReviewSlot> reviewSlots;
     for(int i=0; i<3; i++)
     {
+        ReviewSlot reviewSlot;
+        reviewSlot.slotCode = slotCards[i].getCode();
+
         int imgMana;
         CardRarity imgRarity;
         const cv::Rect manaRectSmall = cv::Rect(manaRects[i].x*fx, manaRects[i].y*fy, 24, 32);
         const cv::Rect rarityRectSmall = cv::Rect(rarityRects[i].x*fx, rarityRects[i].y*fy, 8, 12);
         getBestNManaRarity(imgMana, imgRarity, screenSmall, manaTemplates, rarityTemplates, manaRectSmall, rarityRectSmall);
 
-        int cardMana = draftCards[i].getCost();
-        CardRarity cardRarity = draftCards[i].getRarity();
-        bool signatureImage = draftCards[i].isGold() && isSignatureCard(draftCards[i].getCode());
-        bool validDraftCard = !(cardRarity == LEGENDARY && !posibleLegendaryPack());
+        int cardMana = slotCards[i].getCost();
+        CardRarity cardRarity = slotCards[i].getRarity();
+        bool signatureImage = slotCards[i].isGold() && isSignatureCard(slotCards[i].getCode());
+        bool validDraftCard = !(cardRarity == LEGENDARY && !posibleLegendaryPack);
         if(validDraftCard && (cardRarity == FREE || signatureImage))    imgRarity = INVALID_RARITY;
 
         if(imgMana != cardMana || imgRarity != cardRarity)
@@ -4557,62 +4604,52 @@ QString * DraftHandler::reviewBestCards()
             //Warning - Nueva carta
             if((cardMana < 10 || !validDraftCard) && (imgMana != -1))
             {
-                bestCards[i] = getBestMatchManaRarity(i, screenBig, imgMana, imgRarity);
-//                qDebug()<<"Warning Changed:"<<draftCards[i].getName()<<"->"<<bestCards[i].getName();
+                QString slotCode = reviewSlot.slotCode;
+                reviewSlot = getBestMatchManaRarity(candidates[i], i, screenBig, imgMana, imgRarity);
+                reviewSlot.slotCode = slotCode;
             }
             //Warning - Misma carta
             else
             {
-                bestCards[i] = draftCards[i];
-//                qDebug()<<"Warning Original:"<<bestCards[i].getName();
+                reviewSlot.code = reviewSlot.slotCode;
             }
         }
         //No Warning - Misma carta (code = "")
+        reviewSlots << reviewSlot;
 
         //Card picked while review
-        if(capturing)   return nullptr;
+        if(capturing)   return {};
     }
-    return new QString[3]{bestCards[0].getCode(), bestCards[1].getCode(), bestCards[2].getCode()};
+    return reviewSlots;
 }
 
 
-bool DraftHandler::posibleLegendaryPack()
+ReviewSlot DraftHandler::getBestMatchManaRarity(QList<DraftCard> candidates, const int pos, const cv::Mat &screenBig,
+                                                const int imgMana, const CardRarity imgRarity)
 {
-    int legendaries = 0;
-    for(int i=0; i<3; i++)
+    ReviewSlot reviewSlot;
+    for(int i=0; i<candidates.count(); i++)
     {
-        if(draftCards[i].getRarity() == LEGENDARY)  legendaries++;
-    }
-    return (legendaries > 1);
-}
-
-
-DraftCard DraftHandler::getBestMatchManaRarity(const int pos, const cv::Mat &screenBig,
-                                               const int imgMana, const CardRarity imgRarity)
-{
-    int i=0;
-    const QList<QString> codeList = bestMatchesMaps[pos].values();
-    for(const QString &code: codeList)
-    {
-        if(draftCardMaps[pos][code].getCost() == imgMana &&
-                (imgRarity == INVALID_RARITY || draftCardMaps[pos][code].getRarity() == imgRarity))
+        if(candidates[i].getCost() == imgMana &&
+                (imgRarity == INVALID_RARITY || candidates[i].getRarity() == imgRarity))
         {
-            comboBoxCard[pos]->setCurrentIndex(i);
-            if(i == 0)  return DraftCard();//Es la primera opcion, no mostramos warning
-            else        return draftCardMaps[pos][code];
+            reviewSlot.comboIndex = i;
+            //Es la primera opcion, no mostramos warning
+            if(i != 0)  reviewSlot.code = candidates[i].getCode();
+            return reviewSlot;
         }
-        i++;
     }
 
     const cv::MatND screenCardHist = getHist(screenBig(screenRects[pos]));
     DraftCard draftCard = getBestAllMatchManaRarity(screenCardHist, imgMana, imgRarity);
-    QString code = draftCard.getCode();
     draftCard.setBestQualityMatch(1, true);
-    bestMatchesMaps[pos].insert(1, code);
-    draftCardMaps[pos].insert(code, draftCard);
-    draftCard.draw(comboBoxCard[pos]);
-    comboBoxCard[pos]->setCurrentIndex(i);
-    return draftCard;
+    reviewSlot.code = draftCard.getCode();
+    if(!reviewSlot.code.isEmpty())
+    {
+        reviewSlot.newCard = draftCard;
+        reviewSlot.comboIndex = candidates.count();
+    }
+    return reviewSlot;
 }
 
 

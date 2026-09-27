@@ -67,6 +67,18 @@ public:
     QPointF screenScale = QPointF(0,0);
 };
 
+//Mana/rarity review of one draft slot. Computed in a worker thread and applied to the
+//combo box in the GUI thread, as widgets must not be touched from other threads.
+class ReviewSlot
+{
+public:
+    QString slotCode;       //Card of the slot when the review started
+    QString code;           //Suggested card, empty if the slot card is right
+    int comboIndex = -1;    //Combo box index to select, -1 to keep it
+    DraftCard newCard;      //Card to add to the combo box, empty code if it is already there
+};
+
+
 class DraftHandler : public QObject
 {
     Q_OBJECT
@@ -141,7 +153,7 @@ private:
     QFutureWatcher<QString> futureFindCodeFromText;
     QString lastThreadText;
     bool wantedMechanics[M_NUM_MECHANICS];
-    QFutureWatcher<QString *> futureReviewBestCards;
+    QFutureWatcher<QList<ReviewSlot>> futureReviewBestCards;
     //Looks for the redraft review screen ("35/30" deck counter) while in the arena menu, in case
     //the redraft picks happened when AT could not see them (Hearthstone restarted in the review screen)
     QTimer *redraftWatchTimer;
@@ -243,10 +255,11 @@ private:
     void setStartEndLoop(int &startX, int &startY, int &endX, int &endY, const int centerX, const int centerY, const int jump);
     void getBestN(int &bestNs, double &bestL2s, const Rect &rectSmall, const cv::Mat &screenCapture, const QList<Mat> &matTemplates, const int numTemplates);
     cv::Mat getScreenMat();
-    DraftCard getBestMatchManaRarity(const int pos, const Mat &screenBig, const int imgMana, const CardRarity imgRarity);
+    ReviewSlot getBestMatchManaRarity(QList<DraftCard> candidates, const int pos, const Mat &screenBig,
+                                      const int imgMana, const CardRarity imgRarity);
     DraftCard getBestAllMatchManaRarity(const MatND &screenCardHist, const int imgMana, const CardRarity imgRarity);
     void startReviewBestCards();
-    QString *reviewBestCards();
+    QList<ReviewSlot> reviewBestCards(QList<QList<DraftCard>> candidates, QList<DraftCard> slotCards);
     void loadImgTemplates(QList<Mat> &imgTemplates, const QString &filename);
     bool areScreenRectsValid(Mat &screenCapture, int length);
     bool isSignatureCard(const QString &code);
@@ -264,7 +277,6 @@ private:
     void hideRedraftTab();
     void startRedraftWatch();
     void stopRedraftWatch();
-    bool posibleLegendaryPack();
     bool areScreenPointsValid(std::vector<Point2f> screenPoints, int screenHeight);
     void showHAScores(QString ogCodes[], QString hsrCodes[], QString cardNames[]);
     void showHSRScores(QString hsrCodes[], QString cardNames[]);
