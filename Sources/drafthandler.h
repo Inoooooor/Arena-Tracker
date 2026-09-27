@@ -13,6 +13,7 @@
 #include <QObject>
 #include <QFutureWatcher>
 #include <QPointer>
+#include <QPropertyAnimation>
 
 #define DRAFT_DELAY_TIME        2000
 #define HERODRAFT_DELAY_TIME    2000
@@ -100,6 +101,7 @@ private:
     QLabel *redraftRemoveLabel[REDRAFT_REMOVE_SECTIONS];
     //What the draft recognition is doing, shown in the draft and redraft tabs (bottom bar in the hero choice)
     QLabel *draftStatusLabel, *redraftStatusLabel;
+    QPropertyAnimation *draftStatusPulse[2];   //Opacity pulse of each status label while work goes on
     int findScreenFails;
     MoveListWidget *redraftRemoveListWidget[REDRAFT_REMOVE_SECTIONS];
     QList<DeckCard> redraftRemoveCards[REDRAFT_REMOVE_SECTIONS];

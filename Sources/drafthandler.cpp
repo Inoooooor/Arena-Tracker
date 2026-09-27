@@ -197,6 +197,22 @@ void DraftHandler::createDraftStatus()
     //Before the final stretch
     QVBoxLayout *layout = static_cast<QVBoxLayout *>(redraftTab->layout());
     layout->insertWidget(layout->count()-1, redraftStatusLabel);
+
+    QLabel *labels[2] = {draftStatusLabel, redraftStatusLabel};
+    for(int i=0; i<2; i++)
+    {
+        QGraphicsOpacityEffect *effect = new QGraphicsOpacityEffect(labels[i]);
+        effect->setOpacity(1);
+        labels[i]->setGraphicsEffect(effect);
+
+        draftStatusPulse[i] = new QPropertyAnimation(effect, "opacity", this);
+        draftStatusPulse[i]->setDuration(1200);
+        draftStatusPulse[i]->setKeyValueAt(0, 1.0);
+        draftStatusPulse[i]->setKeyValueAt(0.5, 0.35);
+        draftStatusPulse[i]->setKeyValueAt(1, 1.0);
+        draftStatusPulse[i]->setEasingCurve(QEasingCurve::InOutSine);
+        draftStatusPulse[i]->setLoopCount(-1);
+    }
 }
 
 
@@ -209,11 +225,25 @@ void DraftHandler::setDraftStatus(const QString &text)
         return;
     }
 
-    QLabel *label = (redrafting && !drafting)?redraftStatusLabel:draftStatusLabel;
-    QLabel *other = (label == draftStatusLabel)?redraftStatusLabel:draftStatusLabel;
+    int index = (redrafting && !drafting)?1:0;
+    QLabel *label = (index == 1)?redraftStatusLabel:draftStatusLabel;
+    QLabel *other = (index == 1)?draftStatusLabel:redraftStatusLabel;
     other->hide();
+    draftStatusPulse[1-index]->stop();
     label->setText(text);
     label->setVisible(!text.isEmpty());
+
+    //Work in progress ("Scanning cards...") pulses; results and warnings stay still
+    QPropertyAnimation *pulse = draftStatusPulse[index];
+    if(text.endsWith("..."))
+    {
+        if(pulse->state() != QAbstractAnimation::Running)  pulse->start();
+    }
+    else
+    {
+        pulse->stop();
+        static_cast<QGraphicsOpacityEffect *>(label->graphicsEffect())->setOpacity(1);
+    }
 }
 
 
