@@ -1,4 +1,7 @@
 #include "mainwindow.h"
+#ifdef Q_OS_MAC
+#include "Utils/macwindow.h"
+#endif
 #include "Widgets/ui_extended.h"
 #include "utility.h"
 #include "Widgets/cardwindow.h"
@@ -68,6 +71,10 @@ MainWindow::MainWindow(QWidget *parent) :
     setAcceptDrops(true);
 
     QTimer::singleShot(1000, this, SLOT(init()));
+
+#ifdef Q_OS_MAC
+    new MacHoverTracker(this);
+#endif
 }
 
 
@@ -1622,6 +1629,8 @@ void MainWindow::closeApp()
     if(patreonVersion)  arenaHandler->saveMapLeaderboard();
     winratesDownloader->waitFinishThreads();
     close();
+    //On macOS closing the window used to leave the app running in the Dock, with no way to show it again
+    qApp->quit();
 }
 
 
@@ -3092,6 +3101,9 @@ void MainWindow::showWindowFrame(bool showFrame)
         this->setWindowFlags(Qt::Window|Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint);
     }
     this->show();
+#ifdef Q_OS_MAC
+    MacWindow::allowMiniaturize(this);
+#endif
 }
 
 

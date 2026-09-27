@@ -1,4 +1,7 @@
 #include "detachwindow.h"
+#ifdef Q_OS_MAC
+#include "Utils/macwindow.h"
+#endif
 #include "themehandler.h"
 #include <QtWidgets>
 
@@ -132,6 +135,9 @@ void DetachWindow::showWindowFrame(bool showFrame)
         this->setWindowFlags(Qt::Window|Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint);
     }
     this->show();
+#ifdef Q_OS_MAC
+    MacWindow::allowMiniaturize(this);
+#endif
 }
 
 
