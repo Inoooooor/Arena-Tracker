@@ -362,6 +362,18 @@ void LogLoader::sendLogWorkerFirstRun()
     for(const QString &logComponent: qAsConst(logComponentList))
     {
         LogWorker *logWorker = logWorkerMap[logComponent];
+
+        //Started with Hearthstone already running: replay the arena log from the last deck snapshot,
+        //so the deck and a pending redraft are known without entering the arena again
+        if(logComponent == "Arena" && !synchronized)
+        {
+            logWorker->skipToLastLine("DraftManager.OnChoicesAndContents - Draft Deck ID");
+            connect(logWorker, SIGNAL(newLogLineRead(LogComponent,QString,qint64,qint64)),
+                    this, SLOT(emitNewLogLineRead(LogComponent,QString,qint64,qint64)));
+            logWorker->readLog();
+            continue;
+        }
+
         logWorker->readLog();
 
         if(logComponent != "LoadingScreen" && !synchronized)

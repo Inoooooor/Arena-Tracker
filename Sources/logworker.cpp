@@ -104,3 +104,38 @@ void LogWorker::readLog()
 }
 
 
+
+
+//Moves the read position to the start of the last line containing marker, or to the end of the log if none does
+void LogWorker::skipToLastLine(const QString &marker)
+{
+    QFile logFile(logPath);
+    if(!logFile.open(QIODevice::ReadOnly))  return;
+
+    qint64 seek = 0, numLine = 0;
+    qint64 markerSeek = -1, markerNumLine = 0;
+    QString line;
+    int lineLength;
+    while((lineLength = readLine(logFile, line)) > 0)
+    {
+        if(line.contains(marker))
+        {
+            markerSeek = seek;
+            markerNumLine = numLine;
+        }
+        seek += lineLength;
+        numLine++;
+    }
+    logFile.close();
+
+    if(markerSeek == -1)
+    {
+        logSeek = seek;
+        logNumLine = numLine;
+    }
+    else
+    {
+        logSeek = markerSeek;
+        logNumLine = markerNumLine;
+    }
+}
