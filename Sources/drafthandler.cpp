@@ -91,7 +91,9 @@ DraftHandler::~DraftHandler()
     deleteDraftMechanicsWindow();
     deleteTwitchHandler();
     if(synergyHandler != nullptr)  delete synergyHandler;
-    if(redraftTab != nullptr)  delete redraftTab;
+    //Once shown the tab belongs to the tab widget (removeTab keeps it as parent), which deletes it with the window.
+    //Deleting it here would switch tabs while the other handlers are already gone.
+    if(redraftTab != nullptr && redraftTab->parent() == nullptr)  delete redraftTab;
 }
 
 
