@@ -3555,9 +3555,9 @@ void DraftHandler::finishFindScreenRects()
         emit pDebug("Hearthstone arena screen not found. Retrying...");
         //Once a second: about 10 s without seeing it
         if(++findScreenFails >= 10)
-            setDraftStatus("Can't see the arena screen. If Hearthstone shows it, check that Screen Recording is allowed for this app.");
+            setDraftStatus("Can't see the arena screen. Check the Screen Recording permission.");
         else
-            setDraftStatus("Looking for the Hearthstone arena screen...");
+            setDraftStatus("Looking for the arena screen...");
         QTimer::singleShot(FINDSCREEN_LOOP_TIME, this, SLOT(startFindScreenRects()));
     }
     else if(!isFindScreenOk(screenDetection))
@@ -3567,7 +3567,7 @@ void DraftHandler::finishFindScreenRects()
     else if(!isFindScreenStable(screenDetection))
     {
         emit pDebug("Hearthstone arena screen detected, waiting for a stable screen...");
-        setDraftStatus("Arena screen found, waiting for the cards to settle...");
+        setDraftStatus(heroDrafting?"Waiting for the heroes...":"Waiting for the cards...");
         QTimer::singleShot(FINDSCREEN_STABLE_TIME, this, SLOT(startFindScreenRects()));
     }
     else

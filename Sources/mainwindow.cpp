@@ -2361,6 +2361,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
     resizeChecks();
+    fitProgressBarText();
     event->accept();
 }
 
@@ -3330,8 +3331,7 @@ void MainWindow::updateMainUITheme()
     QFont font(ThemeHandler::defaultFont());
     font.setPixelSize(15);
     QApplication::setFont(font);
-    font.setPixelSize(16);
-    ui->progressBar->setFont(font);
+    fitProgressBarText();
 
     updateTabWidgetsTheme(false, false);
     updateButtonsTheme();
@@ -4162,7 +4162,7 @@ void MainWindow::createDebugPack()
 
 void MainWindow::showMessageProgressBar(QString text, int hideDelay)
 {
-    ui->progressBar->setFormat(text);
+    setProgressBarText(text);
 
     if(ui->progressBar->value() != ui->progressBar->maximum())
     {
@@ -4182,7 +4182,7 @@ void MainWindow::startProgressBar(int maximum, QString text)
     ui->progressBar->setMaximum(maximum);
     ui->progressBar->setMinimum(0);
     ui->progressBar->setValue(0);
-    ui->progressBar->setFormat(text);
+    setProgressBarText(text);
 
     if(!ui->progressBar->isVisible())   showProgressBar(false);
 }
@@ -4199,7 +4199,38 @@ void MainWindow::advanceProgressBar(int remaining, QString text)
         if(remaining > ui->progressBar->maximum())  ui->progressBar->setMaximum(remaining);
         ui->progressBar->setValue(ui->progressBar->maximum()-remaining);
     }
-    if(!text.isEmpty())     ui->progressBar->setFormat(text);
+    if(!text.isEmpty())     setProgressBarText(text);
+}
+
+
+void MainWindow::setProgressBarText(const QString &text)
+{
+    progressBarText = text;
+    ui->progressBar->setToolTip(text);
+    fitProgressBarText();
+}
+
+
+//Shrinks the font until the text fits the bar, and elides it if it still doesn't at the smallest size
+void MainWindow::fitProgressBarText()
+{
+    //Room for the borders and, on both sides to keep it centered, the resize corner
+    int available = ui->progressBar->width() - 2*28;
+    if(available < 20)  return;
+
+    QFont font(ThemeHandler::defaultFont());
+    QString text = progressBarText;
+    int pixelSize = 16;
+    for(; pixelSize>10; pixelSize--)
+    {
+        font.setPixelSize(pixelSize);
+        if(QFontMetrics(font).horizontalAdvance(text) <= available)     break;
+    }
+    font.setPixelSize(pixelSize);
+    text = QFontMetrics(font).elidedText(text, Qt::ElideRight, available);
+
+    ui->progressBar->setFont(font);
+    ui->progressBar->setFormat(text);
 }
 
 
@@ -4212,6 +4243,7 @@ void MainWindow::showProgressBar(bool animated)
     }
 
     ui->progressBar->setVisible(true);
+    fitProgressBarText();
 
     if(animated)
     {

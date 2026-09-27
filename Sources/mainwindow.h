@@ -65,6 +65,7 @@ public:
 private:
     Ui::Extended *ui;
     bool patreonVersion;
+    QString progressBarText;   //Full text; the bar shows it shrunk or elided to its width
     LogLoader *logLoader;
     GameWatcher *gameWatcher;
     HSCardDownloader *cardDownloader;
@@ -180,6 +181,8 @@ private:
     void spreadDraftMethod(bool draftMethodHA, bool draftMethodLF, bool draftMethodHSR);
     DraftMethod draftMethodFromString(QString draftAvg);
     void showProgressBar(bool animated=true);
+    void setProgressBarText(const QString &text);
+    void fitProgressBarText();
     bool askImportAccount();
     void checkFirstRunNewVersion();
     void startProgressBarMini(int maximum);
