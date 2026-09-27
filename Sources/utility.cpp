@@ -1172,7 +1172,16 @@ void Utility::drawShadowText(QPainter &painter, const QFont &font, const QString
 
     QPainterPath path;
     path.addText(x - (alignCenter?textWide/2:0), y + textHigh*offsetY, font, text);
-    painter.drawPath(path);
+
+    //Outline outside the letters: a stroke on the path would cover half of each thin letter
+    QPen pen = painter.pen();
+    if(pen.style() != Qt::NoPen)
+    {
+        pen.setWidthF(std::max<qreal>(1, pen.widthF())*2);
+        pen.setJoinStyle(Qt::RoundJoin);
+        painter.strokePath(path, pen);
+    }
+    painter.fillPath(path, painter.brush());
 }
 
 

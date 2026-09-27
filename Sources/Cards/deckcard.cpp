@@ -345,7 +345,7 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
     font.setKerning(true);
 #ifdef Q_OS_WIN
     font.setLetterSpacing(QFont::AbsoluteSpacing, -2);
-#else
+#elif !defined(Q_OS_MAC)
     font.setLetterSpacing(QFont::AbsoluteSpacing, -1);
 #endif
 
@@ -390,7 +390,8 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
 
             QFontMetrics fm(font);
             int textWide = fm.horizontalAdvance(name);
-            while(textWide>maxNameLong)
+            //Shrink long names, but not below a readable size: then cut them
+            while(textWide>maxNameLong && fontSize>12*scale)
             {
                 fontSize--;
                 font.setPixelSize(fontSize);
@@ -399,7 +400,7 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
             }
             //Utility::shrinkText(font, name, 15*scale, maxNameLong);//Equivale a lo de arriba
 
-            Utility::drawShadowText(painter, font, name, 34*scale, (20*scale) - offsetY, false);
+            Utility::drawShadowText(painter, font, fm.elidedText(name, Qt::ElideRight, maxNameLong), 34*scale, (20*scale) - offsetY, false);
 
             //Mana cost
             if(manaText.isEmpty())
@@ -563,7 +564,7 @@ QPixmap DeckCard::drawCustomCard(QString customCode, QString customText)
     font.setKerning(true);
 #ifdef Q_OS_WIN
         font.setLetterSpacing(QFont::AbsoluteSpacing, -2);
-#else
+#elif !defined(Q_OS_MAC)
         font.setLetterSpacing(QFont::AbsoluteSpacing, -1);
 #endif
 

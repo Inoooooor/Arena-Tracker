@@ -86,7 +86,7 @@ void HandCard::drawDefaultHandCard()
     font.setKerning(true);
 #ifdef Q_OS_WIN
         font.setLetterSpacing(QFont::AbsoluteSpacing, -2);
-#else
+#elif !defined(Q_OS_MAC)
         font.setLetterSpacing(QFont::AbsoluteSpacing, -1);
 #endif
 
