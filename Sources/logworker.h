@@ -27,7 +27,7 @@ private:
 
 public:
     void readLog();
-    void skipToLastLine(const QString &marker);
+    void skipToLastLine(const QString &marker, const QString &stateMarker="");
 
     static void setCopyGameLogs(bool value);
 

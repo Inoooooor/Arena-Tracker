@@ -363,11 +363,12 @@ void LogLoader::sendLogWorkerFirstRun()
     {
         LogWorker *logWorker = logWorkerMap[logComponent];
 
-        //Started with Hearthstone already running: replay the arena log from the last deck snapshot,
-        //so the deck and a pending redraft are known without entering the arena again
+        //Started with Hearthstone already running: replay the arena log from the last deck snapshot before the
+        //last draft mode change, so the deck and a pending redraft are known without entering the arena again.
+        //A redraft logs snapshot, REDRAFTING, then a second snapshot with no mode after it.
         if(logComponent == "Arena" && !synchronized)
         {
-            logWorker->skipToLastLine("DraftManager.OnChoicesAndContents - Draft Deck ID");
+            logWorker->skipToLastLine("DraftManager.OnChoicesAndContents - Draft Deck ID", "SetDraftMode - ");
             connect(logWorker, SIGNAL(newLogLineRead(LogComponent,QString,qint64,qint64)),
                     this, SLOT(emitNewLogLineRead(LogComponent,QString,qint64,qint64)));
             logWorker->readLog();
