@@ -79,7 +79,7 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     connect(redraftWatchTimer, SIGNAL(timeout()), this, SLOT(checkRedraftScreen()));
     connect(&futureRedraftCounter, SIGNAL(finished()), this, SLOT(finishCheckRedraftScreen()));
 
-    bundlePending = bundlePreviewSeen = false;
+    bundlePending = bundlePreviewVisible = false;
     bundleMisses = bundleReads = 0;
     bundleTimer = new QTimer(this);
     bundleTimer->setInterval(REDRAFT_REVIEW_OCR_TIME);
@@ -2205,7 +2205,7 @@ static QString trimCardLine(const QString &line)
 void DraftHandler::resetBundle()
 {
     bundleTimer->stop();
-    bundlePending = bundlePreviewSeen = false;
+    bundlePending = bundlePreviewVisible = false;
     bundleMisses = 0;
     bundleLegendary = "";
     bundlePreviews.clear();
@@ -2257,7 +2257,7 @@ void DraftHandler::startBundlePreview(const QString &code)
     emit pDebug("Bundle preview: " + code + " " + Utility::cardEnNameFromCode(code));
     bundleLegendary = code;
     bundlePending = true;
-    bundlePreviewSeen = false;
+    bundlePreviewVisible = false;
     bundleMisses = 0;
     bundleReads = 0;
     buildBundleNameMap();
@@ -2284,19 +2284,36 @@ void DraftHandler::captureBundlePreview()
     const QString legendary = bundleLegendary;
     const QString language = Utility::getLocalLang();
     futureBundle.setFuture(QtConcurrent::run([image, nameMap, legendary, language]() {
-        bool previewVisible = false;
-        QStringList codes;
+        QList<QPair<QString, QRectF>> cards;
         for(const MacOcr::TextLine &line: MacOcr::recognizeTextLines(image, language))
         {
             //The deck list, right, is not part of the preview; the window title "Hearthstone" is also a card
             if(line.rect.center().x() > image.width()*0.75)     continue;
             if(line.rect.center().y() < image.height()*0.08)    continue;
             QString code = matchCardName({trimCardLine(line.text)}, nameMap);
-            if(code.isEmpty())  continue;
-            if(code == legendary)           previewVisible = true;
-            else if(!codes.contains(code))  codes << code;
+            if(!code.isEmpty())     cards << qMakePair(code, line.rect);
         }
-        return qMakePair(previewVisible, codes.mid(0, 3));
+
+        //The preview shows the legendary big, with its bundle cards listed up and to its right, and the
+        //other legendaries blurred behind. In the choice of legendaries their names are side by side.
+        QRectF legendaryRect;
+        for(const auto &card: qAsConst(cards))
+        {
+            if(card.first == legendary)     legendaryRect = card.second;
+            else if(Utility::getRarityFromCode(card.first) == LEGENDARY)    return qMakePair(false, QStringList());
+        }
+        if(legendaryRect.isNull())  return qMakePair(false, QStringList());
+
+        QStringList codes;
+        for(const auto &card: qAsConst(cards))
+        {
+            const QRectF &rect = card.second;
+            if(card.first == legendary || codes.contains(card.first))  continue;
+            if(rect.center().x() < legendaryRect.center().x() + image.width()*0.1)    continue;
+            if(rect.center().y() > legendaryRect.center().y())  continue;
+            codes << card.first;
+        }
+        return qMakePair(true, codes.mid(0, 3));
     }));
 #endif
 }
@@ -2309,7 +2326,7 @@ void DraftHandler::finishBundlePreview()
 
     if(result.first)
     {
-        bundlePreviewSeen = true;
+        bundlePreviewVisible = true;
         bundleMisses = 0;
         QStringList &codes = bundlePreviews[bundleLegendary];
         if(result.second.count() > codes.count())
@@ -2324,10 +2341,11 @@ void DraftHandler::finishBundlePreview()
         else if(bundleReads >= 5)   setDraftStatus("Can't read this bundle, the deck list will be read after the pick");
         else                        setDraftStatus("Analyzing bundle...");
     }
-    //Preview closed: picked, or back to the legendaries. The next cards tell.
-    else if(bundlePreviewSeen || ++bundleMisses >= 3)
+    //Preview closed, or not seen after its log line: picked, or back to the legendaries. The next cards tell;
+    //the timer keeps watching for another preview until the pick.
+    else if(bundlePreviewVisible || ++bundleMisses == 3)
     {
-        bundleTimer->stop();
+        bundlePreviewVisible = false;
         setDraftStatus("Reading the next cards...");
         newCaptureDraftLoop();
     }
@@ -3814,8 +3832,9 @@ void DraftHandler::finishFindScreenRects()
     if(screenDetection.screenIndex == -1)
     {
         emit pDebug("Hearthstone arena screen not found. Retrying...");
-        //Once a second: about 10 s without seeing it
-        if(++findScreenFails >= 10)
+        //Once a second: about 10 s without seeing it. A Rescan shows the cards while this loop checks the screen.
+        if(!draftCards[0].getCode().isEmpty())  {}
+        else if(++findScreenFails >= 10)
             setDraftStatus("Can't see the arena screen. Check the Screen Recording permission.");
         else
             setDraftStatus("Looking for the arena screen...");
@@ -3828,7 +3847,7 @@ void DraftHandler::finishFindScreenRects()
     else if(!isFindScreenStable(screenDetection))
     {
         emit pDebug("Hearthstone arena screen detected, waiting for a stable screen...");
-        setDraftStatus(heroDrafting?"Waiting for the heroes...":"Waiting for the cards...");
+        if(draftCards[0].getCode().isEmpty())   setDraftStatus(heroDrafting?"Waiting for the heroes...":"Waiting for the cards...");
         QTimer::singleShot(FINDSCREEN_STABLE_TIME, this, SLOT(startFindScreenRects()));
     }
     else
@@ -3847,7 +3866,7 @@ void DraftHandler::finishFindScreenRects()
             this->rarityRects[i] = screenDetection.rarityRects[i];
         }
         findScreenFails = 0;
-        setDraftStatus(heroDrafting?"Reading the heroes...":"Reading the cards...");
+        if(draftCards[0].getCode().isEmpty())   setDraftStatus(heroDrafting?"Reading the heroes...":"Reading the cards...");
         emit pDebug("Hearthstone arena screen detected on screen " + QString::number(screenIndex) +
                     ". " + (isSame?QString("It's"):QString("Not")) + " the same.");
 

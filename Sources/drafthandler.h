@@ -175,7 +175,7 @@ private:
     QMap<QString, QStringList> bundlePreviews;  //Legendary -> its bundle cards, as read
     QMap<QString, QString> bundleNameMap;       //All collectible cards of the draft classes: bundles bring cards from outside the arena sets
     int bundleReads;
-    bool bundlePending, bundlePreviewSeen;
+    bool bundlePending, bundlePreviewVisible;
     int bundleMisses;
     QMap<QString, QString> redraftNameMap;  //Normalized local name -> code, of the deck cards
     QList<cv::Mat> manaTemplates;
