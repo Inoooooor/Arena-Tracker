@@ -7,6 +7,7 @@
 #include <QPainterPath>
 #include <QMap>
 #include <functional>
+#include <cmath>
 
 #define HD_ICON_SIZE 128
 
@@ -211,4 +212,222 @@ void HDIcons::prefetch()
         HDImages::path(HDImages::Portrait, QStringLiteral("HERO_%1").arg(Utility::classOrder2classLogNumber(i)));
     }
     HDImages::path(HDImages::Portrait, "GAME_005");
+}
+
+
+static QString tabThemeFile(HDIcons::Tab tab)
+{
+    switch(tab)
+    {
+        case HDIcons::TabArena:     return ThemeHandler::tabArenaFile();
+        case HDIcons::TabGames:     return ThemeHandler::tabGamesFile();
+        case HDIcons::TabHand:      return ThemeHandler::tabHandFile();
+        case HDIcons::TabDeck:      return ThemeHandler::tabDeckFile();
+        case HDIcons::TabEnemyDeck: return ThemeHandler::tabEnemyDeckFile();
+        case HDIcons::TabGraveyard: return ThemeHandler::tabGraveyardFile();
+        case HDIcons::TabPlan:      return ThemeHandler::tabPlanFile();
+        case HDIcons::TabConfig:    return ThemeHandler::tabConfigFile();
+    }
+    return QString();
+}
+
+
+//Average color of the opaque pixels of the theme icon, in its top and bottom thirds
+static void themeColors(const QString &file, QColor &top, QColor &bottom)
+{
+    QImage image = QImage(file).convertToFormat(QImage::Format_ARGB32);
+    top = QColor(245, 200, 150);
+    bottom = QColor(210, 120, 50);
+    if(image.isNull())  return;
+    for(int part=0; part<2; part++)
+    {
+        qint64 r = 0, g = 0, b = 0, n = 0;
+        int y0 = (part==0)?0:image.height()*2/3, y1 = (part==0)?image.height()/3:image.height();
+        for(int y=y0; y<y1; y++)
+            for(int x=0; x<image.width(); x++)
+            {
+                QColor c = image.pixelColor(x, y);
+                if(c.alpha() < 200) continue;
+                r += c.red(); g += c.green(); b += c.blue(); n++;
+            }
+        if(n == 0)  continue;
+        (part==0?top:bottom) = QColor(r/n, g/n, b/n);
+    }
+}
+
+
+static void drawTabGlyph(QPainter &p, HDIcons::Tab tab, qreal s)
+{
+    const qreal k = s/128.0;
+    p.scale(k, k);
+    QPainterPath path;
+    auto clearStroke = [&p](const QPainterPath &shape, qreal width) {
+        p.save();
+        p.setCompositionMode(QPainter::CompositionMode_Clear);
+        p.strokePath(shape, QPen(Qt::black, width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.restore();
+    };
+    auto clearFill = [&p](const QPainterPath &shape) {
+        p.save();
+        p.setCompositionMode(QPainter::CompositionMode_Clear);
+        p.fillPath(shape, Qt::black);
+        p.restore();
+    };
+    const QBrush brush = p.brush();
+    auto stroke = [&p, &brush](const QPainterPath &shape, qreal width) {
+        p.strokePath(shape, QPen(brush, width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    };
+    auto deckLayers = [&]() {
+        QPainterPath top;
+        top.moveTo(64, 12); top.lineTo(116, 36); top.lineTo(64, 60); top.lineTo(12, 36); top.closeSubpath();
+        p.fillPath(top, brush);
+        for(int i=1; i<=2; i++)
+        {
+            QPainterPath layer;
+            layer.moveTo(17, 38 + i*25); layer.lineTo(64, 60 + i*25); layer.lineTo(111, 38 + i*25);
+            stroke(layer, 15);
+        }
+    };
+
+    switch(tab)
+    {
+    case HDIcons::TabGames:
+        path.addRoundedRect(QRectF(14, 64, 28, 52), 6, 6);
+        path.addRoundedRect(QRectF(50, 18, 28, 98), 6, 6);
+        path.addRoundedRect(QRectF(86, 44, 28, 72), 6, 6);
+        p.fillPath(path, brush);
+        break;
+
+    case HDIcons::TabHand:
+        for(int i=0; i<3; i++)
+        {
+            QTransform t;
+            t.translate(58, 112); t.rotate(-26 + i*20); t.translate(-58, -112);
+            QPainterPath card;
+            card.addRoundedRect(QRectF(34, 22, 52, 76), 8, 8);
+            card = t.map(card);
+            if(i > 0)   clearFill(card);
+            stroke(card, 9);
+        }
+        break;
+
+    case HDIcons::TabDeck:
+        deckLayers();
+        break;
+
+    case HDIcons::TabEnemyDeck:
+    {
+        deckLayers();
+        QPainterPath cross;
+        cross.moveTo(44, 50); cross.lineTo(84, 90);
+        cross.moveTo(84, 50); cross.lineTo(44, 90);
+        clearStroke(cross, 26);
+        stroke(cross, 11);
+        break;
+    }
+
+    case HDIcons::TabGraveyard:
+        path.addRoundedRect(QRectF(54, 10, 20, 96), 4, 4);
+        path.addRoundedRect(QRectF(28, 32, 72, 20), 4, 4);
+        path.addRoundedRect(QRectF(30, 104, 68, 16), 5, 5);
+        path.setFillRule(Qt::WindingFill);
+        p.fillPath(path.simplified(), brush);
+        break;
+
+    case HDIcons::TabPlan:
+    {
+        QPainterPath board;
+        board.addRoundedRect(QRectF(22, 20, 84, 100), 10, 10);
+        stroke(board, 9);
+        QPainterPath clip;
+        clip.addRoundedRect(QRectF(44, 8, 40, 24), 6, 6);
+        clearFill(clip);
+        p.fillPath(clip, brush);
+        QPainterPath marks;
+        marks.moveTo(38, 46); marks.lineTo(52, 60); marks.moveTo(52, 46); marks.lineTo(38, 60);
+        marks.moveTo(74, 86); marks.lineTo(88, 100); marks.moveTo(88, 86); marks.lineTo(74, 100);
+        marks.moveTo(44, 100); marks.quadTo(52, 64, 86, 56);
+        stroke(marks, 7);
+        QPainterPath head;
+        head.moveTo(92, 52); head.lineTo(76, 46); head.lineTo(80, 64); head.closeSubpath();
+        p.fillPath(head, brush);
+        break;
+    }
+
+    case HDIcons::TabConfig:
+    {
+        for(int i=0; i<8; i++)
+        {
+            QTransform t;
+            t.translate(64, 64); t.rotate(i*45); t.translate(-64, -64);
+            QPainterPath tooth;
+            tooth.addRoundedRect(QRectF(53, 8, 22, 30), 5, 5);
+            path.addPath(t.map(tooth));
+        }
+        path.addEllipse(QPointF(64, 64), 42, 42);
+        path.setFillRule(Qt::WindingFill);
+        p.fillPath(path.simplified(), brush);
+        QPainterPath hole;
+        hole.addEllipse(QPointF(64, 64), 18, 18);
+        clearFill(hole);
+        break;
+    }
+
+    case HDIcons::TabArena:
+    {
+        QPolygonF star;
+        for(int i=0; i<16; i++)
+        {
+            qreal r = (i%2==0)?60:42;
+            qreal a = (i*22.5 - 90) * M_PI/180;
+            star << QPointF(64 + r*std::cos(a), 64 + r*std::sin(a));
+        }
+        path.addPolygon(star);
+        path.closeSubpath();
+        p.fillPath(path, brush);
+        QPainterPath hole;
+        hole.addEllipse(QPointF(64, 64), 29, 29);
+        clearFill(hole);
+        //Swirl of the Hearthstone logo
+        QPainterPath swirl;
+        swirl.moveTo(64, 64);
+        swirl.arcTo(QRectF(56, 56, 16, 16), 180, -270);
+        swirl.arcTo(QRectF(46, 46, 36, 36), 90, -300);
+        stroke(swirl, 7);
+        break;
+    }
+    }
+}
+
+
+QPixmap HDIcons::tabPixmap(Tab tab)
+{
+    const QString file = tabThemeFile(tab);
+    static QMap<QString, QPixmap> cache;
+    const QString key = QString::number(tab) + file;
+    if(!cache.contains(key))
+    {
+        QColor top, bottom;
+        themeColors(file, top, bottom);
+        const qreal s = HD_ICON_SIZE;
+        QPixmap canvas(HD_ICON_SIZE, HD_ICON_SIZE);
+        canvas.fill(Qt::transparent);
+        QPainter painter(&canvas);
+        painter.setRenderHint(QPainter::Antialiasing);
+        QLinearGradient gradient(0, 0, 0, s);
+        gradient.setColorAt(0, top);
+        gradient.setColorAt(1, bottom);
+        painter.setBrush(gradient);
+        painter.setPen(Qt::NoPen);
+        drawTabGlyph(painter, tab, s);
+        painter.end();
+        cache[key] = canvas;
+    }
+    return cache[key];
+}
+
+
+QIcon HDIcons::tab(Tab tab)
+{
+    return QIcon(new HDIconEngine([tab]() { return tabPixmap(tab); }, tabThemeFile(tab)));
 }

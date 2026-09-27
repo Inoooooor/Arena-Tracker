@@ -16,6 +16,11 @@ namespace HDIcons
     QIcon win();
     QIcon lose();
     void prefetch();
+
+    //Tab icons drawn in the colors of the theme's icon
+    enum Tab { TabArena, TabGames, TabHand, TabDeck, TabEnemyDeck, TabGraveyard, TabPlan, TabConfig };
+    QIcon tab(Tab tab);
+    QPixmap tabPixmap(Tab tab);
 }
 
 #endif // HDICONS_H

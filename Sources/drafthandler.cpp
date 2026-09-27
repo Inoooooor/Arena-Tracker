@@ -1,4 +1,5 @@
 #include "drafthandler.h"
+#include "Utils/hdicons.h"
 #include "themehandler.h"
 #include "Synergies/cardtypecounter.h"
 #include "Synergies/mechaniccounter.h"
@@ -268,7 +269,7 @@ void DraftHandler::showRedraftTab()
 //The deck tab icon of the theme with a round "-" badge, so it matches the other tabs in any theme
 QIcon DraftHandler::redraftTabIcon()
 {
-    QImage image = QImage(ThemeHandler::tabDeckFile()).convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    QImage image = HDIcons::tabPixmap(HDIcons::TabDeck).toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied);
     if(image.isNull())  return QIcon(ThemeHandler::tabDeckFile());
     const qreal size = image.width();
 
@@ -893,7 +894,7 @@ void DraftHandler::resetTab(bool alreadyDrafting)
         settings.setValue("size", mainWindow->size());
 
         //Show Tab
-        ui->tabWidget->insertTab(0, ui->tabDraft, QIcon(ThemeHandler::tabArenaFile()), "");
+        ui->tabWidget->insertTab(0, ui->tabDraft, HDIcons::tab(HDIcons::TabArena), "");
         ui->tabWidget->setTabToolTip(0, "Draft");
 
         //Reset scores
@@ -4446,7 +4447,7 @@ void DraftHandler::setTheme()
 
     //Change Arena draft icon
     int index = ui->tabWidget->indexOf(ui->tabDraft);
-    if(index >= 0)  ui->tabWidget->setTabIcon(index, QIcon(ThemeHandler::tabArenaFile()));
+    if(index >= 0)  ui->tabWidget->setTabIcon(index, HDIcons::tab(HDIcons::TabArena));
 }
 
 

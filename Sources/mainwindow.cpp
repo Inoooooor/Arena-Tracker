@@ -2488,42 +2488,42 @@ void MainWindow::moveTabTo(QWidget *widget, QTabWidget *tabWidget)
     QString tooltip;
     if(widget == ui->tabDraft)
     {
-        icon = QIcon(ThemeHandler::tabArenaFile());
+        icon = HDIcons::tab(HDIcons::TabArena);
         tooltip = "Draft";
     }
     else if(widget == ui->tabArena)
     {
-        icon = QIcon(ThemeHandler::tabGamesFile());
+        icon = HDIcons::tab(HDIcons::TabGames);
         tooltip = "Games";
     }
     else if(widget == ui->tabDeck)
     {
-        icon = QIcon(ThemeHandler::tabDeckFile());
+        icon = HDIcons::tab(HDIcons::TabDeck);
         tooltip = "Deck";
     }
     else if(widget == ui->tabEnemy)
     {
-        icon = QIcon(ThemeHandler::tabHandFile());
+        icon = HDIcons::tab(HDIcons::TabHand);
         tooltip = "Hand";
     }
     else if(widget == ui->tabPlan)
     {
-        icon = QIcon(ThemeHandler::tabPlanFile());
+        icon = HDIcons::tab(HDIcons::TabPlan);
         tooltip = "Replay";
     }
     else if(widget == ui->tabEnemyDeck)
     {
-        icon = QIcon(ThemeHandler::tabEnemyDeckFile());
+        icon = HDIcons::tab(HDIcons::TabEnemyDeck);
         tooltip = "Enemy Deck";
     }
     else if(widget == ui->tabGraveyard)
     {
-        icon = QIcon(ThemeHandler::tabGraveyardFile());
+        icon = HDIcons::tab(HDIcons::TabGraveyard);
         tooltip = "Graveyard";
     }
     else if(widget == ui->tabConfig)
     {
-        icon = QIcon(ThemeHandler::tabConfigFile());
+        icon = HDIcons::tab(HDIcons::TabConfig);
         tooltip = "Config";
     }
     else if(draftHandler != nullptr && widget == draftHandler->getRedraftTab())
