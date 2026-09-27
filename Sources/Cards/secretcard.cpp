@@ -38,10 +38,10 @@ void SecretCard::draw()
     }
     else
     {
-        canvas = QPixmap(CARD_SIZE);
+        canvas = newCanvas(CARD_SIZE);
 
         painter.begin(&canvas);
-            painter.fillRect(canvas.rect(), Qt::black);
+            painter.fillRect(QRect(QPoint(0,0), CARD_SIZE), Qt::black);
             painter.drawPixmap(0,0,QPixmap(ThemeHandler::handCardFile()));
         painter.end();
     }

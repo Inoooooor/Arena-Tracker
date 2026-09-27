@@ -60,7 +60,7 @@ void HandCard::drawDefaultHandCard()
 
 
     //Imagenes
-    QPixmap canvas(CARD_SIZE);
+    QPixmap canvas = newCanvas(CARD_SIZE);
     canvas.fill(Qt::transparent);
     QPainter painter;
     painter.begin(&canvas);

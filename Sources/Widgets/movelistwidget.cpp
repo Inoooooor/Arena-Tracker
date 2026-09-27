@@ -2,6 +2,7 @@
 #include "../Cards/deckcard.h"
 #include "../themehandler.h"
 #include "qevent.h"
+#include <QApplication>
 
 
 PixelPerfectDelegate::PixelPerfectDelegate(QObject *parent) : QStyledItemDelegate(parent)
@@ -22,7 +23,9 @@ QSize PixelPerfectDelegate::sizeHint(const QStyleOptionViewItem &option, const Q
     if (icon.isNull()) {
         return QSize(0, 0);
     }
-    return icon.actualSize(QSize(1024, 1024));
+    //Card pixmaps are drawn at the screen resolution: their size in points
+    QSizeF size = QSizeF(icon.actualSize(QSize(4096, 4096))) / qApp->devicePixelRatio();
+    return size.toSize();
 }
 
 

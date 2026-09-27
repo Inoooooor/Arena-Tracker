@@ -1,4 +1,5 @@
 #include "scorebutton.h"
+#include "../Cards/deckcard.h"
 #include "../themehandler.h"
 #include "Sources/constants.h"
 #include <QtWidgets>
@@ -212,8 +213,7 @@ void ScoreButton::paintEvent(QPaintEvent *event)
 {
     QLabel::paintEvent(event);
 
-    QPixmap canvas(width(), height());
-    canvas.fill(Qt::transparent);
+    QPixmap canvas = DeckCard::newCanvas(QSize(width(), height()));
     QRect targetAll(0, 0, width(), height());
     drawPixmap(canvas, targetAll);
 
@@ -363,8 +363,7 @@ QPixmap ScoreButton::scorePixmap(ScoreSource scoreSource, float score, bool useW
         && useWideHeroesColor)  scoreButton.getScoreColor(r, g, b, score, Score_Heroes);
     else                        scoreButton.getScoreColor(r, g, b, score, scoreSource);
 
-    QPixmap canvas(size, size);
-    canvas.fill(Qt::transparent);
+    QPixmap canvas = DeckCard::newCanvas(QSize(size, size));
     QPainter painter(&canvas);
     painter.setBrush(QColor(r, g, b));
     painter.drawEllipse(QPoint(size/2,size/2), size/3, size/3);
@@ -373,7 +372,8 @@ QPixmap ScoreButton::scorePixmap(ScoreSource scoreSource, float score, bool useW
     QRect targetAll(0, 0, size, size);
     scoreButton.drawPixmap(canvas, targetAll, true);
 
-    return canvas.copy(size/8, size/8, size*0.75, size*0.75);
+    const qreal dpr = canvas.devicePixelRatio();
+    return canvas.copy(QRectF(size/8*dpr, size/8*dpr, size*0.75*dpr, size*0.75*dpr).toRect());
 }
 
 

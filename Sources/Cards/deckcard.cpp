@@ -217,7 +217,7 @@ void DeckCard::disablePixmap(QPixmap &canvas)
         painter.setRenderHint(QPainter::SmoothPixmapTransform);
         painter.setRenderHint(QPainter::TextAntialiasing);
 
-        painter.fillRect(canvas.rect(), QBrush(QColor(0,0,0,DISABLE_OPACITY)));
+        painter.fillRect(QRect(QPoint(0,0), logicalSize(canvas)), QBrush(QColor(0,0,0,DISABLE_OPACITY)));
     painter.end();
 }
 
@@ -243,7 +243,7 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
 
 
     //Imagenes
-    QPixmap canvas(CARD_SIZE);
+    QPixmap canvas = newCanvas(CARD_SIZE);
     canvas.fill(Qt::transparent);
     QPainter painter;
     painter.begin(&canvas);
@@ -333,7 +333,7 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
 
     //Adapt to size
     if(cardWidth == 0)  canvas = resizeCardHeight(canvas);
-    else                canvas = canvas.scaled(QSize(cardWidth,35),
+    else                canvas = canvas.scaled(QSize(cardWidth,35)*canvas.devicePixelRatio(),
                             cardWidth<218?Qt::KeepAspectRatio:Qt::KeepAspectRatioByExpanding,
                             Qt::SmoothTransformation);
 
@@ -427,8 +427,8 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
         //Scores
         if(showScores && (showHA || showHSR || showFire))
         {
-            int height = canvas.height()*1.3;
-            int width = canvas.width();
+            int height = logicalSize(canvas).height()*1.3;
+            int width = logicalSize(canvas).width();
 
             painter.setBrush(Qt::NoBrush);
 
@@ -468,7 +468,7 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
         if(redraftingReview)
         {
             painter.setPen(QPen(Qt::white, 4));
-            painter.drawRect(canvas.rect());
+            painter.drawRect(QRect(QPoint(0,0), logicalSize(canvas)));
         }
     painter.end();
 
@@ -490,7 +490,7 @@ QPixmap DeckCard::drawCustomCard(QString customCode, QString customText)
 
 
     //Imagenes
-    QPixmap canvas(CARD_SIZE);
+    QPixmap canvas = newCanvas(CARD_SIZE);
     canvas.fill(Qt::transparent);
     QPainter painter;
     painter.begin(&canvas);
@@ -614,25 +614,43 @@ QPixmap DeckCard::drawCustomCard(QString customCode, QString customText)
 }
 
 
+//copy() and scaled() work in device pixels
 QPixmap DeckCard::resizeCardHeight(QPixmap &canvas)
 {
     if(cardHeight==35)  return canvas;
+    const qreal r = canvas.devicePixelRatio();
 
     if(cardHeight<25)
     {
-        canvas = canvas.copy(0,0+6,218,35-10);
-        return canvas.scaled(QSize(218,cardHeight), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        canvas = canvas.copy(QRectF(0, 6*r, 218*r, 25*r).toRect());
+        return canvas.scaled(QSizeF(218*r, cardHeight*r).toSize(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     }
     else if(cardHeight>35)
     {
-        return canvas.scaled(QSize(218,cardHeight), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+        return canvas.scaled(QSizeF(218*r, cardHeight*r).toSize(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
     }
     else    //25<=cardHeight<35
     {
         int reducePx = 35 - cardHeight;//1-10
         int topPx = reducePx/2+1;
-        return canvas.copy(0,0+topPx,218,35-reducePx);
+        return canvas.copy(QRectF(0, topPx*r, 218*r, (35-reducePx)*r).toRect());
     }
+}
+
+
+QPixmap DeckCard::newCanvas(const QSize &size)
+{
+    const qreal r = qApp->devicePixelRatio();
+    QPixmap canvas(QSizeF(size.width()*r, size.height()*r).toSize());
+    canvas.setDevicePixelRatio(r);
+    canvas.fill(Qt::transparent);
+    return canvas;
+}
+
+
+QSize DeckCard::logicalSize(const QPixmap &pixmap)
+{
+    return pixmap.deviceIndependentSize().toSize();
 }
 
 

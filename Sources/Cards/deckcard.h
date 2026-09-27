@@ -92,6 +92,9 @@ public:
     bool operator<=(const DeckCard& other) const;
     bool operator>=(const DeckCard& other) const;
 
+    //Canvas at the screen resolution (Retina): drawn in logical points, sharp on screen
+    static QPixmap newCanvas(const QSize &size);
+    static QSize logicalSize(const QPixmap &pixmap);
     static void setDrawClassColor(bool value);
     static void setDrawSpellWeaponColor(bool value);
     static void setCardHeight(int value);
