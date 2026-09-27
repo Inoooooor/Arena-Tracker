@@ -1299,7 +1299,8 @@ void DraftHandler::captureRedraftReviewNames()
         QStringList codes;
         for(const MacOcr::TextLine &line: lines)
         {
-            if(line.rect.left() >= deckListLeft)    continue;
+            //By the center: deck list lines can start with a "NEW!" badge left of the list
+            if(line.rect.center().x() >= deckListLeft)  continue;
             QString code = matchCardName({line.text}, nameMap);
             if(!code.isEmpty())     codes << code;
         }
@@ -1955,6 +1956,15 @@ void DraftHandler::buildBestMatchesMaps()
     {
         for(int i=0; i<3; i++)
         {
+            //Class read from the slot label: that hero alone
+            if(!ocrCodes[i].isEmpty())
+            {
+                if(!draftCardMaps[i].contains(ocrCodes[i]))  draftCardMaps[i].insert(ocrCodes[i], DraftCard(ocrCodes[i], false));
+                draftCardMaps[i][ocrCodes[i]].setBestQualityMatch(0, true);
+                bestMatchesMaps[i].insert(0, ocrCodes[i]);
+                continue;
+            }
+
             const QList<QString> codeList = draftCardMaps[i].keys();
             for(const QString &code: codeList)
             {
@@ -2036,6 +2046,66 @@ void DraftHandler::readCardNames(const cv::Mat &screenCapture)
         ocrCodes[i] = code;
         emit pDebug("OCR slot " + QString::number(i+1) + ": \"" + lines.join(" ") + "\" --> " +
                     code + " " + Utility::cardEnNameFromCode(code));
+    }
+#else
+    (void)screenCapture;
+#endif
+}
+
+
+//Reads the class label under each hero (enUS only). Hero skins make the portrait histograms unreliable.
+void DraftHandler::readHeroClasses(const cv::Mat &screenCapture)
+{
+#ifdef Q_OS_MAC
+    if(Utility::getLocalLang() != "enUS")   return;
+
+    static const QStringList classNames = {"DEATHKNIGHT", "DEMONHUNTER", "DRUID", "HUNTER", "MAGE", "PALADIN",
+                                           "PRIEST", "ROGUE", "SHAMAN", "WARLOCK", "WARRIOR"};
+
+    for(int i=0; i<3; i++)
+    {
+        if(!ocrCodes[i].isEmpty())  continue;
+
+        //Lower part of the portrait slot and the label below it
+        const cv::Rect &slot = screenRects[i];
+        cv::Rect label(slot.x - slot.width*0.3, slot.y + slot.height*0.5, slot.width*1.6, slot.height*0.9);
+        label &= cv::Rect(0, 0, screenCapture.cols, screenCapture.rows);
+        if(label.width < 10 || label.height < 5)    continue;
+
+        cv::Mat crop = screenCapture(label).clone();
+        QImage image(crop.data, crop.cols, crop.rows, static_cast<qsizetype>(crop.step), QImage::Format_RGB32);
+        const QStringList lines = MacOcr::recognizeLines(image.copy(), "enUS");
+
+        //A label can be split in two lines (DEATH / KNIGHT)
+        QStringList texts;
+        for(int j=0; j<lines.count(); j++)
+        {
+            QString text;
+            for(const QChar &c: lines[j].toUpper())     if(c.isLetter())    text += c;
+            texts << text;
+            if(j > 0)   texts << texts[texts.count()-2] + text;
+        }
+
+        QString heroClass;
+        for(const QString &className: classNames)
+        {
+            if(texts.contains(className))
+            {
+                heroClass = className;
+                break;
+            }
+        }
+        if(heroClass.isEmpty())     continue;
+
+        for(const QString &code: qAsConst(heroCodesList))
+        {
+            if(Utility::getCardAttribute(code, "cardClass").toString() == heroClass)
+            {
+                ocrCodes[i] = code;
+                emit pDebug("OCR hero slot " + QString::number(i+1) + ": \"" + lines.join(" ") + "\" --> " + heroClass + " " + code);
+                break;
+            }
+        }
     }
 #else
     (void)screenCapture;
@@ -2975,7 +3045,8 @@ bool DraftHandler::getScreenCardsHist(cv::MatND screenCardsHist[], int length)
 // #endif
 
     for(int i=0; i<length; i++)     screenCardsHist[i] = getHist(bigCards[i]);
-    if(drafting && length == 3)     readCardNames(screenCapture);
+    if(drafting && length == 3)             readCardNames(screenCapture);
+    else if(heroDrafting && length == 3)    readHeroClasses(screenCapture);
     return true;
 }
 

@@ -204,6 +204,7 @@ private:
     void buildBestMatchesMaps();
     void removeDuplicatedPicks(QStringList slotCodes[3]);
     void readCardNames(const cv::Mat &screenCapture);
+    void readHeroClasses(const cv::Mat &screenCapture);
     static QString matchCardName(const QStringList &lines, const QMap<QString, QString> &nameMap);
     void applyOcrCodes(QStringList slotCodes[3]);
     CardRarity getBestRarity();
