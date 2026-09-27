@@ -1,4 +1,5 @@
 #include "deckcard.h"
+#include "../Utils/hdimages.h"
 #include "../themehandler.h"
 #include "../Widgets/scorebutton.h"
 #include <QtWidgets>
@@ -272,7 +273,7 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
         else                                    target = QRectF(100,6,100,25);
 
         if(name == "unknown")   painter.drawPixmap(target, QPixmap(ThemeHandler::unknownFile()), source);
-        else    painter.drawPixmap(target, QPixmap(Utility::hscardsPath() + "/" + code + ".png"), source);
+        else    drawArt(painter, target, code, source);
 
         //Background and legendary star
         int maxNameLong;
@@ -521,7 +522,7 @@ QPixmap DeckCard::drawCustomCard(QString customCode, QString customText)
             else                    source = QRectF(46,98,100,25);
             if(total == 1)          target = QRectF(113,6,100,25);
             else                    target = QRectF(100,6,100,25);
-            painter.drawPixmap(target, QPixmap(Utility::hscardsPath() + "/" + customCode + ".png"), source);
+            drawArt(painter, target, customCode, source);
         }
         else
         {
@@ -636,6 +637,22 @@ QPixmap DeckCard::resizeCardHeight(QPixmap &canvas)
         int topPx = reducePx/2+1;
         return canvas.copy(QRectF(0, topPx*r, 218*r, (35-reducePx)*r).toRect());
     }
+}
+
+
+//The card art strip: the HD tile (256x59) when downloaded, else a crop of the card image
+void DeckCard::drawArt(QPainter &painter, const QRectF &target, const QString &code, const QRectF &source)
+{
+    const QString tile = HDImages::path(HDImages::Tile, code);
+    if(!tile.isEmpty())
+    {
+        QPixmap pixmap(tile);
+        //Same aspect ratio as the target, centered
+        qreal w = pixmap.height() * target.width()/target.height();
+        painter.drawPixmap(target, pixmap, QRectF((pixmap.width()-w)/2, 0, w, pixmap.height()));
+        return;
+    }
+    painter.drawPixmap(target, QPixmap(Utility::hscardsPath() + "/" + code + ".png"), source);
 }
 
 

@@ -61,6 +61,7 @@ protected:
     QColor getRarityColor();
     QPixmap resizeCardHeight(QPixmap &canvas);
     void disablePixmap(QPixmap &canvas);
+    static void drawArt(QPainter &painter, const QRectF &target, const QString &code, const QRectF &source);
 
 public:
     void draw();

@@ -7,6 +7,7 @@
 #include "Widgets/cardwindow.h"
 #include "versionchecker.h"
 #include "themehandler.h"
+#include "Utils/hdimages.h"
 #include <QtConcurrent/QtConcurrent>
 #include <QtWidgets>
 
@@ -40,6 +41,7 @@ MainWindow::MainWindow(QWidget *parent) :
     downloadExtraFiles();
     downloadThemes();
 
+    HDImages::create(this);
     createTrackobotUploader();
     createCardDownloader();
     createWinratesDownloader();
@@ -75,6 +77,25 @@ MainWindow::MainWindow(QWidget *parent) :
 #ifdef Q_OS_MAC
     new MacHoverTracker(this);
 #endif
+
+    //Cards drawn before their HD image arrived are drawn again, once for a burst of downloads
+    QTimer *hdRedrawTimer = new QTimer(this);
+    hdRedrawTimer->setSingleShot(true);
+    hdRedrawTimer->setInterval(500);
+    connect(hdRedrawTimer, &QTimer::timeout, this, [this]() {
+        deckHandler->redrawAllCards();
+        draftHandler->redrawAllCards();
+        enemyDeckHandler->redrawAllCards();
+        graveyardHandler->redrawAllCards();
+        enemyHandHandler->redrawAllCards();
+        secretsHandler->redrawAllCards();
+        popularCardsHandler->redrawAllCards();
+        drawCardHandler->redrawAllCards();
+        rngCardHandler->redrawAllCards();
+    });
+    connect(HDImages::instance(), &HDImages::ready, this, [hdRedrawTimer](int kind) {
+        if(kind == HDImages::Tile)  hdRedrawTimer->start();
+    });
 }
 
 
