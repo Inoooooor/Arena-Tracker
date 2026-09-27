@@ -230,6 +230,7 @@ void WinratesDownloader::processHeroesWinrate(const QJsonObject &jsonObject)
 
     emit pDebug("Heroes winrate (Firestone) ready.");
     ScoreButton::setHeroScores(heroScores);
+    emit readyHeroesWinrate();
 }
 
 

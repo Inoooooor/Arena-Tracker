@@ -356,6 +356,7 @@ signals:
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="DraftHandler");
 
 public slots:
+    void updateHeroScores();
     void beginDraft(QString hero, QList<DeckCard> deckCardList = QList<DeckCard>(), bool skipScreenSettings=false);
     void continueDraft();
     void beginHeroDraft();

@@ -798,6 +798,8 @@ void MainWindow::newDeckCardDraft(QString code)
 void MainWindow::createDraftHandler()
 {
     draftHandler = new DraftHandler(this, ui, deckHandler);
+    connect(winratesDownloader, SIGNAL(readyHeroesWinrate()),
+            draftHandler, SLOT(updateHeroScores()));
     connect(draftHandler, SIGNAL(startProgressBar(int,QString)),
             this, SLOT(startProgressBar(int,QString)));
     connect(draftHandler, SIGNAL(advanceProgressBar(int,QString)),

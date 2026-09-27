@@ -89,6 +89,7 @@ signals:
     void readyHSRBundlesMap(QMap<QString, QStringList> *hsrBundlesMap);
     void readyFireWRMap(QMap<QString, float> *fireWRMap);
     void readyFireSamplesMap(QMap<QString, int> *fireSamplesMap);
+    void readyHeroesWinrate();
 
 private slots:
     void replyFinished(QNetworkReply *reply);

@@ -3815,6 +3815,22 @@ void DraftHandler::endHeroDraft()
 }
 
 
+//Class winrates arrived after the hero choice was shown
+void DraftHandler::updateHeroScores()
+{
+    if(!heroDrafting || draftHeroWindow == nullptr) return;
+
+    int classOrder[3];
+    for(int i=0; i<3; i++)
+    {
+        if(bestMatchesMaps[i].isEmpty())    return;
+        QString HSRkey = Utility::getCardAttribute(bestMatchesMaps[i].first(), "cardClass").toString();
+        classOrder[i] = Utility::className2classOrder(HSRkey);
+    }
+    draftHeroWindow->setScores(classOrder);
+}
+
+
 void DraftHandler::showNewHeroes()
 {
     int classOrder[3];
