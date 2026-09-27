@@ -84,6 +84,7 @@ SOURCES += Sources/main.cpp\
     Sources/Widgets/draftmechanicswindow.cpp \
     Sources/LibSmtp/smtp.cpp \
     Sources/Utils/hdimages.cpp \
+    Sources/Utils/hdicons.cpp \
     Sources/premiumhandler.cpp \
     Sources/detachwindow.cpp \
     Sources/graveyardhandler.cpp \
@@ -161,6 +162,7 @@ HEADERS  += Sources/mainwindow.h \
     Sources/Widgets/webenginepage.h \
     Sources/LibSmtp/smtp.h \
     Sources/Utils/hdimages.h \
+    Sources/Utils/hdicons.h \
     Sources/premiumhandler.h \
     Sources/detachwindow.h \
     Sources/graveyardhandler.h \

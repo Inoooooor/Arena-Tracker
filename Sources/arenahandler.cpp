@@ -1,4 +1,5 @@
 #include "arenahandler.h"
+#include "Utils/hdicons.h"
 #include "Utils/qcompressor.h"
 #include "themehandler.h"
 #include "Widgets/scorebutton.h"
@@ -171,7 +172,7 @@ void ArenaHandler::createArenaStatsTreeWidget()
     for(int i=0; i<NUM_HEROS; i++)
     {
         QTreeWidgetItem *item = winrateClassTreeItem[i] = new QTreeWidgetItem(winrateTreeItem);
-        setColumnIcon(item, 0, QIcon(ThemeHandler::heroFile(i)));
+        setColumnIcon(item, 0, HDIcons::hero(i));
         for(int j=1; j<5; j++)  item->setTextAlignment(j, Qt::AlignHCenter|Qt::AlignVCenter);
         setRowColor(item, QColor(Utility::classOrder2classColor(i)));
         item->setHidden(true);
@@ -550,7 +551,7 @@ QTreeWidgetItem *ArenaHandler::createTopLevelItem(QString title, QString hero, i
 
     item->setExpanded(true);
     setColumnText(item, 0, title);
-    if(!hero.isEmpty()) setColumnIcon(item, 1, QIcon(ThemeHandler::heroFile(hero)));
+    if(!hero.isEmpty()) setColumnIcon(item, 1, HDIcons::hero(hero));
     setColumnText(item, 2, QString::number(wins));
     item->setTextAlignment(2, Qt::AlignHCenter|Qt::AlignVCenter);
     setColumnText(item, 3, QString::number(losses));
@@ -749,19 +750,17 @@ QTreeWidgetItem *ArenaHandler::showGameResult(GameResult gameResult, LoadingScre
     QTreeWidgetItem *item = createGameInCategory(gameResult, loadingScreen);
     if(item == nullptr)    return nullptr;
 
-    QString iconFile = (gameResult.playerHero==""?":Images/secretHunter.png":ThemeHandler::heroFile(gameResult.playerHero));
-    setColumnIcon(item, 0, QIcon(iconFile));
+    setColumnIcon(item, 0, gameResult.playerHero==""?QIcon(":Images/secretHunter.png"):HDIcons::hero(gameResult.playerHero));
     setColumnText(item, 0, "vs");
     item->setTextAlignment(0, Qt::AlignHCenter|Qt::AlignVCenter);
 
-    iconFile = (gameResult.enemyHero==""?":Images/secretHunter.png":ThemeHandler::heroFile(gameResult.enemyHero));
-    setColumnIcon(item, 1, QIcon(iconFile));
+    setColumnIcon(item, 1, gameResult.enemyHero==""?QIcon(":Images/secretHunter.png"):HDIcons::hero(gameResult.enemyHero));
     if(!gameResult.enemyName.isEmpty() && gameResult.enemyName != "UNKNOWN HUMAN PLAYER")
     {
         item->setToolTip(1, gameResult.enemyName);
     }
-    setColumnIcon(item, 2, QIcon(gameResult.isFirst?ThemeHandler::firstFile():ThemeHandler::coinFile()));
-    setColumnIcon(item, 3, QIcon(gameResult.isWinner?ThemeHandler::winFile():ThemeHandler::loseFile()));
+    setColumnIcon(item, 2, gameResult.isFirst?HDIcons::first():HDIcons::coin());
+    setColumnIcon(item, 3, gameResult.isWinner?HDIcons::win():HDIcons::lose());
     float avgScore = getSelectedAvgScore(avgHA, avgHSR, avgFire);
     if(premium && avgScore != 0)
     {
@@ -1284,7 +1283,7 @@ void ArenaHandler::itemChangedHero(QTreeWidgetItem *item, int column)
 
         if(!heroLog.isEmpty())
         {
-            setColumnIcon(item, 1, QIcon(ThemeHandler::heroFile(heroLog)));
+            setColumnIcon(item, 1, HDIcons::hero(heroLog));
 
             QJsonObject objArena = statsJson[arenaStatLink[item]].toObject();
             objArena["hero"] = heroLog;

@@ -1,4 +1,5 @@
 #include "deckhandler.h"
+#include "Utils/hdicons.h"
 #include "Utils/deckstringhandler.h"
 #include "themehandler.h"
 #include <QtConcurrent/QtConcurrent>
@@ -968,7 +969,7 @@ void DeckHandler::setTheme()
 
     for(int i=0; i<NUM_HEROS; i++)
     {
-        loadDeckClasses[i]->setIcon(0, QIcon(ThemeHandler::heroFile(Utility::classOrder2classLogNumber(i))));
+        loadDeckClasses[i]->setIcon(0, HDIcons::hero(i));
     }
 }
 

@@ -1,5 +1,6 @@
 #include "scorebutton.h"
 #include "../Cards/deckcard.h"
+#include "../Utils/hdicons.h"
 #include "../themehandler.h"
 #include "Sources/constants.h"
 #include <QtWidgets>
@@ -344,8 +345,7 @@ void ScoreButton::drawPixmap(QPixmap &canvas, QRect &targetAll, bool bigFont)
         {
             int iconWidth = width()*0.30;
 
-            painter.drawPixmap(width()*0.35, height()*0.7, iconWidth, iconWidth,
-                               QPixmap(ThemeHandler::heroFile(classOrder)));
+            HDIcons::hero(classOrder).paint(&painter, QRect(width()*0.35, height()*0.7, iconWidth, iconWidth));
         }
     }
 }

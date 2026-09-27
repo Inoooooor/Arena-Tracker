@@ -8,6 +8,7 @@
 #include "versionchecker.h"
 #include "themehandler.h"
 #include "Utils/hdimages.h"
+#include "Utils/hdicons.h"
 #include <QtConcurrent/QtConcurrent>
 #include <QtWidgets>
 
@@ -42,6 +43,7 @@ MainWindow::MainWindow(QWidget *parent) :
     downloadThemes();
 
     HDImages::create(this);
+    HDIcons::prefetch();
     createTrackobotUploader();
     createCardDownloader();
     createWinratesDownloader();
@@ -3618,7 +3620,7 @@ void MainWindow::updateButtonsTheme()
     QList<QAction *> actions = ui->configButtonForceDraft->menu()->actions();
     for(int i=0; i<actions.count(); i++)
     {
-        actions[i]->setIcon(QIcon(ThemeHandler::heroFile(Utility::classOrder2classLogNumber(i))));
+        actions[i]->setIcon(HDIcons::hero(i));
     }
 
     ui->guideButton->setIcon(QIcon(ThemeHandler::buttonGamesGuideFile()));
