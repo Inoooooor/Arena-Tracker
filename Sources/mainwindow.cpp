@@ -209,8 +209,10 @@ void MainWindow::createDetachWindow(QWidget *paneWidget, const QPoint& dropPoint
         planWindow = detachWindow;
     }
 
+#ifndef Q_OS_MAC
     connect(ui->minimizeButton, SIGNAL(clicked()),
             detachWindow, SLOT(showMinimized()));
+#endif
     connect(detachWindow, SIGNAL(closed(DetachWindow*,QWidget*)),
             this, SLOT(closedDetachWindow(DetachWindow*,QWidget*)));
     connect(detachWindow, SIGNAL(pDebug(QString,DebugLevel,QString)),
@@ -1603,8 +1605,17 @@ void MainWindow::completeUIButtons()
     ui->minimizeButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     ui->minimizeButton->setFlat(true);
     ui->minimizeButton->setToolTip("Minimize");
+#ifdef Q_OS_MAC
+    //macOS won't minimize these frameless always on top windows to the Dock (and not at all with Stage Manager):
+    //they are hidden, and a click on the Dock icon (or switching to the app) shows them again
+    connect(ui->minimizeButton, SIGNAL(clicked()),
+            this, SLOT(minimizeToDock()));
+    connect(qApp, &QGuiApplication::applicationStateChanged,
+            this, &MainWindow::restoreFromDock);
+#else
     connect(ui->minimizeButton, SIGNAL(clicked()),
             this, SLOT(showMinimized()));
+#endif
 
     ui->resizeButton = new ResizeButton(this);
     ui->resizeButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -1631,6 +1642,35 @@ void MainWindow::closeApp()
     close();
     //On macOS closing the window used to leave the app running in the Dock, with no way to show it again
     qApp->quit();
+}
+
+
+void MainWindow::minimizeToDock()
+{
+    hiddenToDock.clear();
+    const QList<QWidget *> windows = {this, deckWindow, arenaWindow, enemyWindow, enemyDeckWindow, graveyardWindow, planWindow};
+    for(QWidget *window: windows)
+    {
+        if(window != nullptr && window->isVisible())
+        {
+            hiddenToDock << window;
+            window->hide();
+        }
+    }
+}
+
+
+//The Dock icon click comes as an activation, even when the app is already active
+void MainWindow::restoreFromDock(Qt::ApplicationState state)
+{
+    if(state != Qt::ApplicationActive || hiddenToDock.isEmpty())    return;
+    for(const QPointer<QWidget> &window: std::as_const(hiddenToDock))
+    {
+        if(window != nullptr)   window->show();
+    }
+    hiddenToDock.clear();
+    activateWindow();
+    raise();
 }
 
 

@@ -22,6 +22,7 @@
 #include "Widgets/cardwindow.h"
 #include "Widgets/cardlistwindow.h"
 #include <QMainWindow>
+#include <QPointer>
 #include <QJsonObject>
 
 #define DIVIDE_TABS_H 444
@@ -92,6 +93,7 @@ private:
     Transparency transparency;
     bool oneWindow;
     DetachWindow *deckWindow, *arenaWindow, *enemyWindow, *enemyDeckWindow, *graveyardWindow, *planWindow;
+    QList<QPointer<QWidget>> hiddenToDock;   //macOS: windows hidden by the minimize button, shown again from the Dock
     int cardHeight;
     int drawDisappear;
     QNetworkAccessManager *networkManager;
@@ -287,6 +289,8 @@ private slots:
     void updateDraftShowDrops(bool checked);
     void updateTooltipScale(int value);
     void closeApp();
+    void minimizeToDock();
+    void restoreFromDock(Qt::ApplicationState state);
     void updateShowClassColor(bool checked);
     void updateShowSpellColor(bool checked);
     void updateShowManaLimits(bool checked);
