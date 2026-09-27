@@ -80,7 +80,7 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     connect(&futureRedraftCounter, SIGNAL(finished()), this, SLOT(finishCheckRedraftScreen()));
 
     bundlePending = bundlePreviewSeen = false;
-    bundleMisses = 0;
+    bundleMisses = bundleReads = 0;
     bundleTimer = new QTimer(this);
     bundleTimer->setInterval(REDRAFT_REVIEW_OCR_TIME);
     connect(bundleTimer, SIGNAL(timeout()), this, SLOT(captureBundlePreview()));
@@ -812,8 +812,8 @@ void DraftHandler::initCodesAndHistMaps(QList<DeckCard> &deckCardList, bool skip
         }
         else
         {
-            emit startProgressBar(cardsDownloading.count(), "Downloading card images...");
-            setDraftStatus("Downloading card images...");
+            if(heroDrafting)    emit startProgressBar(cardsDownloading.count(), "Downloading card images...");
+            else                setDraftStatus(QStringLiteral("Downloading card images (%1 left)...").arg(cardsDownloading.count()));
         }
     }
 }
@@ -829,11 +829,14 @@ void DraftHandler::reHistDownloadedCardImage(const QString &fileNameCode, bool m
         if(!histBase.empty())   cardsHist[fileNameCode] = histBase;
     }
     cardsDownloading.removeOne(fileNameCode);
-    emit advanceProgressBar(cardsDownloading.count(), fileNameCode.split("_premium").first() + " downloaded");
+    if(heroDrafting)    emit advanceProgressBar(cardsDownloading.count(), fileNameCode.split("_premium").first() + " downloaded");
+    else if(!cardsDownloading.isEmpty())
+        setDraftStatus(QStringLiteral("Downloading card images (%1 left)...").arg(cardsDownloading.count()));
     if(cardsDownloading.isEmpty())
     {
         if(needSaveCardHist)    saveCardHist();
-        emit showMessageProgressBar("All cards downloaded");
+        if(heroDrafting)    emit showMessageProgressBar("All cards downloaded");
+        else                setDraftStatus("Reading the cards...");
         newCaptureDraftLoop();
     }
 }
@@ -1848,13 +1851,14 @@ void DraftHandler::captureDraft()
                 DraftCard bestCards[3];
                 getBestCards(bestCards);
                 //Only a pick leaves the bundle preview for other cards than the legendaries
+                bool bundlePicked = false;
                 if(bundlePending)
                 {
-                    bool legendaries = true;
-                    for(int i=0; i<3; i++)  if(bestCards[i].getRarity() != LEGENDARY)   legendaries = false;
-                    if(!legendaries)    confirmBundle();
+                    bundlePicked = true;
+                    for(int i=0; i<3; i++)  if(bestCards[i].getRarity() == LEGENDARY)  bundlePicked = false;
                 }
                 showNewCards(bestCards);
+                if(bundlePicked)    confirmBundle();
                 startReviewBestCards();
             }
             else if(heroDrafting)
@@ -2205,6 +2209,40 @@ void DraftHandler::resetBundle()
     bundleMisses = 0;
     bundleLegendary = "";
     bundlePreviews.clear();
+    bundleNameMap.clear();
+    bundleReads = 0;
+}
+
+
+void DraftHandler::buildBundleNameMap()
+{
+    if(!bundleNameMap.isEmpty())    return;
+
+    for(const QString &code: (const QStringList)Utility::getWildCodes())
+    {
+        if(Utility::getTypeFromCode(code) == HERO)  continue;
+        const QList<CardClass> cardClass = Utility::getClassFromCode(code);
+        if(!cardClass.contains(NEUTRAL) && !cardClass.contains(arenaHero) &&
+            !(arenaHeroMulticlassPower != INVALID_CLASS && cardClass.contains(arenaHeroMulticlassPower)))   continue;
+        QString name = Utility::removeAccents(Utility::cardLocalNameFromCode(code)).toLower().simplified().replace(" ", "");
+        bundleNameMap[name] = code;
+    }
+    //Same name: the arena code
+    for(QMap<QString, QString>::const_iterator it=cardsNameMap.constBegin(); it!=cardsNameMap.constEnd(); it++)
+    {
+        bundleNameMap[it.key()] = it.value();
+    }
+    emit pDebug("Bundle names map: " + QString::number(bundleNameMap.count()) + " cards.");
+}
+
+
+//A status line message that goes away by itself
+void DraftHandler::showDraftNotice(const QString &text)
+{
+    setDraftStatus(text);
+    QTimer::singleShot(5000, this, [this, text]() {
+        if(draftStatusLabel->text() == text)    setDraftStatus("");
+    });
 }
 
 
@@ -2221,9 +2259,10 @@ void DraftHandler::startBundlePreview(const QString &code)
     bundlePending = true;
     bundlePreviewSeen = false;
     bundleMisses = 0;
+    bundleReads = 0;
+    buildBundleNameMap();
     if(draftScoreWindow != nullptr)    draftScoreWindow->hideScores(true);
     setDraftStatus("Analyzing bundle...");
-    emit showMessageProgressBar("Analyzing bundle...", 3000);
     bundleTimer->start();
 }
 
@@ -2241,7 +2280,7 @@ void DraftHandler::captureBundlePreview()
     QImage image = grabHearthstoneWindow(1400);
     if(image.isNull())  return;
 
-    const QMap<QString, QString> nameMap = cardsNameMap;
+    const QMap<QString, QString> nameMap = bundleNameMap;
     const QString legendary = bundleLegendary;
     const QString language = Utility::getLocalLang();
     futureBundle.setFuture(QtConcurrent::run([image, nameMap, legendary, language]() {
@@ -2249,8 +2288,9 @@ void DraftHandler::captureBundlePreview()
         QStringList codes;
         for(const MacOcr::TextLine &line: MacOcr::recognizeTextLines(image, language))
         {
-            //The deck list, right, is not part of the preview
+            //The deck list, right, is not part of the preview; the window title "Hearthstone" is also a card
             if(line.rect.center().x() > image.width()*0.75)     continue;
+            if(line.rect.center().y() < image.height()*0.08)    continue;
             QString code = matchCardName({trimCardLine(line.text)}, nameMap);
             if(code.isEmpty())  continue;
             if(code == legendary)           previewVisible = true;
@@ -2279,12 +2319,10 @@ void DraftHandler::finishBundlePreview()
             for(const QString &code: qAsConst(codes))   names << Utility::cardEnNameFromCode(code);
             emit pDebug("Bundle of " + Utility::cardEnNameFromCode(bundleLegendary) + ": " + names.join(", "));
         }
-        if(codes.count() >= 3)  setDraftStatus("Bundle read: 3 cards");
-        else
-        {
-            setDraftStatus("Analyzing bundle...");
-            emit showMessageProgressBar("Analyzing bundle...", 3000);
-        }
+        bundleReads++;
+        if(codes.count() >= 3)      setDraftStatus("Bundle read: 3 cards");
+        else if(bundleReads >= 5)   setDraftStatus("Can't read this bundle, the deck list will be read after the pick");
+        else                        setDraftStatus("Analyzing bundle...");
     }
     //Preview closed: picked, or back to the legendaries. The next cards tell.
     else if(bundlePreviewSeen || ++bundleMisses >= 3)
@@ -2310,12 +2348,12 @@ void DraftHandler::confirmBundle()
 
     if(codes.count() >= 3)
     {
-        emit showMessageProgressBar("Bundle added: " + Utility::cardLocalNameFromCode(legendary) + " + 3 cards", 5000);
+        showDraftNotice("Bundle added: " + Utility::cardLocalNameFromCode(legendary) + " + 3 cards");
     }
     else
     {
         //Give the deck list time to show the new cards
-        emit showMessageProgressBar("Reading the deck list...", 5000);
+        setDraftStatus("Reading the deck list...");
         QTimer::singleShot(1500, this, [this]() {readDeckList();});
     }
 }
@@ -2330,13 +2368,15 @@ void DraftHandler::readDeckList()
     QImage image = grabHearthstoneWindow(1400);
     if(image.isNull())  return;
 
-    const QMap<QString, QString> nameMap = cardsNameMap;
+    buildBundleNameMap();
+    const QMap<QString, QString> nameMap = bundleNameMap;
     const QString language = Utility::getLocalLang();
     futureDeckList.setFuture(QtConcurrent::run([image, nameMap, language]() {
         QStringList codes;
         for(const MacOcr::TextLine &line: MacOcr::recognizeTextLines(image, language))
         {
             if(line.rect.center().x() < image.width()*0.75)     continue;
+            if(line.rect.center().y() < image.height()*0.08)    continue;
             QString code = matchCardName({trimCardLine(line.text)}, nameMap);
             if(!code.isEmpty() && !codes.contains(code))    codes << code;
         }
@@ -2367,8 +2407,8 @@ void DraftHandler::finishDeckList()
     }
 
     emit pDebug("Deck list read: +" + QString::number(added.count()) + " " + added.join(", "));
-    if(added.isEmpty())     emit showMessageProgressBar("Bundle cards not found in the deck list", 5000);
-    else                    emit showMessageProgressBar("Deck list read: +" + QString::number(added.count()) + " cards", 5000);
+    if(added.isEmpty())     showDraftNotice("Bundle cards not found in the deck list");
+    else                    showDraftNotice("Deck list read: +" + QString::number(added.count()) + " cards");
 }
 
 

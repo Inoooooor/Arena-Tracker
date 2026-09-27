@@ -173,6 +173,8 @@ private:
     QFutureWatcher<QStringList> futureDeckList;
     QString bundleLegendary;
     QMap<QString, QStringList> bundlePreviews;  //Legendary -> its bundle cards, as read
+    QMap<QString, QString> bundleNameMap;       //All collectible cards of the draft classes: bundles bring cards from outside the arena sets
+    int bundleReads;
     bool bundlePending, bundlePreviewSeen;
     int bundleMisses;
     QMap<QString, QString> redraftNameMap;  //Normalized local name -> code, of the deck cards
@@ -287,6 +289,8 @@ private:
     void confirmBundle();
     void resetBundle();
     void readDeckList();
+    void buildBundleNameMap();
+    void showDraftNotice(const QString &text);
     void beginRedraftReview();
     void createRedraftRemoveList();
     void createDraftStatus();
