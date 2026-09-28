@@ -14,6 +14,8 @@
 #include <QFutureWatcher>
 #include <QPointer>
 #include <QPropertyAnimation>
+#include <QElapsedTimer>
+#include <atomic>
 
 #define DRAFT_DELAY_TIME        2000
 #define HERODRAFT_DELAY_TIME    2000
@@ -138,6 +140,8 @@ private:
     bool draftMethodHA, draftMethodFire, draftMethodHSR;
     DraftMethod draftMethodAvgScore;
     QFutureWatcher<ScreenDetection> futureFindScreenRects;
+    QElapsedTimer findScreenClock;         //From the start of findScreenRects to its result
+    std::atomic<qint64> findScreenStartMs{0}, findScreenCaptureMs{0};
     QLabel *labelLFscore[3];
     QLabel *labelHAscore[3];
     QLabel *labelHSRscore[3];

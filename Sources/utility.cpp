@@ -916,24 +916,57 @@ QImage Utility::getScreenshot(QScreen *screen)
 }
 
 
-std::vector<Point2f> Utility::findTemplateOnScreen(const QString &templateImage, QScreen *screen, QImage image,
-                                                   const std::vector<Point2f> &templatePoints,
-                                                   QPointF &screenScale, int &screenHeight, int &goodMatches)
+ScreenFeatures Utility::screenFeatures(QScreen *screen, QImage image)
 {
-    std::vector<Point2f> screenPoints;
-    if(!screen || image.isNull())   return screenPoints;
+    ScreenFeatures features;
+    if(!screen || image.isNull())   return features;
 
     //Bug Fix: When using a resolution scale in you OS, draft scores will be postioned outside the screen. Now it's fixed.
     //Screen scale
     QRect rect = screen->geometry();
-    screenScale.setX(rect.width() / static_cast<qreal>(image.width()));
-    screenScale.setY(rect.height() / static_cast<qreal>(image.height()));
-    screenHeight = image.height();
+    features.screenScale.setX(rect.width() / static_cast<qreal>(image.width()));
+    features.screenScale.setY(rect.height() / static_cast<qreal>(image.height()));
+    features.screenHeight = image.height();
 
     cv::Mat mat(image.height(),image.width(),CV_8UC4,image.bits(), static_cast<size_t>(image.bytesPerLine()));
 
-    goodMatches = findTemplateOnMat(templateImage, mat, templatePoints, screenPoints, 10, DEBUG_SHOW_MATCHES);
+    //SIFT on a Retina screenshot (e.g. 3456x2160) is slow, and 20-40 times slower while macOS Game Mode throttles
+    //the tracker (fullscreen Hearthstone). At about the templates' size it's 5x faster and as accurate.
+    const int maxHeight = 1100;
+    cv::Mat scaledMat;
+    if(mat.rows > maxHeight)
+    {
+        features.scale = maxHeight / static_cast<double>(mat.rows);
+        cv::resize(mat, scaledMat, cv::Size(), features.scale, features.scale, cv::INTER_AREA);
+    }
+    else    scaledMat = mat;
+
+    features.scene = sceneFeatures(scaledMat);
+    features.valid = true;
+    return features;
+}
+
+
+std::vector<Point2f> Utility::findTemplateOnScreen(const QString &templateImage, const ScreenFeatures &screen,
+                                                   const std::vector<Point2f> &templatePoints, int &goodMatches)
+{
+    std::vector<Point2f> screenPoints;
+    goodMatches = 0;
+    if(!screen.valid)   return screenPoints;
+
+    goodMatches = findTemplateOnScene(templateImage, screen.scene, templatePoints, screenPoints, 10, DEBUG_SHOW_MATCHES);
+    for(Point2f &point: screenPoints)   point *= static_cast<float>(1.0/screen.scale);
     return screenPoints;
+}
+
+
+SceneFeatures Utility::sceneFeatures(const cv::Mat &mat)
+{
+    SceneFeatures scene;
+    cv::cvtColor(mat, scene.gray, cv::COLOR_BGR2GRAY);
+    //SURF (nonfree) is not available in current OpenCV builds, SIFT is in the main module since OpenCV 4.4.
+    cv::SIFT::create()->detectAndCompute(scene.gray, cv::noArray(), scene.keypoints, scene.descriptors);
+    return scene;
 }
 
 
@@ -947,23 +980,28 @@ ulong Utility::findTemplateOnMat(const QString &templateImage, cv::Mat &mat, boo
 ulong Utility::findTemplateOnMat(const QString &templateImage, cv::Mat &mat, const std::vector<Point2f> &templatePoints,
                                 std::vector<Point2f> &targetPoints, ulong minGoodMatches, bool showMatches)
 {
-    cv::Mat screenCapture = mat.clone();
+    return findTemplateOnScene(templateImage, sceneFeatures(mat), templatePoints, targetPoints, minGoodMatches, showMatches);
+}
 
+
+ulong Utility::findTemplateOnScene(const QString &templateImage, const SceneFeatures &scene, const std::vector<Point2f> &templatePoints,
+                                  std::vector<Point2f> &targetPoints, ulong minGoodMatches, bool showMatches)
+{
     Mat img_object = imread((Utility::extraPath() + "/" + templateImage).toStdString(), cv::IMREAD_GRAYSCALE );
     if(!img_object.data)
     {
         qDebug() << "Utility: Cannot find" << templateImage;
         return 0;
     }
-    Mat img_scene;
-    cv::cvtColor(screenCapture, img_scene, cv::COLOR_BGR2GRAY);
+    const Mat &img_scene = scene.gray;
+    const std::vector<KeyPoint> &keypoints_scene = scene.keypoints;
+    const Mat &descriptors_scene = scene.descriptors;
 
-    //-- Step 1/2: Detect keypoints and compute descriptors using SIFT
-    //SURF (nonfree) is not available in current OpenCV builds, SIFT is in the main module since OpenCV 4.4.
+    //-- Step 1/2: Detect keypoints and compute descriptors using SIFT (the scene's are already computed)
     cv::Ptr<cv::SIFT> sift = cv::SIFT::create();
 
-    std::vector<KeyPoint> keypoints_object, keypoints_scene;
-    Mat descriptors_object, descriptors_scene;
+    std::vector<KeyPoint> keypoints_object;
+    Mat descriptors_object;
 
     //The cards in the draft templates are different from the ones on screen, and the three card frames look
     //alike, so SIFT matched template cards to neighbouring screen cards and the found rects were shifted by
@@ -976,7 +1014,6 @@ ulong Utility::findTemplateOnMat(const QString &templateImage, cv::Mat &mat, con
     }
 
     sift->detectAndCompute( img_object, objectMask, keypoints_object, descriptors_object );
-    sift->detectAndCompute( img_scene, cv::noArray(), keypoints_scene, descriptors_scene );
     if(keypoints_object.empty() || keypoints_scene.size() < 2)
     {
         qDebug() << "Utility: Bad screen for opencv flan.";
@@ -1005,19 +1042,38 @@ ulong Utility::findTemplateOnMat(const QString &templateImage, cv::Mat &mat, con
 
     //-- Localize the object (find homography)
     std::vector<Point2f> obj;
-    std::vector<Point2f> scene;
+    std::vector<Point2f> scenePoints;
 
     for( uint i = 0; i < good_matches.size(); i++ )
     {
       //-- Get the keypoints from the good matches
       obj.push_back( keypoints_object[ static_cast<ulong>(good_matches[i].queryIdx) ].pt );
-      scene.push_back( keypoints_scene[ static_cast<ulong>(good_matches[i].trainIdx) ].pt );
+      scenePoints.push_back( keypoints_scene[ static_cast<ulong>(good_matches[i].trainIdx) ].pt );
     }
 
-    Mat H = findHomography( obj, scene, cv::RANSAC );
+    //Hearthstone is only ever scaled and moved on screen, never skewed. A full homography fitted to matches
+    //crowded on one side of the screen (e.g. fullscreen or wide windows with big wooden margins) came out
+    //in perspective, so the three card slots had different sizes. Fit only scale + translation.
+    std::vector<uchar> inliers;
+    Mat A = estimateAffinePartial2D( obj, scenePoints, inliers, cv::RANSAC );
+    if(A.empty())   return 0;
+
+    //No rotation either: keep the scale and take the translation as the median over the inliers
+    double scale = std::hypot(A.at<double>(0,0), A.at<double>(1,0));
+    std::vector<float> dx, dy;
+    for(size_t i=0; i<inliers.size(); i++)
+    {
+        if(!inliers[i])     continue;
+        dx.push_back(scenePoints[i].x - static_cast<float>(scale)*obj[i].x);
+        dy.push_back(scenePoints[i].y - static_cast<float>(scale)*obj[i].y);
+    }
+    if(dx.empty())  return 0;
+    std::nth_element(dx.begin(), dx.begin() + dx.size()/2, dx.end());
+    std::nth_element(dy.begin(), dy.begin() + dy.size()/2, dy.end());
+    A = (Mat_<double>(2,3) << scale, 0, dx[dx.size()/2], 0, scale, dy[dy.size()/2]);
 
     //-- Get the corners from the image_1 ( the object to be "detected" )
-    perspectiveTransform(templatePoints, targetPoints, H);
+    cv::transform(templatePoints, targetPoints, A);
 
     //Show matches
     if(showMatches)

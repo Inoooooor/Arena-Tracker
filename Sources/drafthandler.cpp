@@ -1,4 +1,7 @@
 #include "drafthandler.h"
+#ifdef Q_OS_MAC
+#include <pthread/qos.h>
+#endif
 #include "Utils/hdicons.h"
 #include "themehandler.h"
 #include "Synergies/cardtypecounter.h"
@@ -7,6 +10,7 @@
 #include <QtWidgets>
 #ifdef Q_OS_MAC
     #include "Utils/macocr.h"
+    #include "Utils/macwindow.h"
 #endif
 
 #ifdef Q_OS_LINUX
@@ -3849,6 +3853,9 @@ void DraftHandler::startFindScreenRects()
     }
     if(!futureFindScreenRects.isRunning())
     {
+        findScreenClock.start();
+        findScreenStartMs = -1;
+        findScreenCaptureMs = -1;
         futureFindScreenRects.setFuture(QtConcurrent::run(&DraftHandler::findScreenRects, this));
     }
 }
@@ -3857,6 +3864,23 @@ void DraftHandler::startFindScreenRects()
 void DraftHandler::finishFindScreenRects()
 {
     ScreenDetection screenDetection = futureFindScreenRects.result();
+
+    //Timing of a slow search: waiting for a pool thread, taking the screenshots, the rest is SIFT matching
+    qint64 totalMs = findScreenClock.elapsed();
+    if(totalMs > 3000)
+    {
+        emit pDebug(QStringLiteral("Slow arena screen search: %1 ms (thread start %2 ms, screenshots %3 ms).")
+                        .arg(totalMs).arg(findScreenStartMs.load()).arg(findScreenCaptureMs.load()));
+    }
+    //macOS Game Mode (on for fullscreen games) slows every other app down 20-40 times: a search takes 15-40 s
+    bool gameModeHint = false;
+#ifdef Q_OS_MAC
+    gameModeHint = (totalMs > 5000) && draftCards[0].getCode().isEmpty() && MacFullScreenOverlay::isHearthstoneFullScreen();
+#endif
+    if(gameModeHint)
+    {
+        setDraftStatus("macOS Game Mode slows the tracker down. Turn it off with the gamepad icon in the menu bar.");
+    }
 
     if(stopLoops)
     {
@@ -3868,7 +3892,7 @@ void DraftHandler::finishFindScreenRects()
     {
         emit pDebug("Hearthstone arena screen not found. Retrying...");
         //Once a second: about 10 s without seeing it. A Rescan shows the cards while this loop checks the screen.
-        if(!draftCards[0].getCode().isEmpty())  {}
+        if(!draftCards[0].getCode().isEmpty() || gameModeHint)  {}
         else if(++findScreenFails >= 10)
             setDraftStatus("Can't see the arena screen. Check the Screen Recording permission.");
         else
@@ -3882,7 +3906,7 @@ void DraftHandler::finishFindScreenRects()
     else if(!isFindScreenStable(screenDetection))
     {
         emit pDebug("Hearthstone arena screen detected, waiting for a stable screen...");
-        if(draftCards[0].getCode().isEmpty())   setDraftStatus(heroDrafting?"Scanning heroes...":"Scanning cards...");
+        if(draftCards[0].getCode().isEmpty() && !gameModeHint)  setDraftStatus(heroDrafting?"Scanning heroes...":"Scanning cards...");
         QTimer::singleShot(FINDSCREEN_STABLE_TIME, this, SLOT(startFindScreenRects()));
     }
     else
@@ -3931,6 +3955,12 @@ void DraftHandler::finishFindScreenRects()
 
 ScreenDetection DraftHandler::findScreenRects()
 {
+    findScreenStartMs = findScreenClock.elapsed();
+#ifdef Q_OS_MAC
+    //Pool threads run at the default QoS, which macOS moves to the efficiency cores while the app is in the background
+    pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0);
+#endif
+
     std::vector<Point2f> templatePoints;
     if(heroDrafting)
     {
@@ -3988,14 +4018,31 @@ ScreenDetection DraftHandler::findScreenRects()
     QImage image;
     int screenIndex=0;
 
-    auto findTemplate = [&](const QString& arenaTemplate) {
+    //One job per screen: the screenshot's SIFT features are computed once and matched against every template
+    auto findTemplates = [&](const QStringList &arenaTemplates) {
         futureList.append(QtConcurrent::run([=]() { // <-- [=] captura por valor
-            SDBasic sdb;
-            sdb.screenPoints = Utility::findTemplateOnScreen(arenaTemplate, screen, image, templatePoints,
-                                                             sdb.screenScale, sdb.screenHeight, sdb.goodMatches);
-            sdb.screenIndex = screenIndex;
-            return sdb;
+#ifdef Q_OS_MAC
+            pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0);
+#endif
+            ScreenFeatures features = Utility::screenFeatures(screen, image);
+            SDBasic bestSdb;
+            bestSdb.goodMatches = -1;
+            for(const QString &arenaTemplate: arenaTemplates)
+            {
+                SDBasic sdb;
+                sdb.screenPoints = Utility::findTemplateOnScreen(arenaTemplate, features, templatePoints, sdb.goodMatches);
+                sdb.screenScale = features.screenScale;
+                sdb.screenHeight = features.screenHeight;
+                sdb.screenIndex = screenIndex;
+                if(sdb.goodMatches > bestSdb.goodMatches)   bestSdb = sdb;
+            }
+            return bestSdb;
         }));
+    };
+    auto findDraftTemplates = [&]() {
+        if(redraftingReview)    findTemplates({"redraftTemplate.png"});
+        else if(heroDrafting)   findTemplates({"heroesTemplate.png", "heroesTemplate2.png"});
+        else /*if(drafting)*/   findTemplates({"arenaTemplate.png", "arenaTemplate2.png"});
     };
 
     bool inWayland = false;
@@ -4011,21 +4058,7 @@ ScreenDetection DraftHandler::findScreenRects()
     {
         screen = screens[screenIndex];
         image = Utility::getScreenshot(screen);
-
-        if(redraftingReview)
-        {
-            findTemplate("redraftTemplate.png");
-        }
-        else if(heroDrafting)
-        {
-            findTemplate("heroesTemplate.png");
-            findTemplate("heroesTemplate2.png");
-        }
-        else /*if(drafting)*/
-        {
-            findTemplate("arenaTemplate.png");
-            findTemplate("arenaTemplate2.png");
-        }
+        findDraftTemplates();
     }
     else
     {
@@ -4033,23 +4066,12 @@ ScreenDetection DraftHandler::findScreenRects()
         {
             screen = screens[screenIndex];
             if (!screen)    continue;
+            QElapsedTimer captureClock;
+            captureClock.start();
             image = Utility::getScreenshot(screen);
+            findScreenCaptureMs = std::max<qint64>(findScreenCaptureMs, 0) + captureClock.elapsed();
             if(image.isNull())  continue;
-
-            if(redraftingReview)
-            {
-                findTemplate("redraftTemplate.png");
-            }
-            else if(heroDrafting)
-            {
-                findTemplate("heroesTemplate.png");
-                findTemplate("heroesTemplate2.png");
-            }
-            else /*if(drafting)*/
-            {
-                findTemplate("arenaTemplate.png");
-                findTemplate("arenaTemplate2.png");
-            }
+            findDraftTemplates();
         }
     }
 

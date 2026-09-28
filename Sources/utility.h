@@ -74,6 +74,25 @@ public:
 };
 
 
+//SIFT features of a screenshot, computed once and matched against several templates
+struct SceneFeatures
+{
+    cv::Mat gray;
+    std::vector<cv::KeyPoint> keypoints;
+    cv::Mat descriptors;
+};
+
+//The features of a screen, found on a downscaled screenshot (scale = downscaled / original)
+struct ScreenFeatures
+{
+    SceneFeatures scene;
+    double scale = 1.0;
+    QPointF screenScale = QPointF(0,0);
+    int screenHeight = 1;
+    bool valid = false;
+};
+
+
 class Utility
 {
 //Constructor
@@ -133,11 +152,15 @@ public:
     static QString getLoadingScreenToString(LoadingScreenState loadingScreen);
     static LoadingScreenState getLoadingScreenFromString(const QString &loadingScreenString);
     static QImage getScreenshot(QScreen *screen);
-    static std::vector<Point2f> findTemplateOnScreen(const QString &templateImage, QScreen *screen, QImage image, const std::vector<Point2f> &templatePoints,
-                                                     QPointF &screenScale, int &screenHeight, int &goodMatches);
+    static SceneFeatures sceneFeatures(const cv::Mat &mat);
+    static ScreenFeatures screenFeatures(QScreen *screen, QImage image);
+    static std::vector<Point2f> findTemplateOnScreen(const QString &templateImage, const ScreenFeatures &screen,
+                                                     const std::vector<Point2f> &templatePoints, int &goodMatches);
     static ulong findTemplateOnMat(const QString &templateImage, cv::Mat &mat, bool showMatches=false);
     static ulong findTemplateOnMat(const QString &templateImage, Mat &mat, const std::vector<Point2f> &templatePoints,
                                    std::vector<Point2f> &targetPoints, ulong minGoodMatches, bool showMatches=false);
+    static ulong findTemplateOnScene(const QString &templateImage, const SceneFeatures &scene, const std::vector<Point2f> &templatePoints,
+                                     std::vector<Point2f> &targetPoints, ulong minGoodMatches, bool showMatches=false);
     static QPixmap getTransformedImage(QPixmap image, QPointF pos, QPointF anchor, qreal rot, QPointF &origin);
     static bool isLeftOfScreen(QPoint center);
     static CardType getTypeFromCode(const QString &code);
