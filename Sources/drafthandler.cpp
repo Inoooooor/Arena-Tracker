@@ -2998,6 +2998,8 @@ QString DraftHandler::getHSRFireCode(QString code, bool HSR, CardClass heroClass
 {
     // auto &wrMap = HSR?cardsPlayedWinratesMap:fireWRMap;
     auto &samplesMap = HSR?cardsIncludedDecksMap:fireSamplesMap;
+    //Stats not downloaded yet, e.g. a redraft continued right at startup
+    if(samplesMap == nullptr)   return code;
     if(!samplesMap[heroClass].contains(code) || (samplesMap[heroClass][code] == 0))
     {
         if(code.startsWith("CORE_"))
