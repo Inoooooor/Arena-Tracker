@@ -23,6 +23,14 @@ MacFullScreenOverlay::MacFullScreenOverlay(QObject *parent) : QObject(parent)
     qApp->installEventFilter(this);
     connect(&timer, &QTimer::timeout, this, &MacFullScreenOverlay::check);
     timer.start(1000);
+
+    //Check right away on a Space switch, and again once the switch animation is over
+    [[NSWorkspace sharedWorkspace].notificationCenter addObserverForName:NSWorkspaceActiveSpaceDidChangeNotification
+                                                                  object:nil queue:[NSOperationQueue mainQueue]
+                                                              usingBlock:^(NSNotification *) {
+        check();
+        QTimer::singleShot(500, this, &MacFullScreenOverlay::check);
+    }];
 }
 
 
@@ -31,11 +39,10 @@ extern "C" int CGSMainConnectionID(void);
 extern "C" CFArrayRef CGSCopyManagedDisplaySpaces(int connection);
 
 
-//Hearthstone is on screen and the current Space of some display is a fullscreen one. The menu bar can't tell:
-//on displays with a camera notch it stays visible over fullscreen apps.
-bool MacFullScreenOverlay::isHearthstoneFullScreen()
+//A Hearthstone window is on screen: in the current Space and not minimized
+bool MacFullScreenOverlay::isHearthstoneOnScreen()
 {
-    bool hsOnScreen = false, fullScreenSpace = false;
+    bool onScreen = false;
 
     @autoreleasepool
     {
@@ -47,13 +54,24 @@ bool MacFullScreenOverlay::isHearthstoneFullScreen()
             if([window[(__bridge NSString *)kCGWindowOwnerName] isEqualToString:@"Hearthstone"] &&
                     [window[(__bridge NSString *)kCGWindowLayer] intValue] == 0)
             {
-                hsOnScreen = true;
+                onScreen = true;
                 break;
             }
         }
         CFRelease(windows);
-        if(!hsOnScreen)     return false;
+    }
+    return onScreen;
+}
 
+
+//The current Space of some display is a fullscreen one. The menu bar can't tell: on displays with a camera
+//notch it stays visible over fullscreen apps.
+bool MacFullScreenOverlay::isFullScreenSpace()
+{
+    bool fullScreenSpace = false;
+
+    @autoreleasepool
+    {
         CFArrayRef displays = CGSCopyManagedDisplaySpaces(CGSMainConnectionID());
         if(displays == nullptr)     return false;
         for(NSDictionary *display in (__bridge NSArray *)displays)
@@ -67,9 +85,42 @@ bool MacFullScreenOverlay::isHearthstoneFullScreen()
 }
 
 
+bool MacFullScreenOverlay::isHearthstoneFullScreen()
+{
+    return isHearthstoneOnScreen() && isFullScreenSpace();
+}
+
+
+bool MacFullScreenOverlay::isDraftOverlay(QWidget *widget)
+{
+    return widget->inherits("DraftScoreWindow") || widget->inherits("DraftHeroWindow") ||
+            widget->inherits("DraftMechanicsWindow");
+}
+
+
+//Hidden through the NSWindow alpha, so the draft code keeps showing and hiding them as usual
+void MacFullScreenOverlay::showDraftOverlay(QWidget *widget)
+{
+    NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
+    if(view == nil || view.window == nil)   return;
+    view.window.alphaValue = hsOnScreen ? 1.0 : 0.0;
+    view.window.ignoresMouseEvents = !hsOnScreen;
+}
+
+
 void MacFullScreenOverlay::check()
 {
-    bool fullScreen = isHearthstoneFullScreen();
+    bool onScreen = isHearthstoneOnScreen();
+    if(onScreen != hsOnScreen)
+    {
+        hsOnScreen = onScreen;
+        for(QWidget *widget: QApplication::topLevelWidgets())
+        {
+            if(widget->isVisible() && isDraftOverlay(widget))   showDraftOverlay(widget);
+        }
+    }
+
+    bool fullScreen = onScreen && isFullScreenSpace();
     if(fullScreen == accessory)  return;
     accessory = fullScreen;
 
@@ -104,6 +155,7 @@ bool MacFullScreenOverlay::eventFilter(QObject *watched, QEvent *event)
                 behavior |= NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary;
                 view.window.collectionBehavior = behavior;
             }
+            if(isDraftOverlay(widget))  showDraftOverlay(widget);
         }
     }
     return QObject::eventFilter(watched, event);

@@ -18,6 +18,7 @@ namespace MacWindow
 //A fullscreen app lives in its own Space, where other apps' windows don't appear, even the stay on top ones.
 //Every stay on top window of the tracker joins all Spaces, and while Hearthstone is fullscreen the app turns
 //into an accessory app (no Dock icon): macOS only shows a regular app's windows over its own fullscreen Space.
+//As they join all Spaces, the draft overlays (scores, heroes, mechanics) are only shown while Hearthstone is on screen.
 class MacFullScreenOverlay : public QObject
 {
     Q_OBJECT
@@ -32,6 +33,12 @@ protected:
 private:
     QTimer timer;
     bool accessory = false;
+    bool hsOnScreen = true;
+
+    static bool isHearthstoneOnScreen();
+    static bool isFullScreenSpace();
+    static bool isDraftOverlay(QWidget *widget);
+    void showDraftOverlay(QWidget *widget);
 
 private slots:
     void check();
