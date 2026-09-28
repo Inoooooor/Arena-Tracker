@@ -12,6 +12,104 @@ void MacWindow::allowMiniaturize(QWidget *window)
 }
 
 
+MacFullScreenOverlay::MacFullScreenOverlay(QObject *parent) : QObject(parent)
+{
+    //With Hearthstone fullscreen the tracker's windows aren't visible, so App Nap throttled it:
+    //finding the draft screen took 30 s instead of 1 s. The activity is held for the app's lifetime.
+    static id activity = [[NSProcessInfo processInfo] beginActivityWithOptions:
+                            (NSActivityUserInitiated | NSActivityLatencyCritical) reason:@"Tracking Hearthstone"];
+    (void)activity;
+
+    qApp->installEventFilter(this);
+    connect(&timer, &QTimer::timeout, this, &MacFullScreenOverlay::check);
+    timer.start(1000);
+}
+
+
+//Private CoreGraphics Spaces API (used by window managers like yabai): a Space of type 4 is a fullscreen one
+extern "C" int CGSMainConnectionID(void);
+extern "C" CFArrayRef CGSCopyManagedDisplaySpaces(int connection);
+
+
+//Hearthstone is on screen and the current Space of some display is a fullscreen one. The menu bar can't tell:
+//on displays with a camera notch it stays visible over fullscreen apps.
+bool MacFullScreenOverlay::isHearthstoneFullScreen()
+{
+    bool hsOnScreen = false, fullScreenSpace = false;
+
+    @autoreleasepool
+    {
+        CFArrayRef windows = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+                                                        kCGNullWindowID);
+        if(windows == nullptr)  return false;
+        for(NSDictionary *window in (__bridge NSArray *)windows)
+        {
+            if([window[(__bridge NSString *)kCGWindowOwnerName] isEqualToString:@"Hearthstone"] &&
+                    [window[(__bridge NSString *)kCGWindowLayer] intValue] == 0)
+            {
+                hsOnScreen = true;
+                break;
+            }
+        }
+        CFRelease(windows);
+        if(!hsOnScreen)     return false;
+
+        CFArrayRef displays = CGSCopyManagedDisplaySpaces(CGSMainConnectionID());
+        if(displays == nullptr)     return false;
+        for(NSDictionary *display in (__bridge NSArray *)displays)
+        {
+            NSDictionary *space = display[@"Current Space"];
+            if([space[@"type"] intValue] == 4)  fullScreenSpace = true;
+        }
+        CFRelease(displays);
+    }
+    return fullScreenSpace;
+}
+
+
+void MacFullScreenOverlay::check()
+{
+    bool fullScreen = isHearthstoneFullScreen();
+    if(fullScreen == accessory)  return;
+    accessory = fullScreen;
+
+    [NSApp setActivationPolicy:(accessory ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular)];
+
+    //Changing the policy doesn't bring the windows to the fullscreen Space by itself
+    if(accessory)
+    {
+        for(QWidget *widget: QApplication::topLevelWidgets())
+        {
+            if(!widget->isVisible() || !widget->windowFlags().testFlag(Qt::WindowStaysOnTopHint))  continue;
+            NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
+            if(view != nil && view.window != nil)   [view.window orderFrontRegardless];
+        }
+    }
+}
+
+
+bool MacFullScreenOverlay::eventFilter(QObject *watched, QEvent *event)
+{
+    //Qt recreates the NSWindow when the window flags change, so the behaviour is set on every show
+    if(event->type() == QEvent::Show && watched->isWidgetType())
+    {
+        QWidget *widget = static_cast<QWidget *>(watched);
+        if(widget->isWindow() && widget->windowFlags().testFlag(Qt::WindowStaysOnTopHint))
+        {
+            NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
+            if(view != nil && view.window != nil)
+            {
+                NSWindowCollectionBehavior behavior = view.window.collectionBehavior;
+                behavior &= ~(NSWindowCollectionBehaviorMoveToActiveSpace | NSWindowCollectionBehaviorFullScreenPrimary);
+                behavior |= NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary;
+                view.window.collectionBehavior = behavior;
+            }
+        }
+    }
+    return QObject::eventFilter(watched, event);
+}
+
+
 MacHoverTracker::MacHoverTracker(QObject *parent) : QObject(parent)
 {
     connect(&timer, &QTimer::timeout, this, &MacHoverTracker::check);

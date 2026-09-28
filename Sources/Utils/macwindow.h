@@ -15,6 +15,29 @@ namespace MacWindow
 }
 
 
+//A fullscreen app lives in its own Space, where other apps' windows don't appear, even the stay on top ones.
+//Every stay on top window of the tracker joins all Spaces, and while Hearthstone is fullscreen the app turns
+//into an accessory app (no Dock icon): macOS only shows a regular app's windows over its own fullscreen Space.
+class MacFullScreenOverlay : public QObject
+{
+    Q_OBJECT
+public:
+    explicit MacFullScreenOverlay(QObject *parent);
+
+    static bool isHearthstoneFullScreen();
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
+private:
+    QTimer timer;
+    bool accessory = false;
+
+private slots:
+    void check();
+};
+
+
 //Qt only tracks the mouse on macOS while the app is active: with Hearthstone in front, hovering the
 //tracker did nothing until it was clicked. While the app is inactive this polls the cursor and sends
 //the enter, leave and move events Qt would send if it were active.

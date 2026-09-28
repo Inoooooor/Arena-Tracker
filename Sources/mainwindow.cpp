@@ -78,6 +78,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 #ifdef Q_OS_MAC
     new MacHoverTracker(this);
+    new MacFullScreenOverlay(this);
 #endif
 
     //Cards drawn before their HD image arrived are drawn again, once for a burst of downloads
