@@ -111,6 +111,19 @@
         <file>Images/branchClosed.png</file>
         <file>Images/branchOpen.png</file>
         <file>Fonts/LuckiestGuy.ttf</file>
+        <file>Fonts/PixelifySans.ttf</file>
+        <file>Images/Mascot/idle.png</file>
+        <file>Images/Mascot/popcorn.png</file>
+        <file>Images/Mascot/thinking.png</file>
+        <file>Images/Mascot/point.png</file>
+        <file>Images/Mascot/smile.png</file>
+        <file>Images/Mascot/grin.png</file>
+        <file>Images/Mascot/smug.png</file>
+        <file>Images/Mascot/happy.png</file>
+        <file>Images/Mascot/sweat.png</file>
+        <file>Images/Mascot/thumb_up.png</file>
+        <file>Images/Mascot/hand_flat.png</file>
+        <file>Images/Mascot/thumb_down.png</file>
         <file>Images/lfBest.png</file>
         <file>Images/lfClose.png</file>
         <file>Images/lfOpen.png</file>

@@ -20,6 +20,7 @@
 #include "trackobotuploader.h"
 #include "premiumhandler.h"
 #include "Widgets/cardwindow.h"
+#include "Widgets/mascotwindow.h"
 #include "Widgets/cardlistwindow.h"
 #include <QMainWindow>
 #include <QPointer>
@@ -94,6 +95,8 @@ private:
     bool oneWindow;
     DetachWindow *deckWindow, *arenaWindow, *enemyWindow, *enemyDeckWindow, *graveyardWindow, *planWindow;
     QList<QPointer<QWidget>> hiddenToDock;   //macOS: windows hidden by the minimize button, shown again from the Dock
+    MascotWindow *mascotWindow;
+    QList<QPointer<QWidget>> hiddenForMascot;   //The old tracker windows, hidden while the mascot is shown
     int cardHeight;
     int drawDisappear;
     QNetworkAccessManager *networkManager;
@@ -290,6 +293,12 @@ private slots:
     void updateTooltipScale(int value);
     void closeApp();
     void minimizeToDock();
+    void createMascotWindow();
+    void hideTrackerForMascot();
+    void showTrackerFromMascot();
+    void mascotDraftStatus(QString text);
+    void mascotStartGame();
+    void mascotEndGame(bool playerWon, bool playerUnknown);
     void restoreFromDock(Qt::ApplicationState state);
     void updateShowClassColor(bool checked);
     void updateShowSpellColor(bool checked);

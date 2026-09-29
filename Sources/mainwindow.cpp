@@ -63,6 +63,7 @@ MainWindow::MainWindow(QWidget *parent) :
     createCardWindow();//-->A lot
     createCardListWindow();//-->PlanHandler -->SecretsHandler -->DraftHandler
     createPremiumHandler();//-->ArenaHandler -->PlanHandler -->DraftHandler -->TrackobotUploader -->DrawCardHandler
+    createMascotWindow();//-->DraftHandler -->GameWatcher
 
     //Se hace despues de descargar el nuevo cards json o cuando se sabe que no hay
     //uno nuevo que descargar.
@@ -175,6 +176,10 @@ void MainWindow::init()
 {
     spreadTransparency();
     trackobotUploader->checkAccount();
+
+    //Shown here, after MacFullScreenOverlay exists, so it can show over fullscreen Hearthstone too
+    hideTrackerForMascot();
+    mascotWindow->show();
 
 #ifdef Q_OS_LINUX
     checkLinuxShortcut();
@@ -1666,6 +1671,102 @@ void MainWindow::closeApp()
     close();
     //On macOS closing the window used to leave the app running in the Dock, with no way to show it again
     qApp->quit();
+}
+
+
+void MainWindow::createMascotWindow()
+{
+    mascotWindow = new MascotWindow();
+    mascotWindow->say("Hi! Open the arena, I'll help you draft.", 8000);
+    connect(mascotWindow, SIGNAL(openTrackerRequested()),
+            this, SLOT(showTrackerFromMascot()));
+    connect(mascotWindow, SIGNAL(quitRequested()),
+            this, SLOT(closeApp()));
+    connect(draftHandler, SIGNAL(draftStatusChanged(QString)),
+            this, SLOT(mascotDraftStatus(QString)));
+    connect(gameWatcher, SIGNAL(startGame()),
+            this, SLOT(mascotStartGame()));
+    connect(gameWatcher, SIGNAL(endGame(bool,bool)),
+            this, SLOT(mascotEndGame(bool,bool)));
+}
+
+
+//The mascot replaces the old tracker windows, which are opened from its menu
+void MainWindow::hideTrackerForMascot()
+{
+    hiddenForMascot.clear();
+    const QList<QWidget *> windows = {this, deckWindow, arenaWindow, enemyWindow, enemyDeckWindow, graveyardWindow, planWindow};
+    for(QWidget *window: windows)
+    {
+        if(window != nullptr && window->isVisible())
+        {
+            hiddenForMascot << window;
+            window->hide();
+        }
+    }
+}
+
+
+void MainWindow::showTrackerFromMascot()
+{
+    if(hiddenForMascot.isEmpty())   hiddenForMascot << this;
+    for(const QPointer<QWidget> &window: std::as_const(hiddenForMascot))
+    {
+        if(window != nullptr)   window->show();
+    }
+    hiddenForMascot.clear();
+    activateWindow();
+    raise();
+}
+
+
+//The draft status in the mascot's words, with a matching face
+void MainWindow::mascotDraftStatus(QString text)
+{
+    if(text.isEmpty())
+    {
+        mascotWindow->setMood(MascotWindow::Idle);
+        mascotWindow->say("");
+        return;
+    }
+
+    MascotWindow::Mood mood = text.endsWith("...") ? MascotWindow::Thinking : MascotWindow::Idle;
+    QString line = text;
+    if(text.contains("Game Mode"))
+    {
+        mood = MascotWindow::Smug;
+        line = "Everything's under control. But macOS Game Mode slows me down: turn it off with the gamepad icon in the menu bar.";
+    }
+    else if(text.startsWith("Can't see the arena screen"))
+    {
+        mood = MascotWindow::Sweat;
+        line = "I can't see the arena! Check the Screen Recording permission.";
+    }
+    else if(text.startsWith("Looking for the arena screen"))    line = "Where's the arena? Show me the draft.";
+    else if(text.startsWith("Scanning heroes"))                 line = "Picking a hero? Let me see...";
+    else if(text.startsWith("Scanning"))                        line = "Hmm... let me look at these cards.";
+    else if(text.startsWith("Downloading card images"))         line = "Grabbing card pics" + text.mid(QString("Downloading card images").length());
+    mascotWindow->setMood(mood);
+    mascotWindow->say(line);
+}
+
+
+void MainWindow::mascotStartGame()
+{
+    mascotWindow->setMood(MascotWindow::Popcorn);
+    mascotWindow->say("Popcorn time. Show me what this deck can do.", 5000);
+}
+
+
+void MainWindow::mascotEndGame(bool playerWon, bool playerUnknown)
+{
+    if(playerUnknown)
+    {
+        mascotWindow->setMood(MascotWindow::Idle);
+        return;
+    }
+    mascotWindow->setMood(playerWon ? MascotWindow::Happy : MascotWindow::Sweat);
+    mascotWindow->say(playerWon ? "GG! Told you that deck was good." : "Unlucky. RNG hates us today.", 8000);
 }
 
 

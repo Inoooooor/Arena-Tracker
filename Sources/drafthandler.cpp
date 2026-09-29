@@ -224,6 +224,7 @@ void DraftHandler::createDraftStatus()
 //Empty text hides the status
 void DraftHandler::setDraftStatus(const QString &text)
 {
+    emit draftStatusChanged(text);
     if(heroDrafting)
     {
         if(!text.isEmpty())     emit showMessageProgressBar(text, 3000);

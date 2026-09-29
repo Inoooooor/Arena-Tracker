@@ -94,7 +94,7 @@ bool MacFullScreenOverlay::isHearthstoneFullScreen()
 bool MacFullScreenOverlay::isDraftOverlay(QWidget *widget)
 {
     return widget->inherits("DraftScoreWindow") || widget->inherits("DraftHeroWindow") ||
-            widget->inherits("DraftMechanicsWindow");
+            widget->inherits("DraftMechanicsWindow") || widget->inherits("MascotWindow");
 }
 
 
@@ -108,33 +108,47 @@ void MacFullScreenOverlay::showDraftOverlay(QWidget *widget)
 }
 
 
+//The window server's view: on screen means in the current Space. NSWindow.isOnActiveSpace says yes for windows that
+//join all Spaces, even when macOS kept them out of a fullscreen Space.
+static bool isWindowOnScreen(NSWindow *window)
+{
+    bool onScreen = false;
+    CFArrayRef windows = CGWindowListCopyWindowInfo(kCGWindowListOptionIncludingWindow, (CGWindowID)window.windowNumber);
+    if(windows == nullptr)  return false;
+    NSArray *list = (__bridge NSArray *)windows;
+    if(list.count > 0)  onScreen = [list[0][(__bridge NSString *)kCGWindowIsOnscreen] boolValue];
+    CFRelease(windows);
+    return onScreen;
+}
+
+
 void MacFullScreenOverlay::check()
 {
     bool onScreen = isHearthstoneOnScreen();
-    if(onScreen != hsOnScreen)
+    bool changed = (onScreen != hsOnScreen);
+    hsOnScreen = onScreen;
+
+    //macOS only lets an accessory app's windows into another app's fullscreen Space
+    bool fullScreen = onScreen && isFullScreenSpace();
+    if(fullScreen != accessory)
     {
-        hsOnScreen = onScreen;
-        for(QWidget *widget: QApplication::topLevelWidgets())
-        {
-            if(widget->isVisible() && isDraftOverlay(widget))   showDraftOverlay(widget);
-        }
+        accessory = fullScreen;
+        [NSApp setActivationPolicy:(accessory ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular)];
     }
 
-    bool fullScreen = onScreen && isFullScreenSpace();
-    if(fullScreen == accessory)  return;
-    accessory = fullScreen;
-
-    [NSApp setActivationPolicy:(accessory ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular)];
-
-    //Changing the policy doesn't bring the windows to the fullscreen Space by itself
-    if(accessory)
+    for(QWidget *widget: QApplication::topLevelWidgets())
     {
-        for(QWidget *widget: QApplication::topLevelWidgets())
-        {
-            if(!widget->isVisible() || !widget->windowFlags().testFlag(Qt::WindowStaysOnTopHint))  continue;
-            NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
-            if(view != nil && view.window != nil)   [view.window orderFrontRegardless];
-        }
+        if(!widget->isVisible() || !widget->windowFlags().testFlag(Qt::WindowStaysOnTopHint))  continue;
+        if(changed && isDraftOverlay(widget))   showDraftOverlay(widget);
+        if(!hsOnScreen)     continue;
+
+        //A window shown before this Space became active (the mascot, shown at startup) stays out of it even joining
+        //all Spaces, and ordering it in during the Space switch animation leaves it in the old Space: every check,
+        //a window missing from the active Space is ordered out and in again
+        NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
+        if(view == nil || view.window == nil || isWindowOnScreen(view.window))    continue;
+        [view.window orderOut:nil];
+        [view.window orderFrontRegardless];
     }
 }
 

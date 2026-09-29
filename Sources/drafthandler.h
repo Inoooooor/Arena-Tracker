@@ -362,6 +362,7 @@ public:
     void redrawDownloadedCardImage(QString code);
 
 signals:
+    void draftStatusChanged(QString text);
     void checkCardImage(QString code, bool isHero=false);
     void newDeckCard(QString code);
     void draftStarted();
