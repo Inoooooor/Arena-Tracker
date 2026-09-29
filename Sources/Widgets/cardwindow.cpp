@@ -7,15 +7,16 @@
 #endif
 
 #ifdef Q_OS_MAC
-//A (non-activating) panel on macOS, like the mascot, so it also shows over fullscreen Hearthstone
+//A (non-activating) panel on macOS, like the mascot, so it also shows over fullscreen Hearthstone.
+//No shadow: on macOS it drew a light line along the window edge.
 CardWindow::CardWindow(QWidget *parent) :
-    QMainWindow(parent, Qt::Tool|Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint)
+    QMainWindow(parent, Qt::Tool|Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint|Qt::NoDropShadowWindowHint)
 {
     setAttribute(Qt::WA_MacAlwaysShowToolWindow);
     setAttribute(Qt::WA_ShowWithoutActivating);
 #else
 CardWindow::CardWindow(QWidget *parent) :
-    QMainWindow(parent, Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint)
+    QMainWindow(parent, Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint|Qt::NoDropShadowWindowHint)
 {
 #endif
     cardLabel = new QLabel(this);
@@ -24,6 +25,27 @@ CardWindow::CardWindow(QWidget *parent) :
     setMinimumSize(0,0);
     resize(WCARD,HCARD);
     setAttribute(Qt::WA_TranslucentBackground, true);
+}
+
+
+//Bounding box of the pixels that aren't (almost) transparent
+QRect CardWindow::opaqueBounds(const QImage &image)
+{
+    QImage argb = image.convertToFormat(QImage::Format_ARGB32);
+    int top = argb.height(), bottom = -1, left = argb.width(), right = -1;
+    for(int y=0; y<argb.height(); y++)
+    {
+        const QRgb *line = reinterpret_cast<const QRgb *>(argb.constScanLine(y));
+        for(int x=0; x<argb.width(); x++)
+        {
+            if(qAlpha(line[x]) <= 20)   continue;
+            top = std::min(top, y);
+            bottom = std::max(bottom, y);
+            left = std::min(left, x);
+            right = std::max(right, x);
+        }
+    }
+    return (bottom < 0)?QRect():QRect(QPoint(left, top), QPoint(right, bottom));
 }
 
 
@@ -82,9 +104,21 @@ void CardWindow::loadCard(QString code, QRect rectCard, int maxTop, int maxBotto
     const qreal dpr = devicePixelRatioF();
     const QString hdFile = HDImages::path(HDImages::Render, code);
     QPixmap card = hdFile.isEmpty()?QPixmap(Utility::hscardsPath() + "/" + code + ".png"):QPixmap(hdFile);
-    const qreal k = card.width()/200.0;
-    QPixmap shown = card.copy(QRectF(5*k, 34*k, WCARD*k, HCARD*k).toRect())
-                        .scaled(QSizeF(winWidth*dpr, winHeight*dpr).toSize(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+
+    //Cropped to the card's opaque area: a fixed crop (made for the old images) cut the top of HD minion renders,
+    //which sit higher. Fitted in the window keeping the proportions.
+    const QString cacheKey = hdFile.isEmpty()?code:hdFile;
+    if(!cardBounds.contains(cacheKey))  cardBounds[cacheKey] = opaqueBounds(card.toImage());
+    QRect bounds = cardBounds[cacheKey];
+    QPixmap cropped = bounds.isValid()?card.copy(bounds):card;
+    QSize fitted = cropped.size().scaled(QSizeF(winWidth*dpr, winHeight*dpr).toSize(), Qt::KeepAspectRatio);
+    QPixmap shown(QSizeF(winWidth*dpr, winHeight*dpr).toSize());
+    shown.fill(Qt::transparent);
+    {
+        QPainter painter(&shown);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform);
+        painter.drawPixmap(QRect(QPoint((shown.width() - fitted.width())/2, (shown.height() - fitted.height())/2), fitted), cropped);
+    }
     shown.setDevicePixelRatio(dpr);
     cardLabel->setPixmap(shown);
     show();

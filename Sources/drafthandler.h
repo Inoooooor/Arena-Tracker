@@ -194,6 +194,7 @@ private:
     QTimer *redraftReviewTimer;
     QFutureWatcher<RedraftScreenRead> futureRedraftReviewCodes;
     RedraftScreen redraftScreen = RedraftScreenOther;     //Last screen read while redraftingReview
+    int redraftScreenMisses = 0;    //Reads in a row that didn't find the discard screen while on it
     //Legendary bundles (macOS). The log only names the previewed legendary, when its preview opens;
     //the bundle cards are read from the preview, or else from the deck list once it is picked.
     QTimer *bundleTimer;

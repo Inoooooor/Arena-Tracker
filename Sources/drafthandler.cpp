@@ -13,6 +13,26 @@
     #include "Utils/macwindow.h"
 #endif
 
+
+#ifdef Q_OS_MAC
+//The screenshot of screenRect shows the tracker's own windows over Hearthstone too (the mascot's bubble lists card
+//names): they are painted black before the OCR reads it
+static void hideTrackerWindows(QImage &image, const QRect &screenRect)
+{
+    if(image.isNull() || screenRect.isEmpty())  return;
+    const qreal scale = image.width() / static_cast<qreal>(screenRect.width());
+    QPainter painter(&image);
+    for(QWidget *widget: QApplication::topLevelWidgets())
+    {
+        if(!widget->isVisible())    continue;
+        QRect area = widget->frameGeometry() & screenRect;
+        if(area.isEmpty())  continue;
+        area.translate(-screenRect.topLeft());
+        painter.fillRect(QRectF(area.x()*scale, area.y()*scale, area.width()*scale, area.height()*scale), Qt::black);
+    }
+}
+#endif
+
 #ifdef Q_OS_LINUX
 #include "Utils/capturemanager.h"
 #endif
@@ -1317,10 +1337,12 @@ void DraftHandler::checkRedraftScreen()
     QImage image = primaryScreen->grabWindow(0, counterRect.x(), counterRect.y(),
                                              counterRect.width(), counterRect.height()).toImage();
     if(image.isNull())  return;
+    hideTrackerWindows(image, counterRect);
     if(image.width() > 800)     image = image.scaledToWidth(800, Qt::SmoothTransformation);
 
     futureRedraftCounter.setFuture(QtConcurrent::run([image]() {
-        static const QRegularExpression counterRe("(\\d{2})\\s*/\\s*30\\b");
+        //The OCR reads a red "31/30" as "31//30"
+        static const QRegularExpression counterRe("(\\d{2})\\s*/+\\s*30\\b");
         const QStringList lines = MacOcr::recognizeLines(image, "");
         for(const QString &line: lines)
         {
@@ -1358,12 +1380,14 @@ void DraftHandler::captureRedraftReviewNames()
     if(primaryScreen == nullptr)    return;
     QImage image = primaryScreen->grabWindow(0, hsRect.x(), hsRect.y(), hsRect.width(), hsRect.height()).toImage();
     if(image.isNull())  return;
+    hideTrackerWindows(image, hsRect);
     if(image.width() > 1400)    image = image.scaledToWidth(1400, Qt::SmoothTransformation);
 
     const QMap<QString, QString> nameMap = redraftNameMap;
     const QString language = Utility::getLocalLang();
     futureRedraftReviewCodes.setFuture(QtConcurrent::run([image, nameMap, language]() {
-        static const QRegularExpression counterRe("\\d{2}\\s*/\\s*30\\b");
+        //The OCR reads a red "31/30" as "31//30"
+        static const QRegularExpression counterRe("\\d{2}\\s*/+\\s*30\\b");
         const QList<MacOcr::TextLine> lines = MacOcr::recognizeTextLines(image, language);
 
         qreal deckListLeft = -1;
@@ -1405,6 +1429,9 @@ void DraftHandler::finishRedraftReviewNames()
 {
     RedraftScreenRead result = futureRedraftReviewCodes.result();
     if(!redraftingReview)   return;
+    //The OCR misses the deck counter now and then (red "31/30"): the discard screen is only gone after 3 misses
+    if(result.screen == RedraftScreenOther && redraftScreen == RedraftScreenDiscard && ++redraftScreenMisses < 3)  return;
+    if(result.screen != RedraftScreenOther)     redraftScreenMisses = 0;
     bool onDiscard = (result.screen == RedraftScreenDiscard);
     setDraftStatus(onDiscard?"":"Looking for the discard screen...");
     if(result.screen != redraftScreen)
@@ -1760,6 +1787,7 @@ void DraftHandler::endRedraftReview()
         redraftScreen = RedraftScreenOther;
         emit redraftScreenChanged(redraftScreen);
     }
+    redraftScreenMisses = 0;
     //Se llama si cerramos AT, start game o leave arena.
     emit pDebug("End redraft review.");
     setDraftStatus("");
@@ -2237,6 +2265,7 @@ static QImage grabHearthstoneWindow(int maxWidth)
     QScreen *primaryScreen = QGuiApplication::primaryScreen();
     if(hsRect.isNull() || primaryScreen == nullptr)     return QImage();
     QImage image = primaryScreen->grabWindow(0, hsRect.x(), hsRect.y(), hsRect.width(), hsRect.height()).toImage();
+    hideTrackerWindows(image, hsRect);
     if(image.width() > maxWidth)    image = image.scaledToWidth(maxWidth, Qt::SmoothTransformation);
     return image;
 }

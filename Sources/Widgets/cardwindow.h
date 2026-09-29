@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QObject>
 #include <QLabel>
+#include <QHash>
 
 #define HCARD 254
 #define WCARD 182
@@ -21,6 +22,9 @@ public:
 private:
     QLabel *cardLabel;
     bool alwaysHidden;
+    QHash<QString, QRect> cardBounds;       //Opaque area of each card image, by code or HD file
+
+    static QRect opaqueBounds(const QImage &image);
 
 //Metodos
 protected:
