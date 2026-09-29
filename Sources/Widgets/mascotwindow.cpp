@@ -10,8 +10,11 @@
 
 
 MascotWindow::MascotWindow(QWidget *parent)
-    : QWidget(parent, Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::NoDropShadowWindowHint)
+    : QWidget(parent, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::NoDropShadowWindowHint)
 {
+    //A tool window is a panel on macOS: made non-activating (MacFullScreenOverlay) it shows over fullscreen Hearthstone.
+    //Tool windows hide when the app is inactive unless told otherwise.
+    setAttribute(Qt::WA_MacAlwaysShowToolWindow);
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_ShowWithoutActivating);
     setWindowTitle("AT Mascot");

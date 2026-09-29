@@ -108,20 +108,6 @@ void MacFullScreenOverlay::showDraftOverlay(QWidget *widget)
 }
 
 
-//The window server's view: on screen means in the current Space. NSWindow.isOnActiveSpace says yes for windows that
-//join all Spaces, even when macOS kept them out of a fullscreen Space.
-static bool isWindowOnScreen(NSWindow *window)
-{
-    bool onScreen = false;
-    CFArrayRef windows = CGWindowListCopyWindowInfo(kCGWindowListOptionIncludingWindow, (CGWindowID)window.windowNumber);
-    if(windows == nullptr)  return false;
-    NSArray *list = (__bridge NSArray *)windows;
-    if(list.count > 0)  onScreen = [list[0][(__bridge NSString *)kCGWindowIsOnscreen] boolValue];
-    CFRelease(windows);
-    return onScreen;
-}
-
-
 void MacFullScreenOverlay::check()
 {
     bool onScreen = isHearthstoneOnScreen();
@@ -136,19 +122,10 @@ void MacFullScreenOverlay::check()
         [NSApp setActivationPolicy:(accessory ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular)];
     }
 
+    if(!changed)    return;
     for(QWidget *widget: QApplication::topLevelWidgets())
     {
-        if(!widget->isVisible() || !widget->windowFlags().testFlag(Qt::WindowStaysOnTopHint))  continue;
-        if(changed && isDraftOverlay(widget))   showDraftOverlay(widget);
-        if(!hsOnScreen)     continue;
-
-        //A window shown before this Space became active (the mascot, shown at startup) stays out of it even joining
-        //all Spaces, and ordering it in during the Space switch animation leaves it in the old Space: every check,
-        //a window missing from the active Space is ordered out and in again
-        NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
-        if(view == nil || view.window == nil || isWindowOnScreen(view.window))    continue;
-        [view.window orderOut:nil];
-        [view.window orderFrontRegardless];
+        if(widget->isVisible() && isDraftOverlay(widget))   showDraftOverlay(widget);
     }
 }
 
@@ -168,6 +145,11 @@ bool MacFullScreenOverlay::eventFilter(QObject *watched, QEvent *event)
                 behavior &= ~(NSWindowCollectionBehaviorMoveToActiveSpace | NSWindowCollectionBehaviorFullScreenPrimary);
                 behavior |= NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary;
                 view.window.collectionBehavior = behavior;
+
+                //A non-activating panel (a Qt::Tool window) gets into another app's fullscreen Space even created
+                //before it and while the app is a regular one, which a plain window doesn't
+                if([view.window isKindOfClass:[NSPanel class]])
+                    view.window.styleMask |= NSWindowStyleMaskNonactivatingPanel;
             }
             if(isDraftOverlay(widget))  showDraftOverlay(widget);
         }
