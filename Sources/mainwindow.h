@@ -51,6 +51,9 @@ class Extended;
 
 class DetachWindow;
 
+//TODO: the Patreon page, once it exists
+#define MASCOT_SUPPORT_URL "https://www.patreon.com/"
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -97,6 +100,8 @@ private:
     QList<QPointer<QWidget>> hiddenToDock;   //macOS: windows hidden by the minimize button, shown again from the Dock
     MascotWindow *mascotWindow;
     QList<QPointer<QWidget>> hiddenForMascot;   //The old tracker windows, hidden while the mascot is shown
+    int mascotRedraftScreenShown = 0;           //RedraftScreen the mascot talks about
+    bool mascotSupportAsked = false;            //Once per arena run
     int cardHeight;
     int drawDisappear;
     QNetworkAccessManager *networkManager;
@@ -299,6 +304,8 @@ private slots:
     void mascotDraftStatus(QString text);
     void mascotStartGame();
     void mascotEndGame(bool playerWon, bool playerUnknown);
+    void mascotRedraftScreen(int screen);
+    void mascotArenaRecord(int wins, int losses, bool lastWon);
     void restoreFromDock(Qt::ApplicationState state);
     void updateShowClassColor(bool checked);
     void updateShowSpellColor(bool checked);

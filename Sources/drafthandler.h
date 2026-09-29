@@ -49,6 +49,15 @@
 #define HISTOGRAM_EXT                   ".dat"
 
 
+//What the OCR of the Hearthstone window found while redraftingReview
+enum RedraftScreen { RedraftScreenOther, RedraftScreenDiscard, RedraftScreenReadyUp };
+struct RedraftScreenRead
+{
+    RedraftScreen screen = RedraftScreenOther;
+    QStringList codes;      //Cards picked on the discard screen
+};
+
+
 class SDBasic
 {
 public:
@@ -171,7 +180,8 @@ private:
     QFutureWatcher<int> futureRedraftCounter;
     //macOS: the cards picked in the redraft review screen are found by reading their names
     QTimer *redraftReviewTimer;
-    QFutureWatcher<QPair<bool, QStringList>> futureRedraftReviewCodes;
+    QFutureWatcher<RedraftScreenRead> futureRedraftReviewCodes;
+    RedraftScreen redraftScreen = RedraftScreenOther;     //Last screen read while redraftingReview
     //Legendary bundles (macOS). The log only names the previewed legendary, when its preview opens;
     //the bundle cards are read from the preview, or else from the deck list once it is picked.
     QTimer *bundleTimer;
@@ -363,6 +373,7 @@ public:
 
 signals:
     void draftStatusChanged(QString text);
+    void redraftScreenChanged(int screen);      //RedraftScreen
     void checkCardImage(QString code, bool isHero=false);
     void newDeckCard(QString code);
     void draftStarted();

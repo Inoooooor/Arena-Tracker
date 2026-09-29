@@ -1,12 +1,18 @@
 #include "mascotwindow.h"
 #include <QtWidgets>
+#ifdef Q_OS_MAC
+    #include "../Utils/macwindow.h"
+#endif
 
 
-#define MASCOT_SPRITE_HEIGHT    150     //Points
+#define MASCOT_SPRITE_HEIGHT    163     //Points; the sprites have room above the hat for the grabbed one
 #define MASCOT_BUBBLE_MAX_WIDTH 240
 #define MASCOT_PIXEL            3       //Size of one "pixel" of the bubble frame
 #define MASCOT_BUBBLE_PADDING   9
 #define MASCOT_TAIL_HEIGHT      15      //5 frame pixels
+#define MASCOT_BUTTON_HEIGHT    27
+#define MASCOT_BUTTON_GAP       8
+#define MASCOT_BUTTON_COLOR     QColor(107, 27, 155)    //The hat's purple
 
 
 MascotWindow::MascotWindow(QWidget *parent)
@@ -19,8 +25,12 @@ MascotWindow::MascotWindow(QWidget *parent)
     setAttribute(Qt::WA_ShowWithoutActivating);
     setWindowTitle("AT Mascot");
 
-    const char *files[NumMoods] = {"idle", "popcorn", "thinking", "point", "smile", "grin", "smug", "happy", "sweat"};
+    //Moods without their own art yet use a close one
+    const char *files[NumMoods] = {"idle", "popcorn", "thinking", "point", "smile", "grin", "smug", "happy", "sweat",
+                                   "grabbed", "stars"};
+    const Mood fallbacks[NumMoods] = {Idle, Popcorn, Thinking, Point, Smile, Grin, Smug, Happy, Sweat, Sweat, Happy};
     for(int i=0; i<NumMoods; i++)   sprites[i] = QPixmap(QStringLiteral(":/Images/Mascot/%1.png").arg(files[i]));
+    for(int i=0; i<NumMoods; i++)   if(sprites[i].isNull())     sprites[i] = sprites[fallbacks[i]];
 
     int fontId = QFontDatabase::addApplicationFont(":/Fonts/PixelifySans.ttf");
     QStringList families = QFontDatabase::applicationFontFamilies(fontId);
@@ -37,18 +47,26 @@ MascotWindow::MascotWindow(QWidget *parent)
 
 void MascotWindow::setMood(Mood mood)
 {
+    if(dragging && dragMoved)
+    {
+        moodBeforeDrag = mood;      //Shown when it's dropped
+        return;
+    }
     if(this->mood == mood)  return;
     this->mood = mood;
     update();
 }
 
 
-void MascotWindow::say(const QString &text, int msec)
+void MascotWindow::say(const QString &text, int msec, const QString &button, std::function<void()> action)
 {
     sayTimer.stop();
     if(msec > 0 && !text.isEmpty())     sayTimer.start(msec);
-    if(this->text == text)  return;
+    buttonAction = text.isEmpty() ? nullptr : action;
+    QString newButton = text.isEmpty() ? QString() : button;
+    if(this->text == text && buttonText == newButton)   return;
     this->text = text;
+    buttonText = newButton;
     relayout();
     update();
 }
@@ -60,15 +78,23 @@ void MascotWindow::relayout()
     const QPixmap &sprite = sprites[Idle];
     int spriteW = sprite.isNull() ? MASCOT_SPRITE_HEIGHT : MASCOT_SPRITE_HEIGHT * sprite.width() / sprite.height();
     int spriteH = MASCOT_SPRITE_HEIGHT;
+    const int inset = MASCOT_BUBBLE_PADDING + MASCOT_PIXEL;
 
     QSize bubbleSize(0, 0);
+    QRect textBox, buttonBox;
     if(!text.isEmpty())
     {
         QFontMetrics fm(bubbleFont);
-        int maxTextW = MASCOT_BUBBLE_MAX_WIDTH - 2*(MASCOT_BUBBLE_PADDING + MASCOT_PIXEL);
-        QRect textRect = fm.boundingRect(QRect(0, 0, maxTextW, 1000), Qt::TextWordWrap, text);
-        bubbleSize = QSize(textRect.width() + 2*(MASCOT_BUBBLE_PADDING + MASCOT_PIXEL),
-                           textRect.height() + 2*(MASCOT_BUBBLE_PADDING + MASCOT_PIXEL));
+        textBox = fm.boundingRect(QRect(0, 0, MASCOT_BUBBLE_MAX_WIDTH - 2*inset, 1000), Qt::TextWordWrap, text);
+        int contentW = textBox.width();
+        int contentH = textBox.height();
+        if(!buttonText.isEmpty())
+        {
+            buttonBox = QRect(0, 0, fm.horizontalAdvance(buttonText) + 4*MASCOT_PIXEL + 2*MASCOT_BUBBLE_PADDING, MASCOT_BUTTON_HEIGHT);
+            contentW = std::max(contentW, buttonBox.width());
+            contentH += MASCOT_BUTTON_GAP + MASCOT_BUTTON_HEIGHT;
+        }
+        bubbleSize = QSize(contentW + 2*inset, contentH + 2*inset);
     }
 
     int w = std::max(spriteW, bubbleSize.width());
@@ -76,6 +102,9 @@ void MascotWindow::relayout()
     int h = bubbleBlockH + spriteH;
 
     bubbleRect = QRect((w - bubbleSize.width())/2, 0, bubbleSize.width(), bubbleSize.height());
+    textRect = QRect(bubbleRect.x() + inset, bubbleRect.y() + inset, bubbleSize.width() - 2*inset, textBox.height());
+    buttonRect = buttonText.isEmpty() ? QRect() :
+                 QRect(bubbleRect.x() + inset, textRect.bottom() + 1 + MASCOT_BUTTON_GAP, buttonBox.width(), MASCOT_BUTTON_HEIGHT);
     spriteRect = QRect((w - spriteW)/2, bubbleBlockH, spriteW, spriteH);
 
     setFixedSize(w, h);
@@ -97,21 +126,37 @@ void MascotWindow::paintEvent(QPaintEvent *)
 }
 
 
-//White box with a black frame made of square pixels, notched corners and a stepped tail towards the head
-void MascotWindow::drawBubble(QPainter &painter)
+//Always above the tracker's own stay on top windows, like the old main window opened from its menu
+void MascotWindow::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+#ifdef Q_OS_MAC
+    QTimer::singleShot(0, this, [this]() { MacWindow::raiseAboveFloating(this); });
+#endif
+}
+
+
+//A box with a black frame made of square pixels and notched corners
+void MascotWindow::drawFrame(QPainter &painter, const QRect &r, const QColor &fill)
 {
     const int p = MASCOT_PIXEL;
-    const QRect r = bubbleRect;
     painter.setPen(Qt::NoPen);
-
-    painter.setBrush(Qt::white);
+    painter.setBrush(fill);
     painter.drawRect(r.adjusted(p, p, -p, -p));
-
     painter.setBrush(Qt::black);
     painter.drawRect(r.x() + p, r.y(), r.width() - 2*p, p);                     //Top
     painter.drawRect(r.x() + p, r.bottom() - p + 1, r.width() - 2*p, p);        //Bottom
     painter.drawRect(r.x(), r.y() + p, p, r.height() - 2*p);                    //Left
     painter.drawRect(r.right() - p + 1, r.y() + p, p, r.height() - 2*p);        //Right
+}
+
+
+//White box with a stepped tail towards the head, the text and an optional button
+void MascotWindow::drawBubble(QPainter &painter)
+{
+    const int p = MASCOT_PIXEL;
+    const QRect r = bubbleRect;
+    drawFrame(painter, r, Qt::white);
 
     //Tail: a stepped triangle under the bubble, a bit left of its center, pointing at the head
     int x0 = r.x() + r.width()/2 - 6*p;
@@ -132,43 +177,96 @@ void MascotWindow::drawBubble(QPainter &painter)
 
     painter.setPen(Qt::black);
     painter.setFont(bubbleFont);
-    painter.drawText(r.adjusted(p + MASCOT_BUBBLE_PADDING, p + MASCOT_BUBBLE_PADDING,
-                                -p - MASCOT_BUBBLE_PADDING, -p - MASCOT_BUBBLE_PADDING),
-                     Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignVCenter, text);
+    painter.drawText(textRect, Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignVCenter, text);
+
+    if(!buttonText.isEmpty())
+    {
+        QRect button = buttonRect.translated(0, buttonPressed ? p : 0);
+        if(!buttonPressed)  drawFrame(painter, buttonRect.translated(0, p), Qt::black);     //Shadow
+        drawFrame(painter, button, MASCOT_BUTTON_COLOR);
+        painter.setPen(Qt::white);
+        painter.drawText(button, Qt::AlignCenter, buttonText);
+    }
 }
 
 
 void MascotWindow::mousePressEvent(QMouseEvent *event)
 {
     if(event->button() != Qt::LeftButton)   return;
+    if(buttonRect.contains(event->position().toPoint()))
+    {
+        buttonPressed = true;
+        update();
+        return;
+    }
     dragging = true;
-    dragOffset = event->globalPosition().toPoint() - anchor;
+    dragMoved = false;
+    pressPos = event->globalPosition().toPoint();
+    dragOffset = pressPos - anchor;
 }
 
 
 void MascotWindow::mouseMoveEvent(QMouseEvent *event)
 {
     if(!dragging)   return;
-    anchor = event->globalPosition().toPoint() - dragOffset;
+    QPoint pos = event->globalPosition().toPoint();
+    if(!dragMoved && (pos - pressPos).manhattanLength() > 3)
+    {
+        //Lifted by the scruff
+        moodBeforeDrag = mood;
+        setMood(Grabbed);
+        dragMoved = true;
+    }
+    anchor = pos - dragOffset;
     move(anchor.x() - width()/2, anchor.y() - height());
 }
 
 
 void MascotWindow::mouseReleaseEvent(QMouseEvent *event)
 {
-    if(event->button() != Qt::LeftButton || !dragging)  return;
+    if(event->button() != Qt::LeftButton)   return;
+    if(buttonPressed)
+    {
+        buttonPressed = false;
+        update();
+        if(buttonRect.contains(event->position().toPoint()) && buttonAction)
+        {
+            std::function<void()> action = buttonAction;
+            say("");
+            action();
+        }
+        return;
+    }
+    if(!dragging)   return;
     dragging = false;
-    saveAnchor();
+    if(dragMoved)
+    {
+        dragMoved = false;
+        Mood restore = moodBeforeDrag;
+        mood = Grabbed;
+        setMood(restore);
+        saveAnchor();
+    }
 }
 
 
+//Next to the character, so the menu doesn't cover it
 void MascotWindow::contextMenuEvent(QContextMenuEvent *event)
 {
     QMenu menu(this);
     menu.addAction("Open tracker", this, &MascotWindow::openTrackerRequested);
     menu.addSeparator();
     menu.addAction("Quit", this, &MascotWindow::quitRequested);
-    menu.exec(event->globalPos());
+
+    QPoint pos = mapToGlobal(QPoint(spriteRect.right() + 1, spriteRect.top() + spriteRect.height()/3));
+    QScreen *screen = QGuiApplication::screenAt(pos);
+    QSize size = menu.sizeHint();
+    if(screen != nullptr && pos.x() + size.width() > screen->availableGeometry().right())
+        pos.setX(mapToGlobal(spriteRect.topLeft()).x() - size.width() - 1);
+    if(screen != nullptr && pos.y() + size.height() > screen->availableGeometry().bottom())
+        pos.setY(screen->availableGeometry().bottom() - size.height());
+    menu.exec(pos);
+    (void)event;
 }
 
 

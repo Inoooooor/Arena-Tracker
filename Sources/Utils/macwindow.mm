@@ -12,6 +12,15 @@ void MacWindow::allowMiniaturize(QWidget *window)
 }
 
 
+void MacWindow::raiseAboveFloating(QWidget *window)
+{
+    if(window == nullptr)   return;
+    NSView *view = (__bridge NSView *)reinterpret_cast<void *>(window->winId());
+    if(view == nil || view.window == nil)   return;
+    view.window.level = NSFloatingWindowLevel + 1;
+}
+
+
 MacFullScreenOverlay::MacFullScreenOverlay(QObject *parent) : QObject(parent)
 {
     //With Hearthstone fullscreen the tracker's windows aren't visible, so App Nap throttled it:

@@ -1688,6 +1688,10 @@ void MainWindow::createMascotWindow()
             this, SLOT(mascotStartGame()));
     connect(gameWatcher, SIGNAL(endGame(bool,bool)),
             this, SLOT(mascotEndGame(bool,bool)));
+    connect(draftHandler, SIGNAL(redraftScreenChanged(int)),
+            this, SLOT(mascotRedraftScreen(int)));
+    connect(arenaHandler, SIGNAL(arenaRecordChanged(int,int,bool)),
+            this, SLOT(mascotArenaRecord(int,int,bool)));
 }
 
 
@@ -1742,12 +1746,96 @@ void MainWindow::mascotDraftStatus(QString text)
         mood = MascotWindow::Sweat;
         line = "I can't see the arena! Check the Screen Recording permission.";
     }
+    else if(text.startsWith("Looking for the discard screen"))
+    {
+        //On the discard or Ready Up screen the mascot already said something better
+        if(mascotRedraftScreenShown != RedraftScreenOther)  return;
+        line = "Waiting for the discard screen...";
+    }
     else if(text.startsWith("Looking for the arena screen"))    line = "Where's the arena? Show me the draft.";
     else if(text.startsWith("Scanning heroes"))                 line = "Picking a hero? Let me see...";
     else if(text.startsWith("Scanning"))                        line = "Hmm... let me look at these cards.";
     else if(text.startsWith("Downloading card images"))         line = "Grabbing card pics" + text.mid(QString("Downloading card images").length());
     mascotWindow->setMood(mood);
     mascotWindow->say(line);
+}
+
+
+//The discard screen of a redraft, or the Ready Up screen after it
+void MainWindow::mascotRedraftScreen(int screen)
+{
+    mascotRedraftScreenShown = screen;
+    if(screen == RedraftScreenDiscard)
+    {
+        mascotWindow->setMood(MascotWindow::Point);
+        mascotWindow->say("Here, look at the cards we can cut from the deck.", 0, "Show", [this]() {
+            showTrackerFromMascot();
+            QWidget *redraftTab = draftHandler->getRedraftTab();
+            if(ui->tabWidget->indexOf(redraftTab) != -1)    ui->tabWidget->setCurrentWidget(redraftTab);
+        });
+    }
+    else if(screen == RedraftScreenReadyUp)
+    {
+        static const QStringList lines = {
+            "Deck's ready. Go get 'em!",
+            "Good luck. Not that you need it with my picks.",
+            "Queue up. I've got the popcorn ready.",
+            "Go win. I'll be judging every misplay."
+        };
+        mascotWindow->setMood(MascotWindow::Smug);
+        mascotWindow->say(lines[QRandomGenerator::global()->bounded(lines.count())], 10000);
+    }
+    else
+    {
+        mascotWindow->setMood(MascotWindow::Idle);
+        mascotWindow->say("");
+    }
+}
+
+
+//Praise by wins, sympathy by losses, and once per good run a nudge to support the development
+void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
+{
+    if(wins + losses <= 1)  mascotSupportAsked = false;     //A new run
+
+    QString line;
+    MascotWindow::Mood mood = MascotWindow::Happy;
+    if(lastWon)
+    {
+        static const QMap<int, QString> winLines = {
+            {5, "Five wins. Not bad for someone who listens to me."},
+            {6, "Six! Now we're cooking."},
+            {7, "SEVEN WINS. Told you this deck was a beast."},
+            {8, "Eight. I'm basically a genius."},
+            {9, "Nine wins! The opponents are starting to cry."},
+            {10, "Ten! Somebody call Blizzard, we broke the arena."},
+            {11, "Eleven. One more. Don't choke. No pressure."},
+            {12, "TWELVE WINS! I drafted it, you just clicked. We're legends."}
+        };
+        line = winLines.value(wins, "GG! Told you that deck was good.");
+        if(wins >= 7)   mood = MascotWindow::Stars;
+        else if(wins >= 5)  mood = MascotWindow::Grin;
+    }
+    else
+    {
+        mood = MascotWindow::Sweat;
+        if(losses >= 3)         line = QStringLiteral("Run's over: %1 wins. The deck deserved better. Next draft will be better.").arg(wins);
+        else if(losses == 2)    line = "Two losses. Careful now, one more and we're done.";
+        else                    line = "Unlucky. RNG hates us today.";
+    }
+    mascotWindow->setMood(mood);
+    mascotWindow->say(line, 8000);
+
+    if(lastWon && wins >= 7 && !mascotSupportAsked)
+    {
+        mascotSupportAsked = true;
+        QTimer::singleShot(8500, this, [this]() {
+            mascotWindow->setMood(MascotWindow::Smile);
+            mascotWindow->say("Enjoying the wins? Support my development. I need more popcorn.", 15000, "Support", []() {
+                QDesktopServices::openUrl(QUrl(MASCOT_SUPPORT_URL));
+            });
+        });
+    }
 }
 
 
@@ -1765,6 +1853,7 @@ void MainWindow::mascotEndGame(bool playerWon, bool playerUnknown)
         mascotWindow->setMood(MascotWindow::Idle);
         return;
     }
+    //In the arena mascotArenaRecord says it with the run's record, right after
     mascotWindow->setMood(playerWon ? MascotWindow::Happy : MascotWindow::Sweat);
     mascotWindow->say(playerWon ? "GG! Told you that deck was good." : "Unlucky. RNG hates us today.", 8000);
 }

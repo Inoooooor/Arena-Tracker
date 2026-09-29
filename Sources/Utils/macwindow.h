@@ -12,6 +12,9 @@ namespace MacWindow
 {
     //Frameless windows can't be minimized to the Dock unless their style allows it
     void allowMiniaturize(QWidget *window);
+
+    //One level above the stay on top windows (floating level), e.g. the mascot above the tracker's windows
+    void raiseAboveFloating(QWidget *window);
 }
 
 

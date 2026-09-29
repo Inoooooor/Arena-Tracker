@@ -673,6 +673,8 @@ QTreeWidgetItem *ArenaHandler::createGameInCategory(GameResult &gameResult, Load
             item = new QTreeWidgetItem();
             arenaCurrent->insertChild(0, item);
             updateWinLose(gameResult.isWinner, arenaCurrent);
+            emit arenaRecordChanged(getColumnText(arenaCurrent, 2).toInt(), getColumnText(arenaCurrent, 3).toInt(),
+                                    gameResult.isWinner);
             setColorWrongArena(arenaCurrent);
             setColumnText(arenaCurrent, 0, QDateTime::currentDateTime().toString("d MMM"));
         break;

@@ -1382,18 +1382,27 @@ void DraftHandler::captureRedraftReviewNames()
                 break;
             }
         }
-        //Not the review screen
-        if(deckListLeft < 0)    return qMakePair(false, QStringList());
+        RedraftScreenRead read;
+        //Not the review screen: the "Ready Up" screen before a game (enUS title), or anything else
+        if(deckListLeft < 0)
+        {
+            for(const MacOcr::TextLine &line: lines)
+            {
+                if(line.text.trimmed().compare("Ready Up", Qt::CaseInsensitive) == 0)  read.screen = RedraftScreenReadyUp;
+            }
+            return read;
+        }
 
-        QStringList codes;
+        read.screen = RedraftScreenDiscard;
         for(const MacOcr::TextLine &line: lines)
         {
             //By the center: deck list lines can start with a "NEW!" badge left of the list
             if(line.rect.center().x() >= deckListLeft)  continue;
             QString code = matchCardName({line.text}, nameMap);
-            if(!code.isEmpty())     codes << code;
+            if(!code.isEmpty())     read.codes << code;
         }
-        return qMakePair(true, codes.mid(0, 5));
+        read.codes = read.codes.mid(0, 5);
+        return read;
     }));
 #endif
 }
@@ -1401,15 +1410,21 @@ void DraftHandler::captureRedraftReviewNames()
 
 void DraftHandler::finishRedraftReviewNames()
 {
-    QPair<bool, QStringList> result = futureRedraftReviewCodes.result();
+    RedraftScreenRead result = futureRedraftReviewCodes.result();
     if(!redraftingReview)   return;
-    setDraftStatus(result.first?"":"Looking for the discard screen...");
+    bool onDiscard = (result.screen == RedraftScreenDiscard);
+    setDraftStatus(onDiscard?"":"Looking for the discard screen...");
+    if(result.screen != redraftScreen)
+    {
+        redraftScreen = result.screen;
+        emit redraftScreenChanged(redraftScreen);
+    }
     //Keep the last picks when the screen is gone (Done pressed), they are removed from the deck at the end
-    if(!result.first)   return;
+    if(!onDiscard)  return;
 
     QStringList prevCodes;
     for(int i=0; i<5; i++)  if(!bestCodesRedraftingReview[i].isEmpty())    prevCodes << bestCodesRedraftingReview[i];
-    QStringList codes = result.second;
+    QStringList codes = result.codes;
     std::sort(prevCodes.begin(), prevCodes.end());
     std::sort(codes.begin(), codes.end());
     if(codes == prevCodes)  return;
@@ -1747,6 +1762,11 @@ void DraftHandler::endDraftHideMechanicsWindow()
 
 void DraftHandler::endRedraftReview()
 {
+    if(redraftScreen != RedraftScreenOther)
+    {
+        redraftScreen = RedraftScreenOther;
+        emit redraftScreenChanged(redraftScreen);
+    }
     //Se llama si cerramos AT, start game o leave arena.
     emit pDebug("End redraft review.");
     setDraftStatus("");
