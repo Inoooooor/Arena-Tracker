@@ -5,12 +5,16 @@
 #include <QtWidgets>
 
 
-#define HERO_PLATE_WIDTH    156
-#define HERO_PLATE_HEIGHT   54
+#define HERO_PLATE_WIDTH    200
+#define HERO_PLATE_HEIGHT   66
 #define HERO_PLATE_TOP      0.9     //Below the portrait, in portrait heights: under the class label and the name
-#define HERO_HAND_SIZE      44
-#define HERO_ICON_SIZE      28
+#define HERO_HAND_SIZE      46
+#define HERO_ICON_SIZE      46      //As big as the hand
+#define HERO_FLAME_HEIGHT   24      //Firestone's flame, over the winrate
+#define HERO_WINRATE_SIZE   24
 #define HERO_CLOSE_WINRATE  1.5     //Points under the best winrate that still get a flat hand
+#define HERO_PADDING        14      //Inside the frame, left and right
+#define HERO_GAP            10      //Between the hand, the icon and the winrate
 
 
 DraftHeroWindow::DraftHeroWindow(QWidget *parent, const QList<QRect> &heroRects) :
@@ -36,6 +40,8 @@ DraftHeroWindow::DraftHeroWindow(QWidget *parent, const QList<QRect> &heroRects)
     hands[0] = QPixmap(":/Images/Mascot/thumb_up.png");
     hands[1] = QPixmap(":/Images/Mascot/hand_flat.png");
     hands[2] = QPixmap(":/Images/Mascot/thumb_down.png");
+    QPixmap flame(":/Images/lfText.png");
+    firestone = flame.copy(QRect(45, 0, 37, 49));      //The flame in the top of the badge overlay
 
     setAttribute(Qt::WA_TranslucentBackground, true);
     setAttribute(Qt::WA_TransparentForMouseEvents, true);
@@ -94,7 +100,7 @@ void DraftHeroWindow::setTwitchScores(int vote1, int vote2, int vote3, QString u
 }
 
 
-//[hand] [class icon] 55.6%
+//[hand] [class icon] [Firestone's flame over the winrate]: the winrates are Firestone's
 void DraftHeroWindow::paintEvent(QPaintEvent *)
 {
     if(!scoresShown)    return;
@@ -102,7 +108,6 @@ void DraftHeroWindow::paintEvent(QPaintEvent *)
     QPainter painter(this);
     painter.setRenderHint(QPainter::SmoothPixmapTransform);
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.setFont(MascotWindow::pixelFont(28));
     float bestRating = std::max(std::max(ratings[0], ratings[1]), ratings[2]);
 
     for(int i=0; i<3 && i<plateRects.count(); i++)
@@ -111,7 +116,7 @@ void DraftHeroWindow::paintEvent(QPaintEvent *)
         MascotWindow::drawPixelFrame(painter, plate.translated(0, 3), Qt::black);      //Shadow
         MascotWindow::drawPixelFrame(painter, plate, Qt::white);
 
-        int x = plate.x() + 8;
+        int x = plate.x() + HERO_PADDING;
         const int midY = plate.center().y();
         if(ratings[i] > 0)
         {
@@ -119,14 +124,20 @@ void DraftHeroWindow::paintEvent(QPaintEvent *)
             QSize handSize = hand.size().scaled(HERO_HAND_SIZE, HERO_HAND_SIZE, Qt::KeepAspectRatio);
             painter.drawPixmap(QRect(QPoint(x + (HERO_HAND_SIZE - handSize.width())/2, midY - handSize.height()/2), handSize), hand);
         }
-        x += HERO_HAND_SIZE + 6;
+        x += HERO_HAND_SIZE + HERO_GAP;
 
         QPixmap icon = HDIcons::hero(classOrder[i]).pixmap(QSize(HERO_ICON_SIZE, HERO_ICON_SIZE), devicePixelRatioF());
         painter.drawPixmap(QRect(x, midY - HERO_ICON_SIZE/2, HERO_ICON_SIZE, HERO_ICON_SIZE), icon);
-        x += HERO_ICON_SIZE + 6;
+        x += HERO_ICON_SIZE + HERO_GAP;
 
+        //Firestone's flame and the winrate under it
+        QRect column(x, plate.y() + 6, plate.right() - HERO_PADDING - x, plate.height() - 12);
+        QSize flameSize = firestone.size().scaled(HERO_FLAME_HEIGHT, HERO_FLAME_HEIGHT, Qt::KeepAspectRatio);
+        painter.drawPixmap(QRect(QPoint(column.center().x() - flameSize.width()/2, column.y()), flameSize), firestone);
+        painter.setFont(MascotWindow::pixelFont(HERO_WINRATE_SIZE));
         painter.setPen(Qt::black);
         QString text = (ratings[i] > 0) ? QString::number(ratings[i], 'f', 1) + "%" : "?";
-        painter.drawText(QRect(x, plate.y(), plate.right() - 6 - x, plate.height()), Qt::AlignCenter, text);
+        painter.drawText(QRect(column.x(), column.y() + HERO_FLAME_HEIGHT, column.width(), column.height() - HERO_FLAME_HEIGHT),
+                         Qt::AlignHCenter | Qt::AlignVCenter, text);
     }
 }

@@ -26,6 +26,7 @@ private:
     float ratings[3] = {0, 0, 0};
     bool scoresShown = false;
     QPixmap hands[3];               //Up, flat, down
+    QPixmap firestone;
 
 //Metodos
 protected:

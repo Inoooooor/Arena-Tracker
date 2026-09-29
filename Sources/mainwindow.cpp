@@ -1881,29 +1881,50 @@ void MainWindow::mascotRunComplete()
 }
 
 
-//The hero with the best class winrate, and a Rescan in case the heroes were read wrong
+//The hero with the best class winrate, said by how far ahead it is, and a Rescan in case the heroes were read wrong
 void MainWindow::mascotHeroes(int classOrder0, int classOrder1, int classOrder2)
 {
     static const QStringList classNames = {"Death Knight", "Demon Hunter", "Druid", "Hunter", "Mage", "Paladin",
                                            "Priest", "Rogue", "Shaman", "Warlock", "Warrior"};
-    int classOrders[3] = {classOrder0, classOrder1, classOrder2};
-    int best = -1;
-    float bestRating = 0;
-    for(int i=0; i<3; i++)
+    auto className = [](int classOrder) { return (classOrder >= 0 && classOrder < classNames.count())?classNames[classOrder]:QString("?"); };
+
+    //Best and second best by winrate
+    QList<QPair<float, int>> heroes;
+    for(int classOrder: {classOrder0, classOrder1, classOrder2})    heroes << qMakePair(ScoreButton::getHeroScore(classOrder), classOrder);
+    std::sort(heroes.begin(), heroes.end(), [](const QPair<float, int> &a, const QPair<float, int> &b) { return a.first > b.first; });
+
+    QString line;
+    if(heroes[0].first <= 0)    line = "No winrates for these heroes yet. You're on your own.";
+    else
     {
-        float rating = ScoreButton::getHeroScore(classOrders[i]);
-        if(rating > bestRating)
+        const QString best = className(heroes[0].second), second = className(heroes[1].second);
+        const QString winrate = QString::number(heroes[0].first, 'f', 1) + "%";
+        const float lead = heroes[0].first - heroes[1].first;
+        QStringList lines;
+        if(lead >= 3)
         {
-            bestRating = rating;
-            best = classOrders[i];
+            lines = {QStringLiteral("%1 is a no-brainer here. %2 winrate.").arg(best, winrate),
+                     QStringLiteral("%1. Don't even think about the other two. %2.").arg(best, winrate),
+                     QStringLiteral("%1, obviously. %2 winrate, the rest is trash.").arg(best, winrate)};
         }
+        else if(lead >= 1)
+        {
+            lines = {QStringLiteral("I'd take %1. %2 winrate, a notch above %3.").arg(best, winrate, second),
+                     QStringLiteral("%1 has the edge: %2 winrate.").arg(best, winrate),
+                     QStringLiteral("Go %1. %2, the others can't keep up.").arg(best, winrate)};
+        }
+        else
+        {
+            lines = {QStringLiteral("Coin flip between %1 and %2. I'd go %1, %3.").arg(best, second, winrate),
+                     QStringLiteral("%1 or %2, basically the same. %1 by a hair: %3.").arg(best, second, winrate),
+                     QStringLiteral("Tough one. %1 at %3, %2 right behind.").arg(best, second, winrate)};
+        }
+        line = lines[QRandomGenerator::global()->bounded(lines.count())];
     }
 
     mascotSaysStatus = false;
-    QString line = (best < 0 || best >= classNames.count()) ? QString("No winrates for these heroes yet.") :
-                   QStringLiteral("Take the %1: %2% winrate.").arg(classNames[best], QString::number(bestRating, 'f', 1));
     mascotWindow->setMood(MascotWindow::Point);
-    mascotWindow->say(line + "\nAm I hallucinating? Try:", 0, "Rescan", [this]() {
+    mascotWindow->say(line + "\n\nAm I hallucinating? Try:", 0, "Rescan", [this]() {
         mascotWindow->setMood(MascotWindow::Thinking);
         mascotWindow->say("Rescanning... Let me take a better look.");
         mascotSaysStatus = true;    //Replaced by the draft status or the heroes again
