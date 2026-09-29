@@ -16,16 +16,33 @@ class MascotWindow : public QWidget
 public:
     enum Mood { Idle, Popcorn, Thinking, Point, Smile, Grin, Smug, Happy, Sweat, Grabbed, Stars, NumMoods };
 
+    //A section of name/value rows under the text (e.g. the cards to remove by one score source).
+    //Rows with a card code show the card when hovered.
+    struct Row
+    {
+        QString name, value, code;
+    };
+    struct Section
+    {
+        QString header;
+        QList<Row> rows;
+    };
+
     explicit MascotWindow(QWidget *parent = nullptr);
 
     void setMood(Mood mood);
     //An empty text hides the bubble. With msec > 0 the bubble hides by itself after that time.
     //With a button text, the bubble shows a button that runs the action (and hides the bubble).
     void say(const QString &text, int msec = 0, const QString &button = QString(), std::function<void()> action = nullptr);
+    //Sections one under the other, under the text
+    void saySections(const QString &text, const QList<Section> &sections, int msec = 0,
+                     const QString &button = QString(), std::function<void()> action = nullptr);
 
 signals:
     void openTrackerRequested();
     void quitRequested();
+    void cardEntered(QString code, QRect rectCard, int maxTop, int maxBottom);
+    void cardLeave();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -33,6 +50,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
 
 private:
@@ -40,6 +58,10 @@ private:
     Mood mood = Idle;
     Mood moodBeforeDrag = Idle;
     QString text, buttonText;
+    QList<Section> sections;
+    QList<QRect> headerRects;
+    QList<QList<QRect>> rowRects;       //By section
+    int hoveredSection = -1, hoveredRow = -1;
     std::function<void()> buttonAction;
     QTimer sayTimer;
     QFont bubbleFont;
@@ -51,6 +73,9 @@ private:
     void relayout();
     void drawFrame(QPainter &painter, const QRect &rect, const QColor &fill);
     void drawBubble(QPainter &painter);
+    void drawSections(QPainter &painter);
+    void updateHover(const QPoint &pos);
+    void applyCursor(Qt::CursorShape shape);
     void loadAnchor();
     void saveAnchor();
 };

@@ -1111,13 +1111,40 @@ void DraftHandler::updateRedraftRemoveList()
         return;
     }
 
-    updateRedraftRemoveMarks();
     //Only in the discard screen, not while the new cards are drafted
     if(redraftingReview)    showRedraftTab();
 }
 
 
 //Returns false, leaving the section hidden, if no deck card has a score of draftMethod
+//The sections of the remove list, without the spares; two copies of a card are one "name x2" entry
+QList<RedraftSuggestion> DraftHandler::getRedraftRemoveSuggestions()
+{
+    QList<RedraftSuggestion> suggestions;
+    for(int section=0; section<REDRAFT_REMOVE_SECTIONS; section++)
+    {
+        if(redraftRemoveCards[section].isEmpty())   continue;
+        RedraftSuggestion suggestion;
+        QString label = redraftRemoveLabel[section]->text();        //"Remove (Firestone)"
+        suggestion.source = label.section('(', 1).chopped(1);
+        for(DeckCard &deckCard: redraftRemoveCards[section])
+        {
+            DraftMethod draftMethod = (suggestion.source == "HearthArena")?HearthArena:
+                                      (suggestion.source == "Firestone")?FireStone:HSReplay;
+            float score = deckCard.getScore(draftMethod);
+            QString scoreText = (draftMethod == HearthArena)?QString::number(qRound(score)):
+                                                             QString::number(score, 'f', 1) + "%";
+            if(deckCard.remaining <= 0)     continue;      //Spare
+            QString name = deckCard.getName();
+            if(deckCard.remaining > 1)  name += QStringLiteral(" x%1").arg(deckCard.remaining);
+            suggestion.cards << RedraftSuggestionCard{name, scoreText, deckCard.getCode()};
+        }
+        suggestions << suggestion;
+    }
+    return suggestions;
+}
+
+
 bool DraftHandler::fillRedraftRemoveSection(int section, DraftMethod draftMethod)
 {
     QList<DeckCard> *deckCardList = deckHandler->getDeckCardListRef();
@@ -1173,23 +1200,6 @@ bool DraftHandler::fillRedraftRemoveSection(int section, DraftMethod draftMethod
 
 
 //Frames the suggested cards already picked for removal in the redraft review screen
-void DraftHandler::updateRedraftRemoveMarks()
-{
-    for(int section=0; section<REDRAFT_REMOVE_SECTIONS; section++)
-    {
-        for(DeckCard &deckCard: redraftRemoveCards[section])
-        {
-            bool picked = false;
-            for(int i=0; i<5 && !picked; i++)
-            {
-                picked = deckCard.isCode(bestCodesRedraftingReview[i]);
-            }
-            deckCard.setRedraftingReview(picked);
-        }
-    }
-}
-
-
 void DraftHandler::clearRedraftRemoveList()
 {
     emit cardLeave();
@@ -1326,25 +1336,8 @@ void DraftHandler::checkRedraftScreen()
 //Marks the cards picked in the redraft review screen, in the deck and in the suggestions
 void DraftHandler::setRedraftReviewCodes(const QStringList &codes)
 {
-    bool changed = false;
-    for(int i=0; i<5; i++)
-    {
-        QString code = (i < codes.count())?codes[i]:"";
-        if(code != bestCodesRedraftingReview[i])
-        {
-            bestCodesRedraftingReview[i] = code;
-            changed = true;
-        }
-    }
-    if(!changed)    return;
-
-    for(DeckCard &deckCard: *deckHandler->getDeckCardListRef())
-    {
-        QString code = deckCard.getCode();
-        if(code.isEmpty())    continue;
-        deckCard.setRedraftingReview(codes.contains(code));
-    }
-    updateRedraftRemoveMarks();
+    //Removed from the deck when the review ends
+    for(int i=0; i<5; i++)  bestCodesRedraftingReview[i] = (i < codes.count())?codes[i]:"";
 }
 
 

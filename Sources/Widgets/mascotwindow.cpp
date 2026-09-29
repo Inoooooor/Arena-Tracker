@@ -6,13 +6,19 @@
 
 
 #define MASCOT_SPRITE_HEIGHT    163     //Points; the sprites have room above the hat for the grabbed one
-#define MASCOT_BUBBLE_MAX_WIDTH 240
+#define MASCOT_BUBBLE_MAX_WIDTH 260
 #define MASCOT_PIXEL            3       //Size of one "pixel" of the bubble frame
 #define MASCOT_BUBBLE_PADDING   9
 #define MASCOT_TAIL_HEIGHT      15      //5 frame pixels
-#define MASCOT_BUTTON_HEIGHT    27
+#define MASCOT_FONT_SIZE        20      //Jersey 10 is drawn on a 10 px grid
+#define MASCOT_BUTTON_HEIGHT    29
 #define MASCOT_BUTTON_GAP       8
-#define MASCOT_BUTTON_COLOR     QColor(107, 27, 155)    //The hat's purple
+#define MASCOT_PURPLE           QColor(107, 27, 155)    //The hat's purple
+#define MASCOT_HOVER_COLOR      QColor(236, 226, 244)
+#define MASCOT_NAME_MAX         200     //Longer card names are elided
+#define MASCOT_VALUE_GAP        14
+#define MASCOT_BLOCK_GAP        8       //Between the text, the sections and the button
+#define MASCOT_SECTION_GAP      6
 
 
 MascotWindow::MascotWindow(QWidget *parent)
@@ -23,6 +29,7 @@ MascotWindow::MascotWindow(QWidget *parent)
     setAttribute(Qt::WA_MacAlwaysShowToolWindow);
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_ShowWithoutActivating);
+    setMouseTracking(true);     //Hovered cards and cursors, also while Hearthstone is the active app (MacHoverTracker)
     setWindowTitle("AT Mascot");
 
     //Moods without their own art yet use a close one
@@ -32,10 +39,10 @@ MascotWindow::MascotWindow(QWidget *parent)
     for(int i=0; i<NumMoods; i++)   sprites[i] = QPixmap(QStringLiteral(":/Images/Mascot/%1.png").arg(files[i]));
     for(int i=0; i<NumMoods; i++)   if(sprites[i].isNull())     sprites[i] = sprites[fallbacks[i]];
 
-    int fontId = QFontDatabase::addApplicationFont(":/Fonts/PixelifySans.ttf");
+    int fontId = QFontDatabase::addApplicationFont(":/Fonts/Jersey10.ttf");
     QStringList families = QFontDatabase::applicationFontFamilies(fontId);
     bubbleFont = QFont(families.isEmpty() ? QString() : families.first());
-    bubbleFont.setPixelSize(15);
+    bubbleFont.setPixelSize(MASCOT_FONT_SIZE);
 
     sayTimer.setSingleShot(true);
     connect(&sayTimer, &QTimer::timeout, this, [this]() { say(""); });
@@ -60,13 +67,21 @@ void MascotWindow::setMood(Mood mood)
 
 void MascotWindow::say(const QString &text, int msec, const QString &button, std::function<void()> action)
 {
+    saySections(text, {}, msec, button, action);
+}
+
+
+void MascotWindow::saySections(const QString &text, const QList<Section> &sections, int msec,
+                               const QString &button, std::function<void()> action)
+{
     sayTimer.stop();
     if(msec > 0 && !text.isEmpty())     sayTimer.start(msec);
+    if(hoveredRow != -1)    emit cardLeave();
+    hoveredSection = hoveredRow = -1;
+    this->sections = text.isEmpty() ? QList<Section>() : sections;
     buttonAction = text.isEmpty() ? nullptr : action;
-    QString newButton = text.isEmpty() ? QString() : button;
-    if(this->text == text && buttonText == newButton)   return;
+    buttonText = text.isEmpty() ? QString() : button;
     this->text = text;
-    buttonText = newButton;
     relayout();
     update();
 }
@@ -79,15 +94,45 @@ void MascotWindow::relayout()
     int spriteW = sprite.isNull() ? MASCOT_SPRITE_HEIGHT : MASCOT_SPRITE_HEIGHT * sprite.width() / sprite.height();
     int spriteH = MASCOT_SPRITE_HEIGHT;
     const int inset = MASCOT_BUBBLE_PADDING + MASCOT_PIXEL;
+    QFontMetrics fm(bubbleFont);
+    const int lineH = fm.height();
 
     QSize bubbleSize(0, 0);
     QRect textBox, buttonBox;
+    headerRects.clear();
+    rowRects.clear();
     if(!text.isEmpty())
     {
-        QFontMetrics fm(bubbleFont);
-        textBox = fm.boundingRect(QRect(0, 0, MASCOT_BUBBLE_MAX_WIDTH - 2*inset, 1000), Qt::TextWordWrap, text);
-        int contentW = textBox.width();
+        //Sections: as wide as the widest header or row; relative to the content, placed under the text below
+        int sectionsW = 0, sectionsH = 0;
+        for(const Section &section: std::as_const(sections))
+        {
+            sectionsW = std::max(sectionsW, fm.horizontalAdvance(section.header));
+            for(const Row &row: section.rows)
+            {
+                int nameW = std::min(fm.horizontalAdvance(row.name), MASCOT_NAME_MAX);
+                sectionsW = std::max(sectionsW, nameW + MASCOT_VALUE_GAP + fm.horizontalAdvance(row.value));
+            }
+        }
+        for(const Section &section: std::as_const(sections))
+        {
+            if(sectionsH > 0)   sectionsH += MASCOT_SECTION_GAP;
+            headerRects << QRect(0, sectionsH, sectionsW, lineH);
+            sectionsH += lineH;
+            QList<QRect> rects;
+            for(int i=0; i<section.rows.count(); i++)
+            {
+                rects << QRect(0, sectionsH, sectionsW, lineH);
+                sectionsH += lineH;
+            }
+            rowRects << rects;
+        }
+
+        int maxTextW = std::max(MASCOT_BUBBLE_MAX_WIDTH - 2*inset, sectionsW);
+        textBox = fm.boundingRect(QRect(0, 0, maxTextW, 1000), Qt::TextWordWrap, text);
+        int contentW = std::max(textBox.width(), sectionsW);
         int contentH = textBox.height();
+        if(sectionsH > 0)   contentH += MASCOT_BLOCK_GAP + sectionsH;
         if(!buttonText.isEmpty())
         {
             buttonBox = QRect(0, 0, fm.horizontalAdvance(buttonText) + 4*MASCOT_PIXEL + 2*MASCOT_BUBBLE_PADDING, MASCOT_BUTTON_HEIGHT);
@@ -103,8 +148,23 @@ void MascotWindow::relayout()
 
     bubbleRect = QRect((w - bubbleSize.width())/2, 0, bubbleSize.width(), bubbleSize.height());
     textRect = QRect(bubbleRect.x() + inset, bubbleRect.y() + inset, bubbleSize.width() - 2*inset, textBox.height());
+    int blockBottom = textRect.bottom();
+    QPoint sectionsOrigin(textRect.x(), textRect.bottom() + 1 + MASCOT_BLOCK_GAP);
+    for(QRect &rect: headerRects)
+    {
+        rect.translate(sectionsOrigin);
+        blockBottom = std::max(blockBottom, rect.bottom());
+    }
+    for(QList<QRect> &rects: rowRects)
+    {
+        for(QRect &rect: rects)
+        {
+            rect.translate(sectionsOrigin);
+            blockBottom = std::max(blockBottom, rect.bottom());
+        }
+    }
     buttonRect = buttonText.isEmpty() ? QRect() :
-                 QRect(bubbleRect.x() + inset, textRect.bottom() + 1 + MASCOT_BUTTON_GAP, buttonBox.width(), MASCOT_BUTTON_HEIGHT);
+                 QRect(bubbleRect.x() + inset, blockBottom + 1 + MASCOT_BUTTON_GAP, buttonBox.width(), MASCOT_BUTTON_HEIGHT);
     spriteRect = QRect((w - spriteW)/2, bubbleBlockH, spriteW, spriteH);
 
     setFixedSize(w, h);
@@ -151,7 +211,7 @@ void MascotWindow::drawFrame(QPainter &painter, const QRect &r, const QColor &fi
 }
 
 
-//White box with a stepped tail towards the head, the text and an optional button
+//White box with a stepped tail towards the head, the text, the sections and an optional button
 void MascotWindow::drawBubble(QPainter &painter)
 {
     const int p = MASCOT_PIXEL;
@@ -178,37 +238,121 @@ void MascotWindow::drawBubble(QPainter &painter)
     painter.setPen(Qt::black);
     painter.setFont(bubbleFont);
     painter.drawText(textRect, Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignVCenter, text);
+    drawSections(painter);
 
     if(!buttonText.isEmpty())
     {
         QRect button = buttonRect.translated(0, buttonPressed ? p : 0);
         if(!buttonPressed)  drawFrame(painter, buttonRect.translated(0, p), Qt::black);     //Shadow
-        drawFrame(painter, button, MASCOT_BUTTON_COLOR);
+        drawFrame(painter, button, MASCOT_PURPLE);
         painter.setPen(Qt::white);
         painter.drawText(button, Qt::AlignCenter, buttonText);
     }
 }
 
 
+//Header in the hat's purple, then name (elided) on the left and value (grey) on the right of each row
+void MascotWindow::drawSections(QPainter &painter)
+{
+    QFontMetrics fm(bubbleFont);
+    for(int s=0; s<sections.count() && s<headerRects.count(); s++)
+    {
+        painter.setPen(MASCOT_PURPLE);
+        painter.drawText(headerRects[s], Qt::AlignLeft | Qt::AlignVCenter, sections[s].header);
+        for(int i=0; i<sections[s].rows.count() && i<rowRects[s].count(); i++)
+        {
+            const Row &row = sections[s].rows[i];
+            const QRect &r = rowRects[s][i];
+            if(s == hoveredSection && i == hoveredRow)
+            {
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(MASCOT_HOVER_COLOR);
+                painter.drawRect(r.adjusted(-MASCOT_PIXEL, 0, MASCOT_PIXEL, 0));
+            }
+            int valueW = fm.horizontalAdvance(row.value);
+            QString name = fm.elidedText(row.name, Qt::ElideRight, r.width() - valueW - MASCOT_VALUE_GAP);
+            painter.setPen(Qt::black);
+            painter.drawText(r, Qt::AlignLeft | Qt::AlignVCenter, name);
+            painter.setPen(QColor(100, 100, 100));
+            painter.drawText(r, Qt::AlignRight | Qt::AlignVCenter, row.value);
+        }
+    }
+}
+
+
+//The hovered card row shows its card; the cursor tells what a click does
+void MascotWindow::updateHover(const QPoint &pos)
+{
+    int section = -1, row = -1;
+    for(int s=0; s<rowRects.count() && row == -1; s++)
+    {
+        for(int i=0; i<rowRects[s].count(); i++)
+        {
+            if(rowRects[s][i].contains(pos) && !sections[s].rows[i].code.isEmpty())
+            {
+                section = s;
+                row = i;
+                break;
+            }
+        }
+    }
+
+    if(section != hoveredSection || row != hoveredRow)
+    {
+        hoveredSection = section;
+        hoveredRow = row;
+        if(row == -1)   emit cardLeave();
+        else
+        {
+            QRect r = rowRects[section][row];
+            QRect global(mapToGlobal(QPoint(bubbleRect.left(), r.top())), QSize(bubbleRect.width(), r.height()));
+            emit cardEntered(sections[section].rows[row].code, global, -1, -1);
+        }
+        update();
+    }
+
+    if(row != -1 || buttonRect.contains(pos))   applyCursor(Qt::PointingHandCursor);
+    else if(spriteRect.contains(pos))           applyCursor(Qt::OpenHandCursor);
+    else                                        applyCursor(Qt::ArrowCursor);
+}
+
+
+void MascotWindow::applyCursor(Qt::CursorShape shape)
+{
+    if(cursor().shape() != shape)   setCursor(shape);
+#ifdef Q_OS_MAC
+    //Qt only sets it while the app is active, and Hearthstone usually is
+    MacWindow::setCursorNow(shape);
+#endif
+}
+
+
 void MascotWindow::mousePressEvent(QMouseEvent *event)
 {
     if(event->button() != Qt::LeftButton)   return;
-    if(buttonRect.contains(event->position().toPoint()))
+    QPoint pos = event->position().toPoint();
+    if(buttonRect.contains(pos))
     {
         buttonPressed = true;
         update();
         return;
     }
+    if(!spriteRect.contains(pos) && !bubbleRect.contains(pos))  return;
     dragging = true;
     dragMoved = false;
     pressPos = event->globalPosition().toPoint();
     dragOffset = pressPos - anchor;
+    applyCursor(Qt::ClosedHandCursor);
 }
 
 
 void MascotWindow::mouseMoveEvent(QMouseEvent *event)
 {
-    if(!dragging)   return;
+    if(!dragging)
+    {
+        updateHover(event->position().toPoint());
+        return;
+    }
     QPoint pos = event->globalPosition().toPoint();
     if(!dragMoved && (pos - pressPos).manhattanLength() > 3)
     {
@@ -216,9 +360,15 @@ void MascotWindow::mouseMoveEvent(QMouseEvent *event)
         moodBeforeDrag = mood;
         setMood(Grabbed);
         dragMoved = true;
+        if(hoveredRow != -1)
+        {
+            hoveredSection = hoveredRow = -1;
+            emit cardLeave();
+        }
     }
     anchor = pos - dragOffset;
     move(anchor.x() - width()/2, anchor.y() - height());
+    applyCursor(Qt::ClosedHandCursor);
 }
 
 
@@ -247,6 +397,21 @@ void MascotWindow::mouseReleaseEvent(QMouseEvent *event)
         setMood(restore);
         saveAnchor();
     }
+    updateHover(event->position().toPoint());
+}
+
+
+void MascotWindow::leaveEvent(QEvent *event)
+{
+    QWidget::leaveEvent(event);
+    if(dragging)    return;
+    if(hoveredRow != -1)
+    {
+        hoveredSection = hoveredRow = -1;
+        emit cardLeave();
+        update();
+    }
+    applyCursor(Qt::ArrowCursor);
 }
 
 

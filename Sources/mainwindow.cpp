@@ -1682,6 +1682,10 @@ void MainWindow::createMascotWindow()
             this, SLOT(showTrackerFromMascot()));
     connect(mascotWindow, SIGNAL(quitRequested()),
             this, SLOT(closeApp()));
+    connect(mascotWindow, SIGNAL(cardEntered(QString,QRect,int,int)),
+            cardWindow, SLOT(loadCard(QString,QRect,int,int)));
+    connect(mascotWindow, SIGNAL(cardLeave()),
+            cardWindow, SLOT(hide()));
     connect(draftHandler, SIGNAL(draftStatusChanged(QString)),
             this, SLOT(mascotDraftStatus(QString)));
     connect(gameWatcher, SIGNAL(startGame()),
@@ -1729,6 +1733,9 @@ void MainWindow::mascotDraftStatus(QString text)
 {
     if(text.isEmpty())
     {
+        //Only its own bubble: the discard screen clears the status right when the mascot shows the cards to remove
+        if(!mascotSaysStatus)   return;
+        mascotSaysStatus = false;
         mascotWindow->setMood(MascotWindow::Idle);
         mascotWindow->say("");
         return;
@@ -1758,6 +1765,7 @@ void MainWindow::mascotDraftStatus(QString text)
     else if(text.startsWith("Downloading card images"))         line = "Grabbing card pics" + text.mid(QString("Downloading card images").length());
     mascotWindow->setMood(mood);
     mascotWindow->say(line);
+    mascotSaysStatus = true;
 }
 
 
@@ -1765,14 +1773,20 @@ void MainWindow::mascotDraftStatus(QString text)
 void MainWindow::mascotRedraftScreen(int screen)
 {
     mascotRedraftScreenShown = screen;
+    mascotSaysStatus = false;
     if(screen == RedraftScreenDiscard)
     {
+        QList<MascotWindow::Section> sections;
+        const QList<RedraftSuggestion> suggestions = draftHandler->getRedraftRemoveSuggestions();
+        for(const RedraftSuggestion &suggestion: suggestions)
+        {
+            MascotWindow::Section section{suggestion.source, {}};
+            for(const RedraftSuggestionCard &card: suggestion.cards)    section.rows << MascotWindow::Row{card.name, card.score, card.code};
+            sections << section;
+        }
         mascotWindow->setMood(MascotWindow::Point);
-        mascotWindow->say("Here, look at the cards we can cut from the deck.", 0, "Show", [this]() {
-            showTrackerFromMascot();
-            QWidget *redraftTab = draftHandler->getRedraftTab();
-            if(ui->tabWidget->indexOf(redraftTab) != -1)    ui->tabWidget->setCurrentWidget(redraftTab);
-        });
+        if(sections.isEmpty())  mascotWindow->say("Cut the weakest cards. I have no scores for this deck, sorry.");
+        else                    mascotWindow->saySections("Cut these, if you ask me:", sections);
     }
     else if(screen == RedraftScreenReadyUp)
     {
@@ -1796,6 +1810,7 @@ void MainWindow::mascotRedraftScreen(int screen)
 //Praise by wins, sympathy by losses, and once per good run a nudge to support the development
 void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
 {
+    mascotSaysStatus = false;
     if(wins + losses <= 1)  mascotSupportAsked = false;     //A new run
 
     QString line;
@@ -1841,6 +1856,7 @@ void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
 
 void MainWindow::mascotStartGame()
 {
+    mascotSaysStatus = false;
     mascotWindow->setMood(MascotWindow::Popcorn);
     mascotWindow->say("Popcorn time. Show me what this deck can do.", 5000);
 }
@@ -1848,6 +1864,7 @@ void MainWindow::mascotStartGame()
 
 void MainWindow::mascotEndGame(bool playerWon, bool playerUnknown)
 {
+    mascotSaysStatus = false;
     if(playerUnknown)
     {
         mascotWindow->setMood(MascotWindow::Idle);

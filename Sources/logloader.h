@@ -39,6 +39,11 @@ private:
     int updateTime, maxUpdateTime;
     bool sortLogs, synchronized;
     QMap<qint64,DataLog> dataLogs;
+    //Log lines only have the time of day: the day is counted from the session start (log dir name) and from
+    //each log's times going back at midnight, so lines after midnight sort after the ones before
+    qint64 sessionStartTime = -1;           //Time of day, 1e-7 s units
+    QMap<int, qint64> lastLineTime;         //By LogComponent
+    QMap<int, int> lineDay;                 //By LogComponent
     QRegularExpressionMatch *match;
 
 //Metodos

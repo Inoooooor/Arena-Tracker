@@ -12,6 +12,33 @@ void MacWindow::allowMiniaturize(QWidget *window)
 }
 
 
+//Private CoreGraphics connection property (used by browsers): lets a background app set the cursor over its windows
+extern "C" int CGSMainConnectionID(void);
+extern "C" CGError CGSSetConnectionProperty(int connection, int targetConnection, CFStringRef key, CFTypeRef value);
+
+
+void MacWindow::setCursorNow(Qt::CursorShape shape)
+{
+    static bool backgroundCursor = false;
+    if(!backgroundCursor)
+    {
+        int connection = CGSMainConnectionID();
+        CGSSetConnectionProperty(connection, connection, CFSTR("SetsCursorInBackground"), kCFBooleanTrue);
+        backgroundCursor = true;
+    }
+
+    NSCursor *cursor;
+    switch(shape)
+    {
+        case Qt::PointingHandCursor:    cursor = [NSCursor pointingHandCursor];     break;
+        case Qt::OpenHandCursor:        cursor = [NSCursor openHandCursor];         break;
+        case Qt::ClosedHandCursor:      cursor = [NSCursor closedHandCursor];       break;
+        default:                        cursor = [NSCursor arrowCursor];            break;
+    }
+    [cursor set];
+}
+
+
 void MacWindow::raiseAboveFloating(QWidget *window)
 {
     if(window == nullptr)   return;

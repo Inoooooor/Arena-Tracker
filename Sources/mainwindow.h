@@ -102,6 +102,7 @@ private:
     QList<QPointer<QWidget>> hiddenForMascot;   //The old tracker windows, hidden while the mascot is shown
     int mascotRedraftScreenShown = 0;           //RedraftScreen the mascot talks about
     bool mascotSupportAsked = false;            //Once per arena run
+    bool mascotSaysStatus = false;              //The bubble shows a draft status, cleared with it
     int cardHeight;
     int drawDisappear;
     QNetworkAccessManager *networkManager;

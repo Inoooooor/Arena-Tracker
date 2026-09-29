@@ -85,6 +85,13 @@ void LogLoader::checkLogDir()
     {
         recentLogDir = logDir;
         emit pDebug("New RecentLogDir: " + recentLogDir);
+        //Hearthstone_2026_09_29_22_35_21
+        QRegularExpressionMatch startMatch = QRegularExpression("_(\\d+)_(\\d+)_(\\d+)$").match(recentLogDir);
+        sessionStartTime = startMatch.hasMatch()?
+                    ((startMatch.captured(1).toLongLong()*60 + startMatch.captured(2).toLongLong())*60 +
+                     startMatch.captured(3).toLongLong())*10000000LL : -1;
+        lastLineTime.clear();
+        lineDay.clear();
         createLogWorkers();
         emit logReset();
     }
@@ -456,7 +463,21 @@ void LogLoader::addToDataLogs(LogComponent logComponent, QString line, qint64 nu
         dataLog.numLine = numLine;
         dataLog.logSeek = logSeek;
 
-        qint64 timeStamp = QString(match->captured(1) + match->captured(2) + match->captured(3) + match->captured(4)).toLongLong();
+        //Time of day in 1e-7 s units, fractions of any length
+        const qint64 unit = 10000000LL;
+        qint64 time = ((match->captured(1).toLongLong()*60 + match->captured(2).toLongLong())*60 +
+                       match->captured(3).toLongLong())*unit +
+                      QString(match->captured(4) + "0000000").left(7).toLongLong();
+        const int component = static_cast<int>(logComponent);
+        if(!lastLineTime.contains(component))
+        {
+            //A log whose first line is before the session start (a minute of margin) was written after midnight
+            lineDay[component] = (sessionStartTime >= 0 && time < sessionStartTime - 60*unit)?1:0;
+        }
+        else if(time + 12*3600*unit < lastLineTime[component])     lineDay[component]++;
+        lastLineTime[component] = time;
+
+        qint64 timeStamp = lineDay[component]*24*3600*unit + time;
         while(dataLogs.contains(timeStamp))     timeStamp++;
         dataLogs[timeStamp] = dataLog;
     }

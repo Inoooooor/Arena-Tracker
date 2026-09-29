@@ -49,6 +49,18 @@
 #define HISTOGRAM_EXT                   ".dat"
 
 
+//The cards to remove in a redraft by one score source, for the mascot
+struct RedraftSuggestionCard
+{
+    QString name, score, code;
+};
+struct RedraftSuggestion
+{
+    QString source;
+    QList<RedraftSuggestionCard> cards;
+};
+
+
 //What the OCR of the Hearthstone window found while redraftingReview
 enum RedraftScreen { RedraftScreenOther, RedraftScreenDiscard, RedraftScreenReadyUp };
 struct RedraftScreenRead
@@ -313,7 +325,6 @@ private:
     void setDraftStatus(const QString &text);
     void updateRedraftRemoveList();
     bool fillRedraftRemoveSection(int section, DraftMethod draftMethod);
-    void updateRedraftRemoveMarks();
     void clearRedraftRemoveList();
     void showRedraftTab();
     void hideRedraftTab();
@@ -335,6 +346,7 @@ public:
     QString getHSRFireCode(QString code, bool HSR, CardClass heroClass);
     void setDeckScores();
     QWidget *getRedraftTab();
+    QList<RedraftSuggestion> getRedraftRemoveSuggestions();
     static QIcon redraftTabIcon();
     void buildHeroCodesList();
     void reHistDownloadedCardImage(const QString &fileNameCode, bool missingOnWeb=false);

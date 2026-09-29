@@ -2,6 +2,7 @@
 #define MACWINDOW_H
 
 #include <QObject>
+#include <Qt>
 #include <QPoint>
 #include <QWidget>
 #include <QPointer>
@@ -15,6 +16,9 @@ namespace MacWindow
 
     //One level above the stay on top windows (floating level), e.g. the mascot above the tracker's windows
     void raiseAboveFloating(QWidget *window);
+
+    //Sets the cursor right away, even while another app (Hearthstone) is the active one
+    void setCursorNow(Qt::CursorShape shape);
 }
 
 
