@@ -1698,6 +1698,8 @@ void MainWindow::createMascotWindow()
             this, SLOT(mascotArenaRecord(int,int,bool)));
     connect(gameWatcher, SIGNAL(inRewards()),
             this, SLOT(mascotRunComplete()));
+    connect(draftHandler, SIGNAL(heroesScored(int,int,int)),
+            this, SLOT(mascotHeroes(int,int,int)));
     connect(logLoader, &LogLoader::logsCaughtUp, this, [this]() { mascotLive = true; });
 }
 
@@ -1876,6 +1878,37 @@ void MainWindow::mascotRunComplete()
         mascotWindow->setMood(MascotWindow::Sweat);
         mascotWindow->say("Run's over. The deck deserved better. Next draft will be better.", 10000);
     }
+}
+
+
+//The hero with the best class winrate, and a Rescan in case the heroes were read wrong
+void MainWindow::mascotHeroes(int classOrder0, int classOrder1, int classOrder2)
+{
+    static const QStringList classNames = {"Death Knight", "Demon Hunter", "Druid", "Hunter", "Mage", "Paladin",
+                                           "Priest", "Rogue", "Shaman", "Warlock", "Warrior"};
+    int classOrders[3] = {classOrder0, classOrder1, classOrder2};
+    int best = -1;
+    float bestRating = 0;
+    for(int i=0; i<3; i++)
+    {
+        float rating = ScoreButton::getHeroScore(classOrders[i]);
+        if(rating > bestRating)
+        {
+            bestRating = rating;
+            best = classOrders[i];
+        }
+    }
+
+    mascotSaysStatus = false;
+    QString line = (best < 0 || best >= classNames.count()) ? QString("No winrates for these heroes yet.") :
+                   QStringLiteral("Take the %1: %2% winrate.").arg(classNames[best], QString::number(bestRating, 'f', 1));
+    mascotWindow->setMood(MascotWindow::Point);
+    mascotWindow->say(line + "\nAm I hallucinating? Try:", 0, "Rescan", [this]() {
+        mascotWindow->setMood(MascotWindow::Thinking);
+        mascotWindow->say("Rescanning... Let me take a better look.");
+        mascotSaysStatus = true;    //Replaced by the draft status or the heroes again
+        draftHandler->rescan();
+    });
 }
 
 

@@ -3,44 +3,44 @@
 
 #include <QMainWindow>
 #include <QObject>
-#include <QHBoxLayout>
-#include "scorebutton.h"
-#include "twitchbutton.h"
+#include <QPixmap>
+#include "../utility.h"
 
 
-#define MARGIN 10
-
+//Under each hero of the hero choice, in the mascot's pixel style: a hand (take it / close / skip it), the class
+//icon and the class winrate. Each plate is centered on its hero's portrait, so it stays aligned at any screen size.
 class DraftHeroWindow : public QMainWindow
 {
     Q_OBJECT
 
 //Constructor
 public:
-    DraftHeroWindow(QWidget *parent, QRect rect, QSize sizeCard, int screenIndex);
+    //heroRects: the three portraits, in global coordinates
+    DraftHeroWindow(QWidget *parent, const QList<QRect> &heroRects);
     ~DraftHeroWindow();
 
 //Variables
 private:
-    QHBoxLayout *horLayoutScores[3];
-    QHBoxLayout *horLayoutScores2[3];
-    ScoreButton *scoresPushButton[3];
-    ScoreButton *scoresPlayerPushButton[3];
-    TwitchButton *twitchButton[3];
-    int scoreWidth;
-    bool scores2Rows, showTwitch, showPlayerWR;
-
+    QList<QRect> plateRects;        //In window coordinates
+    int classOrder[3] = {-1, -1, -1};
+    float ratings[3] = {0, 0, 0};
+    bool scoresShown = false;
+    QPixmap hands[3];               //Up, flat, down
 
 //Metodos
-private:
-    void resetTwitchScore();
-    void checkScoresSpace();
+protected:
+    void paintEvent(QPaintEvent *event) override;
 
 public:
     void setScores(int classOrder[3]);
     void hideScores(bool quick=false);
+    //The Twitch votes and the player's own winrates aren't shown in this design
     void showTwitchScores(bool show=true);
     void showPlayerScores(bool show=true);
     void setTwitchScores(int vote1, int vote2, int vote3, QString username);
+
+    //Hand of a winrate against the best of the three: 0 up (the best), 1 flat (close to it), 2 down
+    static int handFor(float rating, float bestRating);
 
 signals:
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="DraftHeroWindow");

@@ -311,6 +311,7 @@ private slots:
     void mascotRedraftScreen(int screen);
     void mascotArenaRecord(int wins, int losses, bool lastWon);
     void mascotRunComplete();
+    void mascotHeroes(int classOrder0, int classOrder1, int classOrder2);
     void restoreFromDock(Qt::ApplicationState state);
     void updateShowClassColor(bool checked);
     void updateShowSpellColor(bool checked);

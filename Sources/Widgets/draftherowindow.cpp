@@ -1,91 +1,44 @@
 #include "draftherowindow.h"
+#include "mascotwindow.h"
+#include "scorebutton.h"
+#include "../Utils/hdicons.h"
 #include <QtWidgets>
 
 
-DraftHeroWindow::DraftHeroWindow(QWidget *parent, QRect rect, QSize sizeCard, int screenIndex) :
-    QMainWindow(parent, Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint)
+#define HERO_PLATE_WIDTH    156
+#define HERO_PLATE_HEIGHT   54
+#define HERO_PLATE_TOP      0.9     //Below the portrait, in portrait heights: under the class label and the name
+#define HERO_HAND_SIZE      44
+#define HERO_ICON_SIZE      28
+#define HERO_CLOSE_WINRATE  1.5     //Points under the best winrate that still get a flat hand
+
+
+DraftHeroWindow::DraftHeroWindow(QWidget *parent, const QList<QRect> &heroRects) :
+    QMainWindow(parent, OVERLAY_WINDOW_FLAGS)
 {
-    scoreWidth = static_cast<int>(sizeCard.width()*0.65);
-
-    QRect rectScreen;
-    QList<QScreen *> screens = QGuiApplication::screens();
-    if(screenIndex < screens.count())
+    setAttribute(Qt::WA_MacAlwaysShowToolWindow);
+    setAttribute(Qt::WA_ShowWithoutActivating);
+    //One window over the three plates
+    QList<QRect> globalPlates;
+    QRect area;
+    for(const QRect &hero: heroRects)
     {
-        QScreen *screen = screens[screenIndex];
-        if(screen != nullptr)   rectScreen = screen->geometry();
+        QRect plate(0, 0, HERO_PLATE_WIDTH, HERO_PLATE_HEIGHT);
+        plate.moveCenter(QPoint(hero.center().x(), 0));
+        plate.moveTop(static_cast<int>(hero.bottom() + HERO_PLATE_TOP*hero.height()));
+        globalPlates << plate;
+        area = area.united(plate);
     }
+    area.adjust(-4, -4, 4, 8);      //Room for the frames' shadow
+    setGeometry(area);
+    for(const QRect &plate: std::as_const(globalPlates))    plateRects << plate.translated(-area.topLeft());
 
-    int midCards = (rect.width() - 3*sizeCard.width())/2;
-    resize(rect.width() + 2*MARGIN + midCards,
-           rect.height() + 2*MARGIN - (sizeCard.height()-scoreWidth));
-    move(rectScreen.x() + rect.x() - MARGIN - midCards/2,
-         static_cast<int>(rectScreen.y() + rect.y() - MARGIN + 1.5*sizeCard.height()));
+    hands[0] = QPixmap(":/Images/Mascot/thumb_up.png");
+    hands[1] = QPixmap(":/Images/Mascot/hand_flat.png");
+    hands[2] = QPixmap(":/Images/Mascot/thumb_down.png");
 
-    QWidget *centralWidget = new QWidget(this);
-    QHBoxLayout *horLayout = new QHBoxLayout(centralWidget);
-    QVBoxLayout *verLayout[3];
-
-    for(int i=0; i<3; i++)
-    {
-        scoresPushButton[i] = new ScoreButton(centralWidget, Score_Heroes, -1);
-        scoresPushButton[i]->setFixedHeight(scoreWidth);
-        scoresPushButton[i]->setFixedWidth(scoreWidth);
-
-        scoresPlayerPushButton[i] = new ScoreButton(centralWidget, Score_Heroes_Player, -1);
-        scoresPlayerPushButton[i]->setFixedHeight(scoreWidth);
-        scoresPlayerPushButton[i]->setFixedWidth(scoreWidth);
-        scoresPlayerPushButton[i]->hide();
-
-        twitchButton[i] = new TwitchButton(centralWidget, 0, 1);
-        twitchButton[i]->setFixedHeight(scoreWidth);
-        twitchButton[i]->setFixedWidth(scoreWidth);
-        twitchButton[i]->hide();
-
-        //Opacity effects
-        QGraphicsOpacityEffect *effect;
-        effect = new QGraphicsOpacityEffect(scoresPushButton[i]);
-        effect->setOpacity(0);
-        scoresPushButton[i]->setGraphicsEffect(effect);
-        effect = new QGraphicsOpacityEffect(scoresPlayerPushButton[i]);
-        effect->setOpacity(0);
-        scoresPlayerPushButton[i]->setGraphicsEffect(effect);
-        effect = new QGraphicsOpacityEffect(twitchButton[i]);
-        effect->setOpacity(0);
-        twitchButton[i]->setGraphicsEffect(effect);
-
-        //LAYOUTS scores
-        horLayoutScores[i] = new QHBoxLayout();
-        horLayoutScores[i]->addWidget(scoresPushButton[i]);
-        horLayoutScores[i]->addWidget(scoresPlayerPushButton[i]);
-
-        QHBoxLayout *horLayoutScoresG = new QHBoxLayout();
-        horLayoutScoresG->addStretch();
-        horLayoutScoresG->addLayout(horLayoutScores[i]);
-        horLayoutScoresG->addStretch();
-
-        verLayout[i] = new QVBoxLayout();
-        verLayout[i]->addLayout(horLayoutScoresG);
-
-        horLayoutScores2[i] = new QHBoxLayout();
-        horLayoutScores2[i]->addWidget(twitchButton[i]);
-
-        QHBoxLayout *horLayoutScores2G = new QHBoxLayout();
-        horLayoutScores2G->addStretch();
-        horLayoutScores2G->addLayout(horLayoutScores2[i]);
-        horLayoutScores2G->addStretch();
-
-        verLayout[i]->addLayout(horLayoutScores2G);
-        verLayout[i]->addStretch();
-
-        horLayout->addStretch();
-        horLayout->addLayout(verLayout[i]);
-        horLayout->addStretch();
-    }
-
-    scores2Rows = true;
-    showTwitch = showPlayerWR = false;
-    setCentralWidget(centralWidget);
     setAttribute(Qt::WA_TranslucentBackground, true);
+    setAttribute(Qt::WA_TransparentForMouseEvents, true);
     setWindowTitle("AT Heroes");
 }
 
@@ -95,128 +48,85 @@ DraftHeroWindow::~DraftHeroWindow()
 }
 
 
-void DraftHeroWindow::checkScoresSpace()
+int DraftHeroWindow::handFor(float rating, float bestRating)
 {
-    bool oldScores2Rows = scores2Rows;
-    scores2Rows = showTwitch && showPlayerWR;
-    if(oldScores2Rows == scores2Rows)   return;
-
-    if(scores2Rows)
-    {
-        emit pDebug("Scores Heroes - 2 rows");
-
-        for(int i=0; i<3; i++)
-        {
-            Utility::clearLayout(horLayoutScores[i], false, false);
-            Utility::clearLayout(horLayoutScores2[i], false, false);
-
-            horLayoutScores[i]->addWidget(scoresPushButton[i]);
-            horLayoutScores[i]->addWidget(scoresPlayerPushButton[i]);
-            horLayoutScores2[i]->addWidget(twitchButton[i]);
-        }
-    }
-    else
-    {
-        emit pDebug("Scores Heroes - 1 row");
-
-        for(int i=0; i<3; i++)
-        {
-            Utility::clearLayout(horLayoutScores[i], false, false);
-            Utility::clearLayout(horLayoutScores2[i], false, false);
-
-            horLayoutScores[i]->addWidget(scoresPushButton[i]);
-            horLayoutScores[i]->addWidget(twitchButton[i]);
-            horLayoutScores[i]->addWidget(scoresPlayerPushButton[i]);
-        }
-    }
-}
-
-
-void DraftHeroWindow::showTwitchScores(bool show)
-{
-    showTwitch = show;
-    checkScoresSpace();
-
-    for(int i=0; i<3; i++)  twitchButton[i]->setVisible(show);
-}
-
-
-void DraftHeroWindow::showPlayerScores(bool show)
-{
-    showPlayerWR = show;
-    checkScoresSpace();
-
-    for(int i=0; i<3; i++)  scoresPlayerPushButton[i]->setVisible(show);
+    if(FLOATEQ(rating, bestRating))                 return 0;
+    if(bestRating - rating <= HERO_CLOSE_WINRATE)   return 1;
+    return 2;
 }
 
 
 void DraftHeroWindow::setScores(int classOrder[3])
 {
-    float ratings[3] = {ScoreButton::getHeroScore(classOrder[0]), ScoreButton::getHeroScore(classOrder[1]),
-                        ScoreButton::getHeroScore(classOrder[2])};
-    float ratingsPlayer[3] = {ScoreButton::getPlayerWinrate(classOrder[0]), ScoreButton::getPlayerWinrate(classOrder[1]),
-                              ScoreButton::getPlayerWinrate(classOrder[2])};
-    float bestRating = std::max(std::max(ratings[0], ratings[1]), ratings[2]);
-    float bestRatingPlayer = std::max(std::max(ratingsPlayer[0], ratingsPlayer[1]), ratingsPlayer[2]);
-
     for(int i=0; i<3; i++)
     {
-        scoresPushButton[i]->setClassOrder(classOrder[i]);
-        scoresPushButton[i]->setScore(ratings[i], bestRating);
-        Utility::fadeInWidget(scoresPushButton[i]);
-
-        scoresPlayerPushButton[i]->setClassOrder(classOrder[i]);
-        scoresPlayerPushButton[i]->setScore(ratingsPlayer[i], bestRatingPlayer);
-        Utility::fadeInWidget(scoresPlayerPushButton[i]);
+        this->classOrder[i] = classOrder[i];
+        ratings[i] = ScoreButton::getHeroScore(classOrder[i]);
     }
-
-    resetTwitchScore();
-}
-
-
-void DraftHeroWindow::resetTwitchScore()
-{
-    for(int i=0; i<3; i++)
-    {
-        twitchButton[i]->setValue(0, 0, false);
-        Utility::fadeInWidget(twitchButton[i]);
-    }
-}
-
-
-void DraftHeroWindow::setTwitchScores(int vote1, int vote2, int vote3, QString username)
-{
-    int votes[3] = {vote1, vote2, vote3};
-    float totalVotes = votes[0] + votes[1] + votes[2];
-    float topVotes = std::max(std::max(votes[0], votes[1]), votes[2]);
-
-    for(int i=0; i<3; i++)  twitchButton[i]->setValue(votes[i]/totalVotes, votes[i], FLOATEQ(votes[i], topVotes), username);
+    scoresShown = true;
+    update();
 }
 
 
 void DraftHeroWindow::hideScores(bool quick)
 {
-    for(int i=0; i<3; i++)
-    {
-        if(quick)
-        {
-            QGraphicsOpacityEffect *eff = static_cast<QGraphicsOpacityEffect *>(scoresPushButton[i]->graphicsEffect());
-            eff->setOpacity(0);
-            eff = static_cast<QGraphicsOpacityEffect *>(scoresPlayerPushButton[i]->graphicsEffect());
-            eff->setOpacity(0);
-            eff = static_cast<QGraphicsOpacityEffect *>(twitchButton[i]->graphicsEffect());
-            eff->setOpacity(0);
-        }
-        else
-        {
-            QPropertyAnimation *animation = Utility::fadeOutWidget(scoresPushButton[i]);
-            Utility::fadeOutWidget(scoresPlayerPushButton[i]);
-            Utility::fadeOutWidget(twitchButton[i]);
-
-            if(i==0 && animation != nullptr)     connect(animation, SIGNAL(finished()), this, SLOT(update()));
-        }
-    }
-    this->update();
+    (void)quick;
+    scoresShown = false;
+    update();
 }
 
 
+void DraftHeroWindow::showTwitchScores(bool show)
+{
+    (void)show;
+}
+
+
+void DraftHeroWindow::showPlayerScores(bool show)
+{
+    (void)show;
+}
+
+
+void DraftHeroWindow::setTwitchScores(int vote1, int vote2, int vote3, QString username)
+{
+    (void)vote1; (void)vote2; (void)vote3; (void)username;
+}
+
+
+//[hand] [class icon] 55.6%
+void DraftHeroWindow::paintEvent(QPaintEvent *)
+{
+    if(!scoresShown)    return;
+
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setFont(MascotWindow::pixelFont(28));
+    float bestRating = std::max(std::max(ratings[0], ratings[1]), ratings[2]);
+
+    for(int i=0; i<3 && i<plateRects.count(); i++)
+    {
+        const QRect &plate = plateRects[i];
+        MascotWindow::drawPixelFrame(painter, plate.translated(0, 3), Qt::black);      //Shadow
+        MascotWindow::drawPixelFrame(painter, plate, Qt::white);
+
+        int x = plate.x() + 8;
+        const int midY = plate.center().y();
+        if(ratings[i] > 0)
+        {
+            const QPixmap &hand = hands[handFor(ratings[i], bestRating)];
+            QSize handSize = hand.size().scaled(HERO_HAND_SIZE, HERO_HAND_SIZE, Qt::KeepAspectRatio);
+            painter.drawPixmap(QRect(QPoint(x + (HERO_HAND_SIZE - handSize.width())/2, midY - handSize.height()/2), handSize), hand);
+        }
+        x += HERO_HAND_SIZE + 6;
+
+        QPixmap icon = HDIcons::hero(classOrder[i]).pixmap(QSize(HERO_ICON_SIZE, HERO_ICON_SIZE), devicePixelRatioF());
+        painter.drawPixmap(QRect(x, midY - HERO_ICON_SIZE/2, HERO_ICON_SIZE, HERO_ICON_SIZE), icon);
+        x += HERO_ICON_SIZE + 6;
+
+        painter.setPen(Qt::black);
+        QString text = (ratings[i] > 0) ? QString::number(ratings[i], 'f', 1) + "%" : "?";
+        painter.drawText(QRect(x, plate.y(), plate.right() - 6 - x, plate.height()), Qt::AlignCenter, text);
+    }
+}

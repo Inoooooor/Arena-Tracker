@@ -349,6 +349,7 @@ public:
     void setDeckScores();
     QWidget *getRedraftTab();
     QList<RedraftSuggestion> getRedraftRemoveSuggestions();
+    void rescan();
     static QIcon redraftTabIcon();
     void buildHeroCodesList();
     void reHistDownloadedCardImage(const QString &fileNameCode, bool missingOnWeb=false);
@@ -388,6 +389,7 @@ public:
 signals:
     void draftStatusChanged(QString text);
     void redraftScreenChanged(int screen);      //RedraftScreen
+    void heroesScored(int classOrder0, int classOrder1, int classOrder2);
     void checkCardImage(QString code, bool isHero=false);
     void newDeckCard(QString code);
     void draftStarted();

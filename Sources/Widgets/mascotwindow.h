@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QPixmap>
+#include <QPainter>
 #include <QTimer>
 #include <QPoint>
 #include <functional>
@@ -29,6 +30,10 @@ public:
     };
 
     explicit MascotWindow(QWidget *parent = nullptr);
+
+    //The mascot's look for other overlays: a box with a black frame of square pixels, and the pixel font
+    static void drawPixelFrame(QPainter &painter, const QRect &rect, const QColor &fill);
+    static QFont pixelFont(int pixelSize);
 
     void setMood(Mood mood);
     //An empty text hides the bubble. With msec > 0 the bubble hides by itself after that time.
@@ -71,7 +76,6 @@ private:
     bool dragging = false, dragMoved = false, buttonPressed = false;
 
     void relayout();
-    void drawFrame(QPainter &painter, const QRect &rect, const QColor &fill);
     void drawBubble(QPainter &painter);
     void drawSections(QPainter &painter);
     void updateHover(const QPoint &pos);

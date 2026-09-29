@@ -39,10 +39,7 @@ MascotWindow::MascotWindow(QWidget *parent)
     for(int i=0; i<NumMoods; i++)   sprites[i] = QPixmap(QStringLiteral(":/Images/Mascot/%1.png").arg(files[i]));
     for(int i=0; i<NumMoods; i++)   if(sprites[i].isNull())     sprites[i] = sprites[fallbacks[i]];
 
-    int fontId = QFontDatabase::addApplicationFont(":/Fonts/Jersey10.ttf");
-    QStringList families = QFontDatabase::applicationFontFamilies(fontId);
-    bubbleFont = QFont(families.isEmpty() ? QString() : families.first());
-    bubbleFont.setPixelSize(MASCOT_FONT_SIZE);
+    bubbleFont = pixelFont(MASCOT_FONT_SIZE);
 
     sayTimer.setSingleShot(true);
     connect(&sayTimer, &QTimer::timeout, this, [this]() { say(""); });
@@ -196,8 +193,23 @@ void MascotWindow::showEvent(QShowEvent *event)
 }
 
 
+//Jersey 10, loaded once
+QFont MascotWindow::pixelFont(int pixelSize)
+{
+    static QString family;
+    if(family.isEmpty())
+    {
+        int fontId = QFontDatabase::addApplicationFont(":/Fonts/Jersey10.ttf");
+        family = QFontDatabase::applicationFontFamilies(fontId).value(0);
+    }
+    QFont font(family);
+    font.setPixelSize(pixelSize);
+    return font;
+}
+
+
 //A box with a black frame made of square pixels and notched corners
-void MascotWindow::drawFrame(QPainter &painter, const QRect &r, const QColor &fill)
+void MascotWindow::drawPixelFrame(QPainter &painter, const QRect &r, const QColor &fill)
 {
     const int p = MASCOT_PIXEL;
     painter.setPen(Qt::NoPen);
@@ -216,7 +228,7 @@ void MascotWindow::drawBubble(QPainter &painter)
 {
     const int p = MASCOT_PIXEL;
     const QRect r = bubbleRect;
-    drawFrame(painter, r, Qt::white);
+    drawPixelFrame(painter, r, Qt::white);
 
     //Tail: a stepped triangle under the bubble, a bit left of its center, pointing at the head
     int x0 = r.x() + r.width()/2 - 6*p;
@@ -243,8 +255,8 @@ void MascotWindow::drawBubble(QPainter &painter)
     if(!buttonText.isEmpty())
     {
         QRect button = buttonRect.translated(0, buttonPressed ? p : 0);
-        if(!buttonPressed)  drawFrame(painter, buttonRect.translated(0, p), Qt::black);     //Shadow
-        drawFrame(painter, button, MASCOT_PURPLE);
+        if(!buttonPressed)  drawPixelFrame(painter, buttonRect.translated(0, p), Qt::black);     //Shadow
+        drawPixelFrame(painter, button, MASCOT_PURPLE);
         painter.setPen(Qt::white);
         painter.drawText(button, Qt::AlignCenter, buttonText);
     }

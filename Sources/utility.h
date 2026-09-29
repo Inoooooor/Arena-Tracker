@@ -74,6 +74,15 @@ public:
 };
 
 
+//Draft overlays (scores, heroes, mechanics): non-activating panels on macOS (made so by MacFullScreenOverlay), the only
+//windows that get into Hearthstone's fullscreen Space whenever they are created. Also set Qt::WA_MacAlwaysShowToolWindow.
+#ifdef Q_OS_MAC
+#define OVERLAY_WINDOW_FLAGS (Qt::Tool|Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint|Qt::NoDropShadowWindowHint)
+#else
+#define OVERLAY_WINDOW_FLAGS (Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint)
+#endif
+
+
 //SIFT features of a screenshot, computed once and matched against several templates
 struct SceneFeatures
 {

@@ -6,8 +6,10 @@
 
 DraftMechanicsWindow::DraftMechanicsWindow(QWidget *parent, QRect rect, QSize sizeCard, int screenIndex,
                                            bool patreonVersion, int classOrder) :
-    QMainWindow(parent, Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint)
+    QMainWindow(parent, OVERLAY_WINDOW_FLAGS)
 {
+    setAttribute(Qt::WA_MacAlwaysShowToolWindow);
+    setAttribute(Qt::WA_ShowWithoutActivating);
 #ifdef QT_DEBUG
     #if DEBUG_OVERLAYS_LEFT
         screenIndex = 0;

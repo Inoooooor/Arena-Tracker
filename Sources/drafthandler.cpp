@@ -2926,6 +2926,34 @@ void DraftHandler::refreshHeroes()
 }
 
 
+//The mascot's Rescan: looks for the screen again, then reads the heroes or cards on it
+void DraftHandler::rescan()
+{
+    if(drafting)
+    {
+        refreshDraft();
+        return;
+    }
+    if(!heroDrafting)   return;
+
+    emit pDebug("\nRescan heroes.");
+    deleteDraftHeroWindow();
+    for(int i=0; i<3; i++)
+    {
+        cardDetected[i] = false;
+        draftCardMaps[i].clear();
+        bestMatchesMaps[i].clear();
+        ocrCodes[i] = "";
+        ocrUnmatchedText[i] = "";
+        screenRects[i] = cv::Rect(0,0,0,0);
+    }
+    numCaptured = 0;
+    screenIndex = -1;
+    screenScale = QPointF(1,1);
+    newFindScreenLoop(true);    //Not from the saved screen settings, they may be the wrong ones
+}
+
+
 bool DraftHandler::isEmptyDeck()
 {
     return (CardTypeCounter::draftedCardsCount() == 0);
@@ -3758,7 +3786,7 @@ bool DraftHandler::isFindScreenOk(ScreenDetection &screenDetection)
 //        "[2]" 982 344 159 158
 //        DRAFT -> 0.146296 MAL
     float maxDistortion;
-    if(heroDrafting)            maxDistortion = 0.156;
+    if(heroDrafting)            maxDistortion = 0.2;    //The 2026 portraits are about 0.17 of the screen height
     else if(redraftingReview)   maxDistortion = 0.119;
     else                        maxDistortion = 0.119;// if(drafting) || buildMechanicsWindow
     for(int i=0; i<(redraftingReview?5:3); i++)
@@ -4011,9 +4039,11 @@ ScreenDetection DraftHandler::findScreenRects()
     if(heroDrafting)
     {
         templatePoints.resize(6);
-        templatePoints[0] = cv::Point(207,340); templatePoints[1] = cv::Point(207+166,340+166);
-        templatePoints[2] = cv::Point(487,340); templatePoints[3] = cv::Point(487+166,340+166);
-        templatePoints[4] = cv::Point(766,340); templatePoints[5] = cv::Point(766+166,340+166);
+        //The current hero choice: bigger portraits, further apart, than when heroesTemplate2.png was taken
+        //(its frame still matches). Measured on the 2026 client.
+        templatePoints[0] = cv::Point(152,227); templatePoints[1] = cv::Point(152+190,227+190);
+        templatePoints[2] = cv::Point(457,227); templatePoints[3] = cv::Point(457+190,227+190);
+        templatePoints[4] = cv::Point(759,227); templatePoints[5] = cv::Point(759+190,227+190);
     }
     else if(redraftingReview)
     {
@@ -4087,7 +4117,8 @@ ScreenDetection DraftHandler::findScreenRects()
     };
     auto findDraftTemplates = [&]() {
         if(redraftingReview)    findTemplates({"redraftTemplate.png"});
-        else if(heroDrafting)   findTemplates({"heroesTemplate.png", "heroesTemplate2.png"});
+        //Only heroesTemplate2.png matches the current frame; the hero points are measured on it
+        else if(heroDrafting)   findTemplates({"heroesTemplate2.png"});
         else /*if(drafting)*/   findTemplates({"arenaTemplate.png", "arenaTemplate2.png"});
     };
 
@@ -4268,6 +4299,7 @@ void DraftHandler::updateHeroScores()
         classOrder[i] = Utility::className2classOrder(HSRkey);
     }
     draftHeroWindow->setScores(classOrder);
+    emit heroesScored(classOrder[0], classOrder[1], classOrder[2]);
 }
 
 
@@ -4288,6 +4320,7 @@ void DraftHandler::showNewHeroes()
         classOrder[i] = Utility::className2classOrder(HSRkey);
     }
     if(draftHeroWindow != nullptr)     draftHeroWindow->setScores(classOrder);
+    emit heroesScored(classOrder[0], classOrder[1], classOrder[2]);
 
     //Twitch Handler
     if(this->twitchHandler != nullptr)
@@ -4392,7 +4425,16 @@ void DraftHandler::createDraftWindows()
     else if(heroDrafting)
     {
         emit pDebug("Create heroDrafting windows.");
-        draftHeroWindow = new DraftHeroWindow(mainWindow, draftRect, sizeCard, screenIndex);
+        QRect screenGeometry = QGuiApplication::screens()[screenIndex]->geometry();
+        QList<QRect> heroRects;
+        for(int i=0; i<3; i++)
+        {
+            heroRects << QRect(static_cast<int>(screenGeometry.x() + screenRects[i].x * screenScale.x()),
+                               static_cast<int>(screenGeometry.y() + screenRects[i].y * screenScale.y()),
+                               static_cast<int>(screenRects[i].width * screenScale.x()),
+                               static_cast<int>(screenRects[i].height * screenScale.y()));
+        }
+        draftHeroWindow = new DraftHeroWindow(mainWindow, heroRects);
 
         connect(draftHeroWindow, SIGNAL(pDebug(QString,DebugLevel,QString)),
                 this, SIGNAL(pDebug(QString,DebugLevel,QString)));
