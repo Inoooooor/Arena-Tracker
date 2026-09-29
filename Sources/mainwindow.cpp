@@ -1696,6 +1696,9 @@ void MainWindow::createMascotWindow()
             this, SLOT(mascotRedraftScreen(int)));
     connect(arenaHandler, SIGNAL(arenaRecordChanged(int,int,bool)),
             this, SLOT(mascotArenaRecord(int,int,bool)));
+    connect(gameWatcher, SIGNAL(inRewards()),
+            this, SLOT(mascotRunComplete()));
+    connect(logLoader, &LogLoader::logsCaughtUp, this, [this]() { mascotLive = true; });
 }
 
 
@@ -1810,8 +1813,11 @@ void MainWindow::mascotRedraftScreen(int screen)
 //Praise by wins, sympathy by losses, and once per good run a nudge to support the development
 void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
 {
+    if(!mascotLive)     return;
     mascotSaysStatus = false;
     if(wins + losses <= 1)  mascotSupportAsked = false;     //A new run
+    mascotLastWon = lastWon;
+    mascotLastLosses = losses;
 
     QString line;
     MascotWindow::Mood mood = MascotWindow::Happy;
@@ -1854,8 +1860,28 @@ void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
 }
 
 
+//The run is over (the rewards screen). The record only counts the games the tracker saw: a run started before
+//it ended with fewer than 3 losses in it
+void MainWindow::mascotRunComplete()
+{
+    if(!mascotLive)     return;
+    mascotSaysStatus = false;
+    if(mascotLastWon)
+    {
+        mascotWindow->setMood(MascotWindow::Stars);
+        mascotWindow->say("TWELVE WINS! I drafted it, you just clicked. We're legends.", 10000);
+    }
+    else if(mascotLastLosses < 3)
+    {
+        mascotWindow->setMood(MascotWindow::Sweat);
+        mascotWindow->say("Run's over. The deck deserved better. Next draft will be better.", 10000);
+    }
+}
+
+
 void MainWindow::mascotStartGame()
 {
+    if(!mascotLive)     return;
     mascotSaysStatus = false;
     mascotWindow->setMood(MascotWindow::Popcorn);
     mascotWindow->say("Popcorn time. Show me what this deck can do.", 5000);
@@ -1864,6 +1890,7 @@ void MainWindow::mascotStartGame()
 
 void MainWindow::mascotEndGame(bool playerWon, bool playerUnknown)
 {
+    if(!mascotLive)     return;
     mascotSaysStatus = false;
     if(playerUnknown)
     {

@@ -103,6 +103,9 @@ private:
     int mascotRedraftScreenShown = 0;           //RedraftScreen the mascot talks about
     bool mascotSupportAsked = false;            //Once per arena run
     bool mascotSaysStatus = false;              //The bubble shows a draft status, cleared with it
+    bool mascotLive = false;                    //Game events replayed from the logs at startup are ignored
+    bool mascotLastWon = false;
+    int mascotLastLosses = 0;
     int cardHeight;
     int drawDisappear;
     QNetworkAccessManager *networkManager;
@@ -307,6 +310,7 @@ private slots:
     void mascotEndGame(bool playerWon, bool playerUnknown);
     void mascotRedraftScreen(int screen);
     void mascotArenaRecord(int wins, int losses, bool lastWon);
+    void mascotRunComplete();
     void restoreFromDock(Qt::ApplicationState state);
     void updateShowClassColor(bool checked);
     void updateShowSpellColor(bool checked);

@@ -38,6 +38,7 @@ private:
     QList<QString> logComponentList;
     int updateTime, maxUpdateTime;
     bool sortLogs, synchronized;
+    bool firstRunPending = false;
     QMap<qint64,DataLog> dataLogs;
     //Log lines only have the time of day: the day is counted from the session start (log dir name) and from
     //each log's times going back at midnight, so lines after midnight sort after the ones before
@@ -73,6 +74,7 @@ public:
 //Signals
 signals:
     void logReset();
+    void logsCaughtUp();    //The log lines written before the tracker started are processed
     void logConfigSet();
     void showMessageProgressBar(QString text);
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="LogLoader");

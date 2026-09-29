@@ -1433,7 +1433,9 @@ void DraftHandler::finishRedraftReviewNames()
     if(result.screen == RedraftScreenOther && redraftScreen == RedraftScreenDiscard && ++redraftScreenMisses < 3)  return;
     if(result.screen != RedraftScreenOther)     redraftScreenMisses = 0;
     bool onDiscard = (result.screen == RedraftScreenDiscard);
-    setDraftStatus(onDiscard?"":"Looking for the discard screen...");
+    if(onDiscard)   redraftDiscardSeen = true;
+    //After Done (queueing, Ready Up) it isn't looked for anymore
+    setDraftStatus((onDiscard || redraftDiscardSeen)?"":"Looking for the discard screen...");
     if(result.screen != redraftScreen)
     {
         redraftScreen = result.screen;
@@ -1655,6 +1657,7 @@ void DraftHandler::endDraft(bool createNewArena)
 
 void DraftHandler::beginRedraftReview()
 {
+    redraftDiscardSeen = false;
     emit pDebug("Begin redraft review.");
     setDraftStatus("Looking for the discard screen...");
 

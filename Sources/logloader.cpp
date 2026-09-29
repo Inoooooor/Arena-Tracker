@@ -41,7 +41,11 @@ void LogLoader::createLogWorkers()
     }
 
     //Retraso para dejar que la aplicacion se pinte.
-    if(synchronized)    QTimer::singleShot(1, this, SLOT(sendLogWorker()));
+    if(synchronized)
+    {
+        QTimer::singleShot(1, this, SLOT(sendLogWorker()));
+        emit logsCaughtUp();    //No old lines to replay: the logs are read as they are written
+    }
     else                QTimer::singleShot(1, this, SLOT(sendLogWorkerFirstRun()));
 }
 
@@ -393,6 +397,7 @@ void LogLoader::sendLogWorkerFirstRun()
 
     QTimer::singleShot(updateTime, this, SLOT(sendLogWorker()));
     synchronized = true;
+    firstRunPending = true;
 }
 
 
@@ -400,6 +405,11 @@ void LogLoader::sendLogWorker()
 {
     for(const QString &logComponent: qAsConst(logComponentList))    logWorkerMap[logComponent]->readLog();
     processDataLogs();
+    if(firstRunPending)
+    {
+        firstRunPending = false;
+        emit logsCaughtUp();
+    }
 
     QTimer::singleShot(updateTime, this, SLOT(sendLogWorker()));
     if(updateTime < maxUpdateTime)  updateTime += UPDATE_TIME_STEP;
