@@ -7,8 +7,8 @@
 #include "../utility.h"
 
 
-//Under each hero of the hero choice, in the mascot's pixel style: a hand (take it / close / skip it), the class
-//icon and the class winrate. Each plate is centered on its hero's portrait, so it stays aligned at any screen size.
+//Under each hero of the hero choice, a ScorePlate: a hand (take it / close / skip it), the class icon and the
+//class winrate and games from Firestone. Each plate is centered on its hero's portrait, so it stays aligned at any screen size.
 class DraftHeroWindow : public QMainWindow
 {
     Q_OBJECT
@@ -25,8 +25,6 @@ private:
     int classOrder[3] = {-1, -1, -1};
     float ratings[3] = {0, 0, 0};
     bool scoresShown = false;
-    QPixmap hands[3];               //Up, flat, down
-    QPixmap firestone;
 
 //Metodos
 protected:

@@ -49,6 +49,18 @@
 #define HISTOGRAM_EXT                   ".dat"
 
 
+//The three cards of a pick and their scores, for the mascot's advice
+struct PickScores
+{
+    QString names[3];
+    float fire[3] = {0, 0, 0};
+    int fireGames[3] = {-1, -1, -1};
+    float ha[3] = {0, 0, 0};
+    bool showFire = false, showHA = false;
+    bool legendaryGroup = false;    //The first pick: legendary groups
+};
+
+
 //The cards to remove in a redraft by one score source, for the mascot
 struct RedraftSuggestionCard
 {
@@ -194,6 +206,7 @@ private:
     QTimer *redraftReviewTimer;
     QFutureWatcher<RedraftScreenRead> futureRedraftReviewCodes;
     RedraftScreen redraftScreen = RedraftScreenOther;     //Last screen read while redraftingReview
+    PickScores pickScores;
     int redraftScreenMisses = 0;    //Reads in a row that didn't find the discard screen while on it
     bool redraftDiscardSeen = false;    //The discard screen was on screen in this review: gone means Done was pressed
     //Legendary bundles (macOS). The log only names the previewed legendary, when its preview opens;
@@ -350,6 +363,7 @@ public:
     QWidget *getRedraftTab();
     QList<RedraftSuggestion> getRedraftRemoveSuggestions();
     void rescan();
+    PickScores getPickScores();
     static QIcon redraftTabIcon();
     void buildHeroCodesList();
     void reHistDownloadedCardImage(const QString &fileNameCode, bool missingOnWeb=false);
@@ -390,6 +404,7 @@ signals:
     void draftStatusChanged(QString text);
     void redraftScreenChanged(int screen);      //RedraftScreen
     void heroesScored(int classOrder0, int classOrder1, int classOrder2);
+    void cardsScored();     //getPickScores() has the new pick
     void checkCardImage(QString code, bool isHero=false);
     void newDeckCard(QString code);
     void draftStarted();

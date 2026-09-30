@@ -13,6 +13,8 @@
 
 
 #define MARGIN 10
+#define CLOSE_FIRE_WINRATE  1.0     //Points under the best card winrate that still get a flat hand
+#define CLOSE_HA_SCORE      5       //HearthArena points under the best score that still get a flat hand
 #define SYNERGY_MOTION_UPDATE_TIME 50
 
 
@@ -22,6 +24,9 @@ public:
     bool moveDown, moving, running;
     int value, maximum, stepValue;
 };
+
+class ScorePlate;
+class ScorePlatesWindow;
 
 class DraftScoreWindow : public QMainWindow
 {
@@ -37,6 +42,13 @@ private:
     QHBoxLayout *horLayoutScores[3];
     QHBoxLayout *horLayoutScores2[3];
     QGridLayout *gridLayoutMechanics[3];
+    ScorePlate *plates[3];
+    ScorePlatesWindow *platesWindow;
+    QRect artRects[3];                  //Global, where the draft found each card's art
+    QWidget *hiddenHolder;
+    float fireScores[3] = {0, 0, 0}, haScores[3] = {0, 0, 0};
+    int fireGames[3] = {-1, -1, -1};
+    bool platesShown = false;
     ScoreButton *scoresPushButton[3];
     ScoreButton *scoresPushButton2[3];
     ScoreButton *scoresPushButton3[3];
@@ -71,11 +83,18 @@ private:
     void hideWarnings();
     void hideWarning(int i);
     void showScores(int i);
+    void updatePlates();
+    QList<QPoint> plateCenters(bool legendaryGroups);
+
+protected:
+    void showEvent(QShowEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
 
 public:
     void setScores(float rating1, float rating2, float rating3, DraftMethod draftMethod,
                    int includedDecks1, int includedDecks2, int includedDecks3, bool restoreWindow);
     void hideScores(bool quick=false);
+    void setLegendaryGroups(bool legendaryGroups);     //The first pick: the plates sit differently
     void setLearningMode(bool value);
     void showTwitchScores(bool show=true);
     void setDraftMethod(bool draftMethodHA, bool draftMethodLF, bool draftMethodHSR, bool updateSynergies);

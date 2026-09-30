@@ -130,7 +130,8 @@ bool MacFullScreenOverlay::isHearthstoneFullScreen()
 bool MacFullScreenOverlay::isDraftOverlay(QWidget *widget)
 {
     return widget->inherits("DraftScoreWindow") || widget->inherits("DraftHeroWindow") ||
-            widget->inherits("DraftMechanicsWindow") || widget->inherits("MascotWindow");
+            widget->inherits("DraftMechanicsWindow") || widget->inherits("MascotWindow") ||
+            widget->inherits("ScorePlatesWindow");
 }
 
 

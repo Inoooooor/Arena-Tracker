@@ -6,6 +6,7 @@
 #include <QtWidgets>
 
 float ScoreButton::heroScores[NUM_HEROS] = {0};
+int ScoreButton::heroGames[NUM_HEROS] = {0};
 int ScoreButton::playerRuns[NUM_HEROS] = {0}, ScoreButton::playerWins[NUM_HEROS] = {0}, ScoreButton::playerLost[NUM_HEROS] = {0};
 float ScoreButton::minHeroScore, ScoreButton::maxHeroScore;
 
@@ -87,6 +88,19 @@ void ScoreButton::addRun(int classOrder, int wins, int lost)
     ScoreButton::playerWins[classOrder] += wins;
     ScoreButton::playerLost[classOrder] += lost;
     ScoreButton::playerRuns[classOrder]++;
+}
+
+
+void ScoreButton::setHeroGames(int heroGames[NUM_HEROS])
+{
+    for(int i=0; i<NUM_HEROS; i++)  ScoreButton::heroGames[i] = heroGames[i];
+}
+
+
+int ScoreButton::getHeroGames(int classOrder)
+{
+    if(classOrder < 0 || classOrder >= NUM_HEROS)   return -1;
+    return ScoreButton::heroGames[classOrder];
 }
 
 

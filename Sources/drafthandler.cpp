@@ -2430,6 +2430,17 @@ void DraftHandler::finishBundlePreview()
     {
         bundlePreviewVisible = false;
         setDraftStatus("Scanning the next cards...");
+        //Forget the legendaries, like a pick does: their names were kept and the name reading skips read slots,
+        //so the next cards were never read
+        for(int i=0; i<3; i++)
+        {
+            cardDetected[i] = false;
+            draftCardMaps[i].clear();
+            bestMatchesMaps[i].clear();
+            ocrCodes[i] = "";
+            ocrUnmatchedText[i] = "";
+        }
+        numCaptured = 0;
         newCaptureDraftLoop();
     }
 }
@@ -2954,6 +2965,12 @@ void DraftHandler::rescan()
 }
 
 
+PickScores DraftHandler::getPickScores()
+{
+    return pickScores;
+}
+
+
 bool DraftHandler::isEmptyDeck()
 {
     return (CardTypeCounter::draftedCardsCount() == 0);
@@ -3217,9 +3234,18 @@ void DraftHandler::showNewCards(DraftCard bestCards[])
         cardNames[i] = Utility::cardLocalNameFromCode(ogCodes[i]);
     }
 
+    //The legendary groups screen: three legendaries (after picking a group the deck can still look empty)
+    bool legendaryGroups = true;
+    for(int i=0; i<3; i++)  if(Utility::getRarityFromCode(ogCodes[i]) != LEGENDARY)     legendaryGroups = false;
+    pickScores = PickScores();
+    if(draftScoreWindow != nullptr)     draftScoreWindow->setLegendaryGroups(legendaryGroups);
     showHAScores(ogCodes, hsrCodes, cardNames);
     showHSRScores(hsrCodes, cardNames);
     showFireScores(hsrCodes, cardNames);
+    pickScores.showFire = draftMethodFire;
+    pickScores.showHA = draftMethodHA;
+    pickScores.legendaryGroup = legendaryGroups;
+    emit cardsScored();
 
 
     //Twitch Handler
@@ -3408,6 +3434,17 @@ void DraftHandler::showNewRatings(const QString &cardName1, const QString &cardN
     float tierScore[3] = {tierScore1, tierScore2, tierScore3};
     float maxRating = std::max(std::max(rating1,rating2),rating3);
     int includedDecks[3] = {includedDecks1, includedDecks2, includedDecks3};
+
+    for(int i=0; i<3; i++)
+    {
+        pickScores.names[i] = cardNames[i];
+        if(draftMethod == FireStone)
+        {
+            pickScores.fire[i] = ratings[i];
+            pickScores.fireGames[i] = includedDecks[i];
+        }
+        else if(draftMethod == HearthArena)     pickScores.ha[i] = ratings[i];
+    }
 
     for(int i=0; i<3; i++)
     {

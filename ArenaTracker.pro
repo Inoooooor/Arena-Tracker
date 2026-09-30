@@ -53,6 +53,7 @@ SOURCES += Sources/main.cpp\
     Sources/Widgets/resizebutton.cpp \
     Sources/Widgets/draftscorewindow.cpp \
     Sources/Widgets/mascotwindow.cpp \
+    Sources/Widgets/scoreplate.cpp \
     Sources/Widgets/scorebutton.cpp \
     Sources/Widgets/movelistwidget.cpp \
     Sources/Widgets/movetabwidget.cpp \
@@ -129,6 +130,7 @@ HEADERS  += Sources/mainwindow.h \
     Sources/Widgets/resizebutton.h \
     Sources/Widgets/draftscorewindow.h \
     Sources/Widgets/mascotwindow.h \
+    Sources/Widgets/scoreplate.h \
     Sources/Widgets/scorebutton.h \
     Sources/Widgets/movelistwidget.h \
     Sources/Widgets/ui_extended.h \

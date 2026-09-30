@@ -103,6 +103,7 @@ private:
     int mascotRedraftScreenShown = 0;           //RedraftScreen the mascot talks about
     bool mascotSupportAsked = false;            //Once per arena run
     bool mascotSaysStatus = false;              //The bubble shows a draft status, cleared with it
+    bool mascotSaysAdvice = false;              //The bubble shows the pick advice: only a new pick or a problem replaces it
     bool mascotLive = false;                    //Game events replayed from the logs at startup are ignored
     bool mascotLastWon = false;
     int mascotLastLosses = 0;
@@ -312,6 +313,7 @@ private slots:
     void mascotArenaRecord(int wins, int losses, bool lastWon);
     void mascotRunComplete();
     void mascotHeroes(int classOrder0, int classOrder1, int classOrder2);
+    void mascotCards();
     void restoreFromDock(Qt::ApplicationState state);
     void updateShowClassColor(bool checked);
     void updateShowSpellColor(bool checked);

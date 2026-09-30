@@ -1700,6 +1700,8 @@ void MainWindow::createMascotWindow()
             this, SLOT(mascotRunComplete()));
     connect(draftHandler, SIGNAL(heroesScored(int,int,int)),
             this, SLOT(mascotHeroes(int,int,int)));
+    connect(draftHandler, SIGNAL(cardsScored()),
+            this, SLOT(mascotCards()));
     connect(logLoader, &LogLoader::logsCaughtUp, this, [this]() { mascotLive = true; });
 }
 
@@ -1746,6 +1748,17 @@ void MainWindow::mascotDraftStatus(QString text)
         return;
     }
 
+    //The pick advice stays until a new pick is scanned or something goes wrong: the other statuses (reading a
+    //legendary group's preview or the deck list, notices) come while the player still looks at the pick
+    if(mascotSaysAdvice)
+    {
+        const bool newPickOrProblem = (text.startsWith("Scanning") && !text.startsWith("Scanning the deck list")) ||
+                                      text.startsWith("Looking for the arena") ||
+                                      text.startsWith("Can't see") || text.contains("Game Mode");
+        if(!newPickOrProblem)   return;
+        mascotSaysAdvice = false;
+    }
+
     MascotWindow::Mood mood = text.endsWith("...") ? MascotWindow::Thinking : MascotWindow::Idle;
     QString line = text;
     if(text.contains("Game Mode"))
@@ -1777,6 +1790,7 @@ void MainWindow::mascotDraftStatus(QString text)
 //The discard screen of a redraft, or the Ready Up screen after it
 void MainWindow::mascotRedraftScreen(int screen)
 {
+    mascotSaysAdvice = false;
     mascotRedraftScreenShown = screen;
     mascotSaysStatus = false;
     if(screen == RedraftScreenDiscard)
@@ -1922,12 +1936,76 @@ void MainWindow::mascotHeroes(int classOrder0, int classOrder1, int classOrder2)
         line = lines[QRandomGenerator::global()->bounded(lines.count())];
     }
 
+    mascotSaysAdvice = true;
     mascotSaysStatus = false;
     mascotWindow->setMood(MascotWindow::Point);
     mascotWindow->say(line + "\n\nAm I hallucinating? Try:", 0, "Rescan", [this]() {
         mascotWindow->setMood(MascotWindow::Thinking);
         mascotWindow->say("Rescanning... Let me take a better look.");
+        mascotSaysAdvice = false;
         mascotSaysStatus = true;    //Replaced by the draft status or the heroes again
+        draftHandler->rescan();
+    });
+}
+
+
+//The pick with the best score (Firestone, else HearthArena), said by how far ahead it is
+void MainWindow::mascotCards()
+{
+    const PickScores pick = draftHandler->getPickScores();
+    const bool byFire = pick.showFire && std::max({pick.fire[0], pick.fire[1], pick.fire[2]}) > 0;
+    const float *scores = byFire ? pick.fire : pick.ha;
+
+    int order[3] = {0, 1, 2};
+    std::sort(order, order+3, [scores](int a, int b) { return scores[a] > scores[b]; });
+    const int bestIndex = order[0];
+
+    QString line;
+    if(scores[bestIndex] <= 0)  line = "No scores for these. Trust your gut.";
+    else
+    {
+        QString best = pick.names[bestIndex], second = pick.names[order[1]];
+        if(pick.legendaryGroup)
+        {
+            best += "'s group";
+            second += "'s group";
+        }
+        const QString score = byFire ? QString::number(scores[bestIndex], 'f', 1) + "% winrate" :
+                                       QString::number(qRound(scores[bestIndex])) + " on HearthArena";
+        const float lead = scores[bestIndex] - scores[order[1]];
+        const float big = byFire ? 2 : 12, small = byFire ? 0.7f : 5;
+        QStringList lines;
+        if(lead >= big)
+        {
+            lines = {QStringLiteral("%1 is a no-brainer. %2.").arg(best, score),
+                     QStringLiteral("%1, easy. %2, the other two are filler.").arg(best, score),
+                     QStringLiteral("Take %1 and don't look back. %2.").arg(best, score)};
+        }
+        else if(lead >= small)
+        {
+            lines = {QStringLiteral("I'd take %1. %2, a notch above %3.").arg(best, score, second),
+                     QStringLiteral("%1 has the edge: %2.").arg(best, score),
+                     QStringLiteral("Go %1. %2.").arg(best, score)};
+        }
+        else
+        {
+            lines = {QStringLiteral("Coin flip between %1 and %2. I'd go %1: %3.").arg(best, second, score),
+                     QStringLiteral("%1 or %2, basically the same. %1 by a hair.").arg(best, second),
+                     QStringLiteral("Tough one. %1 at %3, %2 right behind.").arg(best, second, score)};
+        }
+        line = lines[QRandomGenerator::global()->bounded(lines.count())];
+        if(byFire && pick.fireGames[bestIndex] >= 0 && pick.fireGames[bestIndex] < 200)
+            line += QStringLiteral(" Only %1 games though, grain of salt.").arg(pick.fireGames[bestIndex]);
+    }
+
+    mascotSaysAdvice = true;
+    mascotSaysStatus = false;
+    mascotWindow->setMood(MascotWindow::Point);
+    mascotWindow->say(line + "\n\nAm I hallucinating? Try:", 0, "Rescan", [this]() {
+        mascotWindow->setMood(MascotWindow::Thinking);
+        mascotWindow->say("Rescanning... Let me take a better look.");
+        mascotSaysAdvice = false;
+        mascotSaysStatus = true;    //Replaced by the draft status or the cards again
         draftHandler->rescan();
     });
 }
@@ -1936,6 +2014,7 @@ void MainWindow::mascotHeroes(int classOrder0, int classOrder1, int classOrder2)
 void MainWindow::mascotStartGame()
 {
     if(!mascotLive)     return;
+    mascotSaysAdvice = false;
     mascotSaysStatus = false;
     mascotWindow->setMood(MascotWindow::Popcorn);
     mascotWindow->say("Popcorn time. Show me what this deck can do.", 5000);

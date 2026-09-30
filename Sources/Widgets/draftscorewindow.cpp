@@ -1,5 +1,6 @@
 #include "draftscorewindow.h"
 #include "../themehandler.h"
+#include "scoreplate.h"
 #include <QtWidgets>
 
 
@@ -32,12 +33,23 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
            rect.height() + 2*MARGIN - (sizeCard.height()-scoreWidth));
     move(rectScreen.x() + rect.x() - MARGIN - midCards/2,
          static_cast<int>(rectScreen.y() + rect.y() - MARGIN + 2.65*sizeCard.height()));
+    for(int i=0; i<3; i++)
+    {
+        artRects[i] = QRect(rectScreen.x() + rect.x() + i*(rect.width() - sizeCard.width())/2, rectScreen.y() + rect.y(),
+                            sizeCard.width(), sizeCard.height());
+    }
+    platesWindow = new ScorePlatesWindow(this, plateCenters(false));
+
     int synergyWidth = this->width()/3.5;  //List Widget need 25 px extra space more than the sizeCard.
     SynergyCard::setSynergyWidth(synergyWidth);
 
 
     QWidget *centralWidget = new QWidget(this);
     QHBoxLayout *horLayout = new QHBoxLayout(centralWidget);
+    //The old score badges and Twitch votes are kept (the draft code still sets them) but never shown:
+    //a ScorePlate shows the scores
+    hiddenHolder = new QWidget(this);
+    hiddenHolder->hide();
     QVBoxLayout *verLayout[3];
 
     for(int i=0; i<3; i++)
@@ -94,7 +106,7 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
         verLayout[i]->addLayout(horLayoutWarn2);
 
         //Scores
-        scoresPushButton[i] = new ScoreButton(centralWidget, Score_Fire, classOrder);
+        scoresPushButton[i] = new ScoreButton(hiddenHolder, Score_Fire, classOrder);
         scoresPushButton[i]->setFixedHeight(scoreWidth);
         scoresPushButton[i]->setFixedWidth(scoreWidth);
         scoresPushButton[i]->hide();
@@ -103,14 +115,14 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
         connect(scoresPushButton[i], SIGNAL(showFirewebPicks()),
                 this, SIGNAL(showFirewebPicks()));
 
-        scoresPushButton2[i] = new ScoreButton(centralWidget, Score_HearthArena, -1);
+        scoresPushButton2[i] = new ScoreButton(hiddenHolder, Score_HearthArena, -1);
         scoresPushButton2[i]->setFixedHeight(scoreWidth);
         scoresPushButton2[i]->setFixedWidth(scoreWidth);
         scoresPushButton2[i]->hide();
         connect(scoresPushButton2[i], SIGNAL(spreadHoverScore(bool)),
                 this, SLOT(spreadHoverScore(bool)));
 
-        scoresPushButton3[i] = new ScoreButton(centralWidget, Score_HSReplay, classOrder);
+        scoresPushButton3[i] = new ScoreButton(hiddenHolder, Score_HSReplay, classOrder);
         scoresPushButton3[i]->setFixedHeight(scoreWidth);
         scoresPushButton3[i]->setFixedWidth(scoreWidth);
         scoresPushButton3[i]->hide();
@@ -119,7 +131,7 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
         connect(scoresPushButton3[i], SIGNAL(showHSRwebPicks()),
                 this, SIGNAL(showHSRwebPicks()));
 
-        twitchButton[i] = new TwitchButton(centralWidget, 0, 1);
+        twitchButton[i] = new TwitchButton(hiddenHolder, 0, 1);
         twitchButton[i]->setFixedHeight(scoreWidth);
         twitchButton[i]->setFixedWidth(scoreWidth);
         twitchButton[i]->hide();
@@ -139,10 +151,9 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
         twitchButton[i]->setGraphicsEffect(effect);
 
         //LAYOUTS scores
+        plates[i] = new ScorePlate(centralWidget);     //Only keeps the room: the plates are in platesWindow
         horLayoutScores[i] = new QHBoxLayout();
-        horLayoutScores[i]->addWidget(scoresPushButton[i]);
-        horLayoutScores[i]->addWidget(scoresPushButton3[i]);
-        horLayoutScores[i]->addWidget(scoresPushButton2[i]);
+        horLayoutScores[i]->addWidget(plates[i]);
 
         QHBoxLayout *horLayoutScoresG = new QHBoxLayout();
         horLayoutScoresG->addStretch();
@@ -153,7 +164,6 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
 
         gridLayoutMechanics[i] = new QGridLayout();
         horLayoutScores2[i] = new QHBoxLayout();
-        horLayoutScores2[i]->addWidget(twitchButton[i]);
         horLayoutScores2[i]->addLayout(gridLayoutMechanics[i]);
 
         QHBoxLayout *horLayoutScores2G = new QHBoxLayout();
@@ -242,49 +252,14 @@ void DraftScoreWindow::spreadHoverScore(bool value)
 }
 
 
+//One row: the plate, then the mechanics
 void DraftScoreWindow::checkScoresSpace()
 {
-    bool oldScores2Rows = scores2Rows;
-    scores2Rows = showHA && showLF && showHSR && showTwitch;
-    if(oldScores2Rows == scores2Rows)   return;
+    if(!scores2Rows)    return;
+    scores2Rows = false;
     reorderMechanics();
-
-    if(scores2Rows)
-    {
-        emit pDebug("Scores - 2 rows");
-        maxSynergyHeight = maxSynergyHeight2Row;
-        resizeSynergyList();
-
-        for(int i=0; i<3; i++)
-        {
-            Utility::clearLayout(horLayoutScores[i], false, false);
-            Utility::clearLayout(horLayoutScores2[i], false, false);
-
-            horLayoutScores[i]->addWidget(scoresPushButton[i]);
-            horLayoutScores[i]->addWidget(scoresPushButton3[i]);
-            horLayoutScores[i]->addWidget(scoresPushButton2[i]);
-            horLayoutScores2[i]->addWidget(twitchButton[i]);
-            horLayoutScores2[i]->addLayout(gridLayoutMechanics[i]);
-        }
-    }
-    else
-    {
-        emit pDebug("Scores - 1 row");
-        maxSynergyHeight = maxSynergyHeight1Row;
-        resizeSynergyList();
-
-        for(int i=0; i<3; i++)
-        {
-            Utility::clearLayout(horLayoutScores[i], false, false);
-            Utility::clearLayout(horLayoutScores2[i], false, false);
-
-            horLayoutScores[i]->addWidget(scoresPushButton[i]);
-            horLayoutScores[i]->addWidget(scoresPushButton3[i]);
-            horLayoutScores[i]->addWidget(twitchButton[i]);
-            horLayoutScores[i]->addWidget(scoresPushButton2[i]);
-            horLayoutScores2[i]->addLayout(gridLayoutMechanics[i]);
-        }
-    }
+    maxSynergyHeight = maxSynergyHeight1Row;
+    resizeSynergyList();
 }
 
 
@@ -326,6 +301,7 @@ void DraftScoreWindow::setDraftMethod(bool draftMethodHA, bool draftMethodLF, bo
     showLF = draftMethodLF;
     showHSR = draftMethodHSR;
     checkScoresSpace();
+    if(platesShown) updatePlates();
 
     for(int i=0; i<3; i++)
     {
@@ -375,6 +351,18 @@ void DraftScoreWindow::setScores(float rating1, float rating2, float rating3,
     float bestRating = std::max(std::max(rating1, rating2), rating3);
     float ratings[3] = {rating1, rating2, rating3};
     int includedDecks[3] = {includedDecks1, includedDecks2, includedDecks3};
+
+    for(int i=0; i<3; i++)
+    {
+        if(draftMethod == FireStone)
+        {
+            fireScores[i] = ratings[i];
+            fireGames[i] = includedDecks[i];
+        }
+        else if(draftMethod == HearthArena)     haScores[i] = ratings[i];
+    }
+    platesShown = true;
+    updatePlates();
 
     for(int i=0; i<3; i++)
     {
@@ -764,6 +752,15 @@ void DraftScoreWindow::hideScores(bool quick)
         }
     }
 
+    platesWindow->clear();
+    for(int i=0; i<3; i++)
+    {
+        plates[i]->clear();
+        fireScores[i] = haScores[i] = 0;
+        fireGames[i] = -1;
+    }
+    platesShown = false;
+
     hideWarnings();
     hideSynergies();
     this->update();
@@ -1010,4 +1007,66 @@ void DraftScoreWindow::warningOkClick(HoverLabel *hoverLabel)
     showScores(index);
     synergiesListWidget[index]->show();
     Utility::fadeInLayout(gridLayoutMechanics[index]);
+}
+
+
+//The hand follows Firestone when it has data, HearthArena otherwise
+void DraftScoreWindow::updatePlates()
+{
+    const float bestFire = std::max(std::max(fireScores[0], fireScores[1]), fireScores[2]);
+    const float bestHA = std::max(std::max(haScores[0], haScores[1]), haScores[2]);
+    const bool handByFire = showLF && bestFire > 0;
+    QList<ScorePlate::Content> contents;
+    for(int i=0; i<3; i++)
+    {
+        ScorePlate::Content content;
+        content.showFire = showLF;
+        content.fireWinrate = fireScores[i];
+        content.fireGames = fireGames[i];
+        content.showHA = showHA;
+        content.haScore = haScores[i];
+        if(handByFire)                  content.hand = ScorePlate::handFor(fireScores[i], bestFire, CLOSE_FIRE_WINRATE);
+        else if(showHA && bestHA > 0)   content.hand = ScorePlate::handFor(haScores[i], bestHA, CLOSE_HA_SCORE);
+        contents << content;
+    }
+    platesWindow->setContents(contents);
+}
+
+
+//The plates window goes with this one
+void DraftScoreWindow::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
+    platesWindow->show();
+}
+
+
+void DraftScoreWindow::hideEvent(QHideEvent *event)
+{
+    QMainWindow::hideEvent(event);
+    platesWindow->hide();
+}
+
+
+
+//Right under each card, centered on it. The found art square sits differently on the two screens (measured on
+//the 2026 client): centered on the legendary groups' cards, whose bottom is 2.82 art heights below the art top;
+//0.15 art widths right of the center of the other cards, whose bottom is at 2.63.
+QList<QPoint> DraftScoreWindow::plateCenters(bool legendaryGroups)
+{
+    const float dx = legendaryGroups ? 0 : -0.15f;
+    const float bottom = legendaryGroups ? 2.82f : 2.63f;
+    QList<QPoint> centers;
+    for(const QRect &art: artRects)
+    {
+        centers << QPoint(static_cast<int>(art.center().x() + dx*art.width()),
+                          static_cast<int>(art.top() + (bottom + 0.04f)*art.height()));
+    }
+    return centers;
+}
+
+
+void DraftScoreWindow::setLegendaryGroups(bool legendaryGroups)
+{
+    platesWindow->setTopCenters(plateCenters(legendaryGroups));
 }

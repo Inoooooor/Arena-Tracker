@@ -24,6 +24,7 @@ private:
     ScoreSource scoreSource;
 
     static float heroScores[NUM_HEROS];
+    static int heroGames[NUM_HEROS];
     static int playerRuns[NUM_HEROS], playerWins[NUM_HEROS], playerLost[NUM_HEROS];
     static float minHeroScore, maxHeroScore;
 
@@ -52,6 +53,8 @@ public:
     static void setPlayerWins(int playerWins[NUM_HEROS]);
     static void setPlayerLost(int playerLost[NUM_HEROS]);
     static float getHeroScore(int classOrder);
+    static void setHeroGames(int heroGames[NUM_HEROS]);
+    static int getHeroGames(int classOrder);
     static float getPlayerRun(int classOrder);
     static float getPlayerWinrate(int classOrder);
     static void addRun(int classOrder, int wins, int lost);
