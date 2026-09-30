@@ -73,8 +73,14 @@ void MascotWindow::say(const QString &text, int msec, const QString &button, std
 void MascotWindow::saySections(const QString &text, const QList<Section> &sections, int msec,
                                const QString &button, std::function<void()> action)
 {
+    //While the mascot is hidden (Hearthstone not on screen) the time starts when it shows
     sayTimer.stop();
-    if(msec > 0 && !text.isEmpty())     sayTimer.start(msec);
+    pendingSayMsec = 0;
+    if(msec > 0 && !text.isEmpty())
+    {
+        if(isVisible()) sayTimer.start(msec);
+        else            pendingSayMsec = msec;
+    }
     if(hoveredRow != -1)    emit cardLeave();
     hoveredSection = hoveredRow = -1;
     this->sections = text.isEmpty() ? QList<Section>() : sections;
@@ -230,6 +236,11 @@ void MascotWindow::paintEvent(QPaintEvent *)
 void MascotWindow::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
+    if(pendingSayMsec > 0)
+    {
+        sayTimer.start(pendingSayMsec);
+        pendingSayMsec = 0;
+    }
 #ifdef Q_OS_MAC
     QTimer::singleShot(0, this, [this]() { MacWindow::raiseAboveFloating(this); });
 #endif

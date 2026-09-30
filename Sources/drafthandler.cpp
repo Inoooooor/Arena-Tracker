@@ -4903,6 +4903,12 @@ bool DraftHandler::isDrafting()
 }
 
 
+bool DraftHandler::isRedrafting()
+{
+    return this->redrafting;
+}
+
+
 void DraftHandler::minimizeScoreWindow()
 {
     if(this->draftHeroWindow != nullptr)                                                       draftHeroWindow->showMinimized();

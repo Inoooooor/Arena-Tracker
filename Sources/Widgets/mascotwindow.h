@@ -74,6 +74,7 @@ private:
     int hoveredSection = -1, hoveredRow = -1;
     std::function<void()> buttonAction;
     QTimer sayTimer;
+    int pendingSayMsec = 0;     //A timed line said while hidden
     QFont bubbleFont;
     QRect bubbleRect, textRect, buttonRect, spriteRect;
     QPoint anchor;              //Global position of the character's bottom center

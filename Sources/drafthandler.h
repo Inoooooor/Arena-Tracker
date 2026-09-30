@@ -379,6 +379,7 @@ public:
     void setTheme();
     void craftGoldenCopy(int cardIndex);
     bool isDrafting();
+    bool isRedrafting();
     bool isEmptyDeck();
     void deMinimizeScoreWindow();
     QStringList getAllHeroCodes();

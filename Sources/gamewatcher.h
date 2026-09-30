@@ -108,6 +108,7 @@ signals:
     void redraft();
     void arenaChoosingHeroe();
     void inRewards();
+    void arenaRetired();
     void newDeckCard(QString card);
     void startGame();
     void endGame(bool playerWon=false, bool playerUnknown=true);

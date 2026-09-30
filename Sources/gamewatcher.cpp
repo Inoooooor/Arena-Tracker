@@ -278,6 +278,12 @@ void GameWatcher::processArena(QString &line, qint64 numLine)
         endReadingDeck();//completeArenaDeck with draft file
         emit redraft();
     }
+    //DraftManager.OnRetire deckID=2769165728 (right before IN_REWARDS)
+    else if(line.contains("DraftManager.OnRetire"))
+    {
+        emit pDebug("Found DraftManager.OnRetire.", numLine);
+        emit arenaRetired();
+    }
     //SetDraftMode - IN_REWARDS
     else if(line.contains("SetDraftMode - IN_REWARDS"))
     {

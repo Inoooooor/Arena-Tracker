@@ -1692,9 +1692,6 @@ static QString mascotPick(const QStringList &lines)
 void MainWindow::createMascotWindow()
 {
     mascotWindow = new MascotWindow();
-    mascotWindow->say(mascotPick({"Hey! Open the arena, I'll help you draft something great.",
-                                  "Arena time? Relax, I've got the brains here.",
-                                  "Ready when you are. Open the arena, let's win something."}), 8000);
     connect(mascotWindow, SIGNAL(quitRequested()),
             this, SLOT(closeApp()));
     connect(mascotWindow, SIGNAL(cardEntered(QString,QRect,int,int)),
@@ -1713,6 +1710,11 @@ void MainWindow::createMascotWindow()
             this, SLOT(mascotRedraftScreen(int)));
     connect(arenaHandler, SIGNAL(arenaRecordChanged(int,int,bool)),
             this, SLOT(mascotArenaRecord(int,int,bool)));
+    connect(gameWatcher, &GameWatcher::arenaRetired, this, [this]() { mascotRetired = true; });
+    //No run between its rewards screen and the next draft (also for the logs replayed at startup)
+    connect(gameWatcher, &GameWatcher::inRewards, this, [this]() { mascotNoRun = true; });
+    connect(gameWatcher, &GameWatcher::arenaChoosingHeroe, this, [this]() { mascotNoRun = false; });
+    connect(gameWatcher, &GameWatcher::newArena, this, [this]() { mascotNoRun = false; });
     connect(gameWatcher, SIGNAL(inRewards()),
             this, SLOT(mascotRunComplete()));
     connect(draftHandler, SIGNAL(heroesScored(int,int,int)),
@@ -1805,10 +1807,22 @@ QStringList MainWindow::mascotGoodLuckLines()
 //Once the logs are caught up: the tracker may start in the middle of a draft or a run
 void MainWindow::mascotGreeting()
 {
-    if(draftHandler->isDrafting() && !draftHandler->isEmptyDeck())
+    if(draftHandler->isRedrafting())
+    {
+        mascotWindow->setMood(MascotWindow::Smile);
+        mascotWindow->say(mascotPick({"Redraft time! Let's patch this deck up.",
+                                      "A redraft? Good, I had some notes on this deck anyway."}), 10000);
+    }
+    else if(draftHandler->isDrafting() && !draftHandler->isEmptyDeck())
     {
         mascotWindow->setMood(MascotWindow::Sweat);
         mascotWindow->say("You started without me? No worries, I missed a few picks but I'll help with the rest.", 10000);
+    }
+    else if(!draftHandler->isDrafting() && getLoadingScreen() == arena && mascotNoRun)
+    {
+        mascotWindow->setMood(MascotWindow::Smile);
+        mascotWindow->say(mascotPick({"Fresh start. Let's draft a winner.",
+                                      "New run? I've been waiting for this. Let's go."}), 8000);
     }
     else if(!draftHandler->isDrafting() && getLoadingScreen() == arena)
     {
@@ -1816,6 +1830,14 @@ void MainWindow::mascotGreeting()
         mascotWindow->say(mascotPick({"Oh, you're back. I kept the popcorn warm.",
                                       "Welcome back. Let's pick up where we left off.",
                                       "There you are. The deck's been waiting."}), 8000);
+    }
+    //The main menu, or Hearthstone not started yet: the line waits until the mascot shows with Hearthstone
+    else if(!draftHandler->isDrafting())
+    {
+        mascotWindow->setMood(MascotWindow::Smile);
+        mascotWindow->say(mascotPick({"Hey! Open the arena, I'll help you draft something great.",
+                                      "Arena time? Relax, I've got the brains here.",
+                                      "Ready when you are. Open the arena, let's win something."}), 10000);
     }
 }
 
@@ -1956,9 +1978,18 @@ void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
 //it ended with fewer than 3 losses in it
 void MainWindow::mascotRunComplete()
 {
+    const bool retired = mascotRetired;
+    mascotRetired = false;
     if(!mascotLive)     return;
     mascotSaysStatus = false;
-    if(mascotLastWon)
+    if(retired)
+    {
+        mascotWindow->setMood(MascotWindow::Smile);
+        mascotWindow->say(mascotPick({"Retired? Fair call. Some decks just aren't meant to be. Next one's ours.",
+                                      "A tactical retreat. Let's draft a better one.",
+                                      "Retiring? Smart. I never liked that deck anyway."}), 10000);
+    }
+    else if(mascotLastWon)
     {
         mascotWindow->setMood(MascotWindow::Stars);
         mascotWindow->say("TWELVE WINS! I drafted it, you just clicked. We're legends.", 10000);

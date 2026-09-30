@@ -102,6 +102,8 @@ private:
     int mascotRedraftScreenShown = 0;           //RedraftScreen the mascot talks about
     bool mascotSupportAsked = false;            //Once per arena run
     bool mascotInGame = false;
+    bool mascotNoRun = false;                   //The last run ended (rewards screen) and no new draft yet
+    bool mascotRetired = false;                 //The run ends by a retire (until its rewards screen)
     QString mascotLastStatus;                   //The draft status behind the current status line
     int mascotSecretsSeen = 0;                  //Enemy secrets since the app started
     bool mascotSaysStatus = false;              //The bubble shows a draft status, cleared with it
