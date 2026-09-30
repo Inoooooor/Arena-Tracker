@@ -52,7 +52,7 @@
 //The three cards of a pick and their scores, for the mascot's advice
 struct PickScores
 {
-    QString names[3];
+    QString names[3], codes[3];
     float fire[3] = {0, 0, 0};
     int fireGames[3] = {-1, -1, -1};
     float ha[3] = {0, 0, 0};

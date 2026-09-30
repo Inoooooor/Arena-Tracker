@@ -3438,6 +3438,7 @@ void DraftHandler::showNewRatings(const QString &cardName1, const QString &cardN
     for(int i=0; i<3; i++)
     {
         pickScores.names[i] = cardNames[i];
+        pickScores.codes[i] = draftCards[i].getCode();
         if(draftMethod == FireStone)
         {
             pickScores.fire[i] = ratings[i];

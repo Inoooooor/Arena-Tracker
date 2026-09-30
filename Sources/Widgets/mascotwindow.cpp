@@ -19,6 +19,8 @@
 #define MASCOT_VALUE_GAP        14
 #define MASCOT_BLOCK_GAP        8       //Between the text, the sections and the button
 #define MASCOT_SECTION_GAP      6
+#define MASCOT_COLOR_BEGIN      QChar(0x01)     //Followed by the color name (#rrggbb), the text and MASCOT_COLOR_END
+#define MASCOT_COLOR_END        QChar(0x02)
 
 
 MascotWindow::MascotWindow(QWidget *parent)
@@ -126,7 +128,9 @@ void MascotWindow::relayout()
         }
 
         int maxTextW = std::max(MASCOT_BUBBLE_MAX_WIDTH - 2*inset, sectionsW);
-        textBox = fm.boundingRect(QRect(0, 0, maxTextW, 1000), Qt::TextWordWrap, text);
+        QTextDocument doc;
+        setupTextDocument(doc, maxTextW);
+        textBox = QRect(0, 0, qCeil(doc.idealWidth()), qCeil(doc.size().height()));
         int contentW = std::max(textBox.width(), sectionsW);
         int contentH = textBox.height();
         if(sectionsH > 0)   contentH += MASCOT_BLOCK_GAP + sectionsH;
@@ -171,6 +175,40 @@ void MascotWindow::relayout()
     QRegion region(spriteRect);
     if(!text.isEmpty())     region += QRegion(bubbleRect.adjusted(0, 0, 0, MASCOT_TAIL_HEIGHT));
     setMask(region);
+}
+
+
+QString MascotWindow::colored(const QString &text, const QColor &color)
+{
+    return MASCOT_COLOR_BEGIN + color.name() + text + MASCOT_COLOR_END;
+}
+
+
+//The text as HTML: escaped, line breaks kept and the colored() parts in their color
+void MascotWindow::setupTextDocument(QTextDocument &doc, int width) const
+{
+    QString html;
+    int from = 0;
+    while(from < text.length())
+    {
+        int begin = text.indexOf(MASCOT_COLOR_BEGIN, from);
+        int end = (begin == -1) ? -1 : text.indexOf(MASCOT_COLOR_END, begin);
+        if(end == -1)
+        {
+            html += text.mid(from).toHtmlEscaped();
+            break;
+        }
+        html += text.mid(from, begin - from).toHtmlEscaped();
+        const QString color = text.mid(begin + 1, 7);
+        html += "<span style=\"color:" + color + "\">" + text.mid(begin + 8, end - begin - 8).toHtmlEscaped() + "</span>";
+        from = end + 1;
+    }
+    html.replace("\n", "<br>");
+
+    doc.setDocumentMargin(0);
+    doc.setDefaultFont(bubbleFont);
+    doc.setHtml(html);
+    doc.setTextWidth(width);
 }
 
 
@@ -247,9 +285,18 @@ void MascotWindow::drawBubble(QPainter &painter)
     painter.setBrush(Qt::black);
     painter.drawRect(x0 + 4*p, y0 + 4*p, p, p);                     //Tip
 
+    //Black whatever the system palette is
+    QTextDocument doc;
+    setupTextDocument(doc, textRect.width());
+    QAbstractTextDocumentLayout::PaintContext context;
+    context.palette.setColor(QPalette::Text, Qt::black);
+    painter.save();
+    painter.translate(textRect.topLeft());
+    doc.documentLayout()->draw(&painter, context);
+    painter.restore();
+
     painter.setPen(Qt::black);
     painter.setFont(bubbleFont);
-    painter.drawText(textRect, Qt::TextWordWrap | Qt::AlignLeft | Qt::AlignVCenter, text);
     drawSections(painter);
 
     if(!buttonText.isEmpty())
@@ -263,7 +310,7 @@ void MascotWindow::drawBubble(QPainter &painter)
 }
 
 
-//Header in the hat's purple, then name (elided) on the left and value (grey) on the right of each row
+//Header in the hat's purple, then name (elided, in its color) on the left and value (grey) on the right of each row
 void MascotWindow::drawSections(QPainter &painter)
 {
     QFontMetrics fm(bubbleFont);
@@ -282,8 +329,9 @@ void MascotWindow::drawSections(QPainter &painter)
                 painter.drawRect(r.adjusted(-MASCOT_PIXEL, 0, MASCOT_PIXEL, 0));
             }
             int valueW = fm.horizontalAdvance(row.value);
-            QString name = fm.elidedText(row.name, Qt::ElideRight, r.width() - valueW - MASCOT_VALUE_GAP);
-            painter.setPen(Qt::black);
+            //A couple of pixels of slack: elidedText cuts names that horizontalAdvance said fit
+            QString name = fm.elidedText(row.name, Qt::ElideRight, r.width() - valueW - MASCOT_VALUE_GAP + 2);
+            painter.setPen(row.nameColor);
             painter.drawText(r, Qt::AlignLeft | Qt::AlignVCenter, name);
             painter.setPen(QColor(100, 100, 100));
             painter.drawText(r, Qt::AlignRight | Qt::AlignVCenter, row.value);

@@ -130,6 +130,7 @@ private:
     void createArenaHandler();
     void createGameWatcher();
     void createCardWindow();
+    static QColor mascotRarityColor(const QString &code);
     void createCardListWindow();
     void createCardDownloader();
     void createWinratesDownloader();

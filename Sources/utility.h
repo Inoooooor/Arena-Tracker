@@ -25,7 +25,8 @@
 #define DEBUG_OVERLAYS_RIGHT false
 #define DEBUG_ALLOW_SAME_TRIO false
 
-//The mascot replaced the old tracker windows: they are never shown and the handlers that only fill them get no game events
+//The mascot replaced the old interface: the tracker windows are never shown, the handlers that only fill them get no game
+//events, and the draft overlays show only the plates (no card check, synergy lists or mechanic icons)
 //#define OLD_TRACKER_WINDOWS
 
 

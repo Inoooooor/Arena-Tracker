@@ -6,6 +6,7 @@
 #include <QPainter>
 #include <QTimer>
 #include <QPoint>
+#include <QTextDocument>
 #include <functional>
 
 
@@ -22,6 +23,7 @@ public:
     struct Row
     {
         QString name, value, code;
+        QColor nameColor = Qt::black;
     };
     struct Section
     {
@@ -34,6 +36,8 @@ public:
     //The mascot's look for other overlays: a box with a black frame of square pixels, and the pixel font
     static void drawPixelFrame(QPainter &painter, const QRect &rect, const QColor &fill);
     static QFont pixelFont(int pixelSize);
+    //A part of the bubble text drawn in its own color (e.g. a card name in its rarity color)
+    static QString colored(const QString &text, const QColor &color);
 
     void setMood(Mood mood);
     Mood currentMood() const { return mood; }
@@ -76,6 +80,7 @@ private:
     bool dragging = false, dragMoved = false, buttonPressed = false;
 
     void relayout();
+    void setupTextDocument(QTextDocument &doc, int width) const;
     void drawBubble(QPainter &painter);
     void drawSections(QPainter &painter);
     void updateHover(const QPoint &pos);

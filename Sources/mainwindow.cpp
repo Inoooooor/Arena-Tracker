@@ -1779,7 +1779,8 @@ void MainWindow::mascotRedraftScreen(int screen)
         for(const RedraftSuggestion &suggestion: suggestions)
         {
             MascotWindow::Section section{suggestion.source, {}};
-            for(const RedraftSuggestionCard &card: suggestion.cards)    section.rows << MascotWindow::Row{card.name, card.score, card.code};
+            for(const RedraftSuggestionCard &card: suggestion.cards)
+                section.rows << MascotWindow::Row{card.name, card.score, card.code, mascotRarityColor(card.code)};
             sections << section;
         }
         mascotWindow->setMood(MascotWindow::Point);
@@ -1928,6 +1929,21 @@ void MainWindow::mascotHeroes(int classOrder0, int classOrder1, int classOrder2)
 }
 
 
+//Card names in the mascot's bubble, in their rarity color (darker than in the game, to read on white)
+QColor MainWindow::mascotRarityColor(const QString &code)
+{
+    switch(Utility::getRarityFromCode(code))
+    {
+        case RARE:      return QColor(0, 112, 221);
+        case EPIC:      return QColor(163, 53, 238);
+        case LEGENDARY: return QColor(230, 120, 0);
+        case COMMON:
+        case FREE:      return QColor(120, 120, 120);
+        default:        return Qt::black;
+    }
+}
+
+
 //The pick with the best score (Firestone, else HearthArena), said by how far ahead it is
 void MainWindow::mascotCards()
 {
@@ -1943,7 +1959,8 @@ void MainWindow::mascotCards()
     if(scores[bestIndex] <= 0)  line = "No scores for these. Trust your gut.";
     else
     {
-        QString best = pick.names[bestIndex], second = pick.names[order[1]];
+        QString best = MascotWindow::colored(pick.names[bestIndex], mascotRarityColor(pick.codes[bestIndex]));
+        QString second = MascotWindow::colored(pick.names[order[1]], mascotRarityColor(pick.codes[order[1]]));
         if(pick.legendaryGroup)
         {
             best += "'s group";

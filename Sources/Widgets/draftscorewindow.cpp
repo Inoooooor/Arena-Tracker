@@ -1,7 +1,16 @@
 #include "draftscorewindow.h"
 #include "../themehandler.h"
+#include "../utility.h"
 #include "scoreplate.h"
 #include <QtWidgets>
+
+//The old look under the cards (card check, synergy lists, mechanic icons) is only shown with the old interface:
+//the plates and the mascot replaced it. Synergies are still computed.
+#ifdef OLD_TRACKER_WINDOWS
+    #define SHOW_OLD_DRAFT_EXTRAS true
+#else
+    #define SHOW_OLD_DRAFT_EXTRAS false
+#endif
 
 
 DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, int screenIndex, int classOrder) :
@@ -576,6 +585,7 @@ QList<SynergyCard> * DraftScoreWindow::getSynergyCardLists()
 void DraftScoreWindow::createMechanicIcon(int posCard, int posMech, MechanicIcons mechanicIcon, int count,
                                           const MechanicBorderColor dropBorderColor)
 {
+    if(!SHOW_OLD_DRAFT_EXTRAS)  return;
     QLabel *label = new QLabel();
     label->setPixmap(createMechanicIconPixmap(mechanicIcon, count, dropBorderColor));
     label->setToolTip(getMechanicTooltip(mechanicIcon));
@@ -594,6 +604,7 @@ void DraftScoreWindow::createMechanicIcon(int posCard, int posMech, MechanicIcon
 
 void DraftScoreWindow::setWarningCard(const int posCard, const QString &code)
 {
+    if(!SHOW_OLD_DRAFT_EXTRAS)  return;
     warningCard[posCard]->setCode(code);
     warningCard[posCard]->draw(warningCardLabel[posCard]);
     onWarnMode[posCard] = true;
@@ -798,7 +809,7 @@ void DraftScoreWindow::clearMechanics()
 void DraftScoreWindow::showSynergies()
 {
     resizeSynergyList();
-    for(int i=0; i<3; i++)
+    for(int i=0; i<3 && SHOW_OLD_DRAFT_EXTRAS; i++)
     {
         if(!onWarnMode[i])
         {
