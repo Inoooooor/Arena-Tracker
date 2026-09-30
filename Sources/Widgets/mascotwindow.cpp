@@ -81,6 +81,11 @@ void MascotWindow::saySections(const QString &text, const QList<Section> &sectio
     buttonAction = text.isEmpty() ? nullptr : action;
     buttonText = text.isEmpty() ? QString() : button;
     this->text = text;
+    if(!text.isEmpty())
+    {
+        QString plain = text;
+        emit said(plain.remove(QRegularExpression("\\x01#[0-9a-f]{6}|\\x02")).replace("\n", " "));
+    }
     relayout();
     update();
 }

@@ -1682,10 +1682,19 @@ void MainWindow::closeApp()
 }
 
 
+//One of the lines at random, so the mascot doesn't repeat itself
+static QString mascotPick(const QStringList &lines)
+{
+    return lines[QRandomGenerator::global()->bounded(lines.count())];
+}
+
+
 void MainWindow::createMascotWindow()
 {
     mascotWindow = new MascotWindow();
-    mascotWindow->say("Hi! Open the arena, I'll help you draft.", 8000);
+    mascotWindow->say(mascotPick({"Hey! Open the arena, I'll help you draft something great.",
+                                  "Arena time? Relax, I've got the brains here.",
+                                  "Ready when you are. Open the arena, let's win something."}), 8000);
     connect(mascotWindow, SIGNAL(quitRequested()),
             this, SLOT(closeApp()));
     connect(mascotWindow, SIGNAL(cardEntered(QString,QRect,int,int)),
@@ -1710,13 +1719,21 @@ void MainWindow::createMascotWindow()
             this, SLOT(mascotHeroes(int,int,int)));
     connect(draftHandler, SIGNAL(cardsScored()),
             this, SLOT(mascotCards()));
-    connect(logLoader, &LogLoader::logsCaughtUp, this, [this]() { mascotLive = true; });
+    connect(draftHandler, SIGNAL(draftFinished(int,float,float)),
+            this, SLOT(mascotDraftFinished(int,float,float)));
+    connect(logLoader, &LogLoader::logsCaughtUp, arenaHandler, &ArenaHandler::setLogsCaughtUp);
+    connect(mascotWindow, &MascotWindow::said, this, [this](const QString &text) { pDebug("Mascot: " + text); });
+    connect(logLoader, &LogLoader::logsCaughtUp, this, [this]() {
+        mascotLive = true;
+        mascotGreeting();
+    });
 }
 
 
 //The draft status in the mascot's words, with a matching face
 void MainWindow::mascotDraftStatus(QString text)
 {
+    if(!mascotLive)     return;     //The picks replayed at startup; mascotGreeting says where we are
     if(text.isEmpty())
     {
         //Only its own bubble: the discard screen clears the status right when the mascot shows the cards to remove
@@ -1738,6 +1755,10 @@ void MainWindow::mascotDraftStatus(QString text)
         mascotSaysAdvice = false;
     }
 
+    //The same status again (e.g. a retry) keeps the line: the random variants would flicker
+    if(mascotSaysStatus && text == mascotLastStatus)    return;
+    mascotLastStatus = text;
+
     MascotWindow::Mood mood = text.endsWith("...") ? MascotWindow::Thinking : MascotWindow::Idle;
     QString line = text;
     if(text.contains("Game Mode"))
@@ -1748,7 +1769,7 @@ void MainWindow::mascotDraftStatus(QString text)
     else if(text.startsWith("Can't see the arena screen"))
     {
         mood = MascotWindow::Sweat;
-        line = "I can't see the arena! Check the Screen Recording permission.";
+        line = "I can't see the arena! Give me Screen Recording permission and I'm all yours.";
     }
     else if(text.startsWith("Looking for the discard screen"))
     {
@@ -1757,12 +1778,85 @@ void MainWindow::mascotDraftStatus(QString text)
         line = "Waiting for the discard screen...";
     }
     else if(text.startsWith("Looking for the arena screen"))    line = "Where's the arena? Show me the draft.";
-    else if(text.startsWith("Scanning heroes"))                 line = "Picking a hero? Let me see...";
-    else if(text.startsWith("Scanning"))                        line = "Hmm... let me look at these cards.";
+    else if(text.startsWith("Scanning heroes"))                 line = mascotPick({"Picking a hero? Let me see...",
+                                                                                  "Heroes, huh. Let me take a look..."});
+    else if(text.startsWith("Scanning"))                        line = mascotPick({"Hmm... let me look at these cards...",
+                                                                                  "Let me take a look...",
+                                                                                  "Checking the numbers...",
+                                                                                  "Hold on, genius at work..."});
     else if(text.startsWith("Downloading card images"))         line = "Grabbing card pics" + text.mid(QString("Downloading card images").length());
     mascotWindow->setMood(mood);
     mascotWindow->say(line);
     mascotSaysStatus = true;
+}
+
+
+//After a draft or a redraft, on the Ready Up screen
+QStringList MainWindow::mascotGoodLuckLines()
+{
+    return {"Go get 'em!",
+            "Good luck. Not that you need it with my picks.",
+            "Queue up. I've got the popcorn ready.",
+            "Go win. I'll be judging every misplay.",
+            "You've got this. And you've got me."};
+}
+
+
+//Once the logs are caught up: the tracker may start in the middle of a draft or a run
+void MainWindow::mascotGreeting()
+{
+    if(draftHandler->isDrafting() && !draftHandler->isEmptyDeck())
+    {
+        mascotWindow->setMood(MascotWindow::Sweat);
+        mascotWindow->say("You started without me? No worries, I missed a few picks but I'll help with the rest.", 10000);
+    }
+    else if(!draftHandler->isDrafting() && getLoadingScreen() == arena)
+    {
+        mascotWindow->setMood(MascotWindow::Smile);
+        mascotWindow->say(mascotPick({"Oh, you're back. I kept the popcorn warm.",
+                                      "Welcome back. Let's pick up where we left off.",
+                                      "There you are. The deck's been waiting."}), 8000);
+    }
+}
+
+
+//A new deck is done (the Ready Up screen): its average score and good luck
+void MainWindow::mascotDraftFinished(int knownCards, float avgFire, float avgHA)
+{
+    if(!mascotLive)     return;
+    mascotSaysAdvice = false;
+    mascotSaysStatus = false;
+
+    QString line;
+    MascotWindow::Mood mood = MascotWindow::Smug;
+    if(avgFire > 0 || avgHA > 0)
+    {
+        //Thresholds are a first guess of what a good arena deck averages
+        const bool byFire = avgFire > 0;
+        const float avg = byFire ? avgFire : avgHA;
+        line = byFire ? QStringLiteral("Deck avg: %1% winrate. ").arg(avgFire, 0, 'f', 1)
+                      : QStringLiteral("Deck avg: %1 on HearthArena. ").arg(qRound(avgHA));
+        if(avg >= (byFire ? 54 : 80))
+        {
+            mood = MascotWindow::Stars;
+            line += mascotPick({"A monster. We did good. ", "A monster. I've outdone myself. "});
+        }
+        else if(avg >= (byFire ? 52.5f : 65))
+        {
+            mood = MascotWindow::Grin;
+            line += mascotPick({"Solid deck, nice drafting. ", "Solid. My work, obviously. "});
+        }
+        else if(avg >= (byFire ? 51 : 55))  line += mascotPick({"Decent. We can win with this. ", "Decent. The cards just didn't deserve me. "});
+        else
+        {
+            mood = MascotWindow::Sweat;
+            line += mascotPick({"Rough one, but we'll make it work. ", "Rough. The arena offered garbage, I made it edible. "});
+        }
+        if(knownCards < 30)     line += QStringLiteral("(Only the %1 cards I saw.) ").arg(knownCards);
+    }
+    line += mascotPick(mascotGoodLuckLines());
+    mascotWindow->setMood(mood);
+    mascotWindow->say(line, 15000);
 }
 
 
@@ -1784,19 +1878,15 @@ void MainWindow::mascotRedraftScreen(int screen)
             sections << section;
         }
         mascotWindow->setMood(MascotWindow::Point);
-        if(sections.isEmpty())  mascotWindow->say("Cut the weakest cards. I have no scores for this deck, sorry.");
-        else                    mascotWindow->saySections("Cut these, if you ask me:", sections);
+        if(sections.isEmpty())  mascotWindow->say("Cut the weakest ones. I have no scores for this deck, sorry.");
+        else                    mascotWindow->saySections(mascotPick({"Cut these, if you ask me:",
+                                                                      "These go. Trust me:",
+                                                                      "Cut these, and don't get sentimental:"}), sections);
     }
     else if(screen == RedraftScreenReadyUp)
     {
-        static const QStringList lines = {
-            "Deck's ready. Go get 'em!",
-            "Good luck. Not that you need it with my picks.",
-            "Queue up. I've got the popcorn ready.",
-            "Go win. I'll be judging every misplay."
-        };
         mascotWindow->setMood(MascotWindow::Smug);
-        mascotWindow->say(lines[QRandomGenerator::global()->bounded(lines.count())], 10000);
+        mascotWindow->say("Deck's ready. " + mascotPick(mascotGoodLuckLines()), 10000);
     }
     else
     {
@@ -1823,22 +1913,28 @@ void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
             {5, "Five wins. Not bad for someone who listens to me."},
             {6, "Six! Now we're cooking."},
             {7, "SEVEN WINS. Told you this deck was a beast."},
-            {8, "Eight. I'm basically a genius."},
+            {8, "Eight. We're basically geniuses. Mostly me."},
             {9, "Nine wins! The opponents are starting to cry."},
             {10, "Ten! Somebody call Blizzard, we broke the arena."},
-            {11, "Eleven. One more. Don't choke. No pressure."},
+            {11, "Eleven. One more. Don't choke. No pressure. Okay, some pressure."},
             {12, "TWELVE WINS! I drafted it, you just clicked. We're legends."}
         };
-        line = winLines.value(wins, "GG! Told you that deck was good.");
+        line = winLines.value(wins, mascotPick({"GG! Told you that deck was good.",
+                                                "Nice one! As I calculated.",
+                                                "GG. Great game, great deck.",
+                                                "GG. I'd say you played well, but I watched."}));
         if(wins >= 7)   mood = MascotWindow::Stars;
         else if(wins >= 5)  mood = MascotWindow::Grin;
     }
     else
     {
         mood = MascotWindow::Sweat;
-        if(losses >= 3)         line = QStringLiteral("Run's over: %1 wins. The deck deserved better. Next draft will be better.").arg(wins);
-        else if(losses == 2)    line = "Two losses. Careful now, one more and we're done.";
-        else                    line = "Unlucky. RNG hates us today.";
+        if(losses >= 3)         line = QStringLiteral("Run's over: %1 wins. Good run anyway. Next draft will be even better.").arg(wins);
+        else if(losses == 2)    line = mascotPick({"Two losses. Careful now, one more and we're done.",
+                                                   "Two down. Deep breath, we've still got this."});
+        else                    line = mascotPick({"Unlucky. RNG hates us today.",
+                                                   "Shake it off. Next one's ours.",
+                                                   "A loss. Happens to the best of us. Even me, apparently."});
     }
     mascotWindow->setMood(mood);
     mascotWindow->say(line, 8000);
@@ -1848,7 +1944,7 @@ void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
         mascotSupportAsked = true;
         QTimer::singleShot(8500, this, [this]() {
             mascotWindow->setMood(MascotWindow::Smile);
-            mascotWindow->say("Enjoying the wins? Support my development. I need more popcorn.", 15000, "Support", []() {
+            mascotWindow->say("Enjoying the wins? Support my development. Genius runs on popcorn.", 15000, "Support", []() {
                 QDesktopServices::openUrl(QUrl(MASCOT_SUPPORT_URL));
             });
         });
@@ -1870,7 +1966,7 @@ void MainWindow::mascotRunComplete()
     else if(mascotLastLosses < 3)
     {
         mascotWindow->setMood(MascotWindow::Sweat);
-        mascotWindow->say("Run's over. The deck deserved better. Next draft will be better.", 10000);
+        mascotWindow->say("Run's over. Good run anyway. Next draft will be even better.", 10000);
     }
 }
 
@@ -1888,7 +1984,7 @@ void MainWindow::mascotHeroes(int classOrder0, int classOrder1, int classOrder2)
     std::sort(heroes.begin(), heroes.end(), [](const QPair<float, int> &a, const QPair<float, int> &b) { return a.first > b.first; });
 
     QString line;
-    if(heroes[0].first <= 0)    line = "No winrates for these heroes yet. You're on your own.";
+    if(heroes[0].first <= 0)    line = "No winrates for these heroes yet. Go with your gut.";
     else
     {
         const QString best = className(heroes[0].second), second = className(heroes[1].second);
@@ -1911,7 +2007,7 @@ void MainWindow::mascotHeroes(int classOrder0, int classOrder1, int classOrder2)
         {
             lines = {QStringLiteral("Coin flip between %1 and %2. I'd go %1, %3.").arg(best, second, winrate),
                      QStringLiteral("%1 or %2, basically the same. %1 by a hair: %3.").arg(best, second, winrate),
-                     QStringLiteral("Tough one. %1 at %3, %2 right behind.").arg(best, second, winrate)};
+                     QStringLiteral("Tough one, even for me. %1 at %3, %2 right behind.").arg(best, second, winrate)};
         }
         line = lines[QRandomGenerator::global()->bounded(lines.count())];
     }
@@ -1921,7 +2017,7 @@ void MainWindow::mascotHeroes(int classOrder0, int classOrder1, int classOrder2)
     mascotWindow->setMood(MascotWindow::Point);
     mascotWindow->say(line + "\n\nAm I hallucinating? Try:", 0, "Rescan", [this]() {
         mascotWindow->setMood(MascotWindow::Thinking);
-        mascotWindow->say("Rescanning... Let me take a better look.");
+        mascotWindow->say(mascotPick({"Rescanning... let me take a better look.", "Rescanning... okay, even geniuses blink."}));
         mascotSaysAdvice = false;
         mascotSaysStatus = true;    //Replaced by the draft status or the heroes again
         draftHandler->rescan();
@@ -1956,7 +2052,7 @@ void MainWindow::mascotCards()
     const int bestIndex = order[0];
 
     QString line;
-    if(scores[bestIndex] <= 0)  line = "No scores for these. Trust your gut.";
+    if(scores[bestIndex] <= 0)  line = "No scores for these. Trust your gut, you've got this.";
     else
     {
         QString best = MascotWindow::colored(pick.names[bestIndex], mascotRarityColor(pick.codes[bestIndex]));
@@ -1975,19 +2071,20 @@ void MainWindow::mascotCards()
         {
             lines = {QStringLiteral("%1 is a no-brainer. %2.").arg(best, score),
                      QStringLiteral("%1, easy. %2, the other two are filler.").arg(best, score),
-                     QStringLiteral("Take %1 and don't look back. %2.").arg(best, score)};
+                     QStringLiteral("Take %1 and don't look back. %2.").arg(best, score),
+                     QStringLiteral("%1. %2. I'd bet my hat on it.").arg(best, score)};
         }
         else if(lead >= small)
         {
             lines = {QStringLiteral("I'd take %1. %2, a notch above %3.").arg(best, score, second),
                      QStringLiteral("%1 has the edge: %2.").arg(best, score),
-                     QStringLiteral("Go %1. %2.").arg(best, score)};
+                     QStringLiteral("Go %1. %2. Trust me on this one.").arg(best, score)};
         }
         else
         {
             lines = {QStringLiteral("Coin flip between %1 and %2. I'd go %1: %3.").arg(best, second, score),
                      QStringLiteral("%1 or %2, basically the same. %1 by a hair.").arg(best, second),
-                     QStringLiteral("Tough one. %1 at %3, %2 right behind.").arg(best, second, score)};
+                     QStringLiteral("Tough one, even for me. %1 at %3, %2 right behind.").arg(best, second, score)};
         }
         line = lines[QRandomGenerator::global()->bounded(lines.count())];
         if(byFire && pick.fireGames[bestIndex] >= 0 && pick.fireGames[bestIndex] < 200)
@@ -1999,7 +2096,7 @@ void MainWindow::mascotCards()
     mascotWindow->setMood(MascotWindow::Point);
     mascotWindow->say(line + "\n\nAm I hallucinating? Try:", 0, "Rescan", [this]() {
         mascotWindow->setMood(MascotWindow::Thinking);
-        mascotWindow->say("Rescanning... Let me take a better look.");
+        mascotWindow->say(mascotPick({"Rescanning... let me take a better look.", "Rescanning... okay, even geniuses blink."}));
         mascotSaysAdvice = false;
         mascotSaysStatus = true;    //Replaced by the draft status or the cards again
         draftHandler->rescan();
@@ -2014,7 +2111,9 @@ void MainWindow::mascotStartGame()
     mascotSaysStatus = false;
     mascotInGame = true;
     mascotWindow->setMood(MascotWindow::Popcorn);
-    mascotWindow->say("Popcorn time. Show me what this deck can do.", 5000);
+    mascotWindow->say(mascotPick({"Popcorn time. Show me what this deck can do.",
+                                  "Good luck! I'll be right here with the popcorn.",
+                                  "Game on. I'll be judging every misplay."}), 5000);
 }
 
 
@@ -2061,7 +2160,8 @@ void MainWindow::mascotEndGame(bool playerWon, bool playerUnknown)
     }
     //In the arena mascotArenaRecord says it with the run's record, right after
     mascotWindow->setMood(playerWon ? MascotWindow::Happy : MascotWindow::Sweat);
-    mascotWindow->say(playerWon ? "GG! Told you that deck was good." : "Unlucky. RNG hates us today.", 8000);
+    mascotWindow->say(playerWon ? mascotPick({"GG! Told you that deck was good.", "Nice one! As I calculated."})
+                                : mascotPick({"Unlucky. RNG hates us today.", "Shake it off. Next one's ours."}), 8000);
 }
 
 

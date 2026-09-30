@@ -775,11 +775,25 @@ QTreeWidgetItem *ArenaHandler::showGameResult(GameResult gameResult, LoadingScre
 }
 
 
+void ArenaHandler::setLogsCaughtUp()
+{
+    logsCaughtUp = true;
+}
+
+
 void ArenaHandler::newArena(QString hero)
 {
     if(hero.isEmpty())
     {
         emit pDebug("New arena with empty hero.");
+        return;
+    }
+    //At startup the logs replay the end of the last draft: when the current run is that draft's (same hero,
+    //not finished) it's kept, or a restart in the middle of a run would start it again from 0-0
+    if(!logsCaughtUp && arenaCurrent != nullptr && arenaCurrentHero == hero &&
+            getColumnText(arenaCurrent, 2).toInt() < 12 && getColumnText(arenaCurrent, 3).toInt() < 3)
+    {
+        emit pDebug("New arena: replayed draft end of the current run. Keep it.");
         return;
     }
 

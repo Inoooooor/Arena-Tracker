@@ -335,6 +335,7 @@ private:
     void buildBundleNameMap();
     void showDraftNotice(const QString &text);
     void beginRedraftReview();
+    void emitDraftFinished();
     void createRedraftRemoveList();
     void createDraftStatus();
     void setDraftStatus(const QString &text);
@@ -351,7 +352,6 @@ private:
     void showFireScores(QString hsrCodes[], QString cardNames[]);
     QString getHSRCode(QString code);
     QString getFireCode(QString code);
-    bool isEmptyDeck();
     void addLFCode(const QString &code, const CardClass &heroClass, const bool multiClassDraft, bool buildCodesByClass);
     QStringList getBundleCodes(const QString &code);
     int getHAScore(const QString &code);
@@ -379,6 +379,7 @@ public:
     void setTheme();
     void craftGoldenCopy(int cardIndex);
     bool isDrafting();
+    bool isEmptyDeck();
     void deMinimizeScoreWindow();
     QStringList getAllHeroCodes();
     void setCardsIncludedWinratesMap(QMap<QString, float> cardsIncludedWinratesMap[]);
@@ -403,6 +404,7 @@ public:
 signals:
     void draftStatusChanged(QString text);
     void redraftScreenChanged(int screen);      //RedraftScreen
+    void draftFinished(int knownCards, float avgFire, float avgHA);   //A new deck (not a redraft), for the mascot
     void heroesScored(int classOrder0, int classOrder1, int classOrder2);
     void cardsScored();     //getPickScores() has the new pick
     void checkCardImage(QString code, bool isHero=false);

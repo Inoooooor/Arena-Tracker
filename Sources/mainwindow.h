@@ -102,6 +102,7 @@ private:
     int mascotRedraftScreenShown = 0;           //RedraftScreen the mascot talks about
     bool mascotSupportAsked = false;            //Once per arena run
     bool mascotInGame = false;
+    QString mascotLastStatus;                   //The draft status behind the current status line
     int mascotSecretsSeen = 0;                  //Enemy secrets since the app started
     bool mascotSaysStatus = false;              //The bubble shows a draft status, cleared with it
     bool mascotSaysAdvice = false;              //The bubble shows the pick advice: only a new pick or a problem replaces it
@@ -131,6 +132,7 @@ private:
     void createGameWatcher();
     void createCardWindow();
     static QColor mascotRarityColor(const QString &code);
+    static QStringList mascotGoodLuckLines();
     void createCardListWindow();
     void createCardDownloader();
     void createWinratesDownloader();
@@ -310,6 +312,8 @@ private slots:
     void mascotStartGame();
     void mascotEndGame(bool playerWon, bool playerUnknown);
     void mascotEnemySecret();
+    void mascotDraftFinished(int knownCards, float avgFire, float avgHA);
+    void mascotGreeting();
     void mascotRedraftScreen(int screen);
     void mascotArenaRecord(int wins, int losses, bool lastWon);
     void mascotRunComplete();

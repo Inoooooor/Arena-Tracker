@@ -52,6 +52,7 @@ private:
     QTreeWidgetItem *best30TreeItem;
     QTreeWidgetItem *best30RegionTreeItem[NUM_REGIONS];
     QString arenaCurrentHero;
+    bool logsCaughtUp = false;
     bool mouseInApp;
     bool premium;
     Transparency transparency;
@@ -169,6 +170,7 @@ public slots:
 
     //DraftHandler
     void newArena(QString hero);
+    void setLogsCaughtUp();
     void setCurrentAvgScore(int avgHA, float avgHSR, float avgFire, QString heroLog);
 
     //MainWindow

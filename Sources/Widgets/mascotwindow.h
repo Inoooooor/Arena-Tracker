@@ -50,6 +50,7 @@ public:
 
 signals:
     void quitRequested();
+    void said(const QString &text);     //For the log
     void cardEntered(QString code, QRect rectCard, int maxTop, int maxBottom);
     void cardLeave();
 

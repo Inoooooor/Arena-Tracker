@@ -1559,7 +1559,7 @@ void DraftHandler::updateTwitchChatVotes()
 
 void DraftHandler::initSynergyCounters(QList<DeckCard> &deckCardList)
 {
-    if(deckCardList.count() == 1 || CardTypeCounter::draftedCardsCount() > 0 || !patreonVersion)  return;
+    if(deckCardList.count() == 1 || CardTypeCounter::draftedCardsCount() > 0)  return;
 
     if(!lavaButton->isEnabled())
     {
@@ -1626,14 +1626,16 @@ void DraftHandler::endDraft(bool createNewArena)
 
     //Create new arena
     //Set updateTime in log
+    //The run's hero is the draft's, also when some picks were missed (the tracker started mid-draft):
+    //with an empty hero no new run was created and the games went to the previous run of that hero
     int numCards = CardTypeCounter::draftedCardsCount();
-    QString heroLog = "";
-    if(numCards==30)    heroLog = Utility::classEnum2classLogNumber(arenaHero);
-    else                emit pDebug("End draft with != 30 cards: numCards: " + QString::number(numCards));
+    QString heroLog = Utility::classEnum2classLogNumber(arenaHero);
+    if(numCards!=30)    emit pDebug("End draft with != 30 cards: numCards: " + QString::number(numCards));
     if(createNewArena)  emit draftEnded(heroLog);//(connect) arenaHandler->newArena() / deckHandler->saveDraftDeck()
+    if(createNewArena)  emitDraftFinished();
 
     //Show Deck Score
-    if(patreonVersion && createNewArena)
+    if(createNewArena)
     {
         int deckScoreHA = (numCards==0)?0:round(deckRatingHA/static_cast<double>(numCards));
         float deckScoreHSR = (numCards==0)?0:round(deckRatingHSR/numCards * 10)/10.0;
@@ -1652,6 +1654,37 @@ void DraftHandler::endDraft(bool createNewArena)
     deleteTwitchHandler();
 
     if(redrafting)  beginRedraftReview();
+}
+
+
+//The deck's average scores for the mascot, over the known cards with a score (cards without data don't drag it down)
+void DraftHandler::emitDraftFinished()
+{
+    float totalFire = 0, totalHA = 0;
+    int fireCards = 0, haCards = 0, knownCards = 0;
+    for(DeckCard &deckCard: *deckHandler->getDeckCardListRef())
+    {
+        const QString code = deckCard.getCode();
+        if(code.isEmpty())  continue;
+        knownCards += deckCard.total;
+        const float fire = (fireWRMap == nullptr) ? 0 : fireWRMap[this->arenaHero][code];
+        const float ha = getHAScore(code);
+        if(fire > 0)
+        {
+            totalFire += fire * deckCard.total;
+            fireCards += deckCard.total;
+        }
+        if(ha > 0)
+        {
+            totalHA += ha * deckCard.total;
+            haCards += deckCard.total;
+        }
+    }
+    const float avgFire = (fireCards == 0) ? 0 : totalFire/fireCards;
+    const float avgHA = (haCards == 0) ? 0 : totalHA/haCards;
+    emit pDebug(QStringLiteral("Deck avg for the mascot: %1 known cards - Fire %2 (%3 cards) - HA %4 (%5 cards)")
+                .arg(knownCards).arg(avgFire, 0, 'f', 1).arg(fireCards).arg(avgHA, 0, 'f', 0).arg(haCards));
+    emit draftFinished(knownCards, avgFire, avgHA);
 }
 
 
@@ -2754,7 +2787,7 @@ void DraftHandler::pickCard(QString code)
         }
     }
 
-    if(patreonVersion)
+    //Counters and deck score (premium only upstream): the drafted cards count, the run's hero and the deck average need them
     {
         if(!lavaButton->isEnabled())
         {
@@ -3372,7 +3405,6 @@ void DraftHandler::redrawDownloadedCardImage(QString code)
 
 void DraftHandler::updateDeckScore(float cardRatingHA, float cardRatingFire, float cardRatingHSR)
 {
-    if(!patreonVersion) return;
 
     int numCards = CardTypeCounter::draftedCardsCount();
     deckRatingHA += static_cast<int>(cardRatingHA);
