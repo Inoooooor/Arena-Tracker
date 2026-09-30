@@ -15,7 +15,7 @@ class MascotWindow : public QWidget
 {
     Q_OBJECT
 public:
-    enum Mood { Idle, Popcorn, Thinking, Point, Smile, Grin, Smug, Happy, Sweat, Grabbed, Stars, NumMoods };
+    enum Mood { Idle, Popcorn, Thinking, Point, Smile, Grin, Smug, Happy, Sweat, Grabbed, Stars, Detective, NumMoods };
 
     //A section of name/value rows under the text (e.g. the cards to remove by one score source).
     //Rows with a card code show the card when hovered.
@@ -36,6 +36,7 @@ public:
     static QFont pixelFont(int pixelSize);
 
     void setMood(Mood mood);
+    Mood currentMood() const { return mood; }
     //An empty text hides the bubble. With msec > 0 the bubble hides by itself after that time.
     //With a button text, the bubble shows a button that runs the action (and hides the bubble).
     void say(const QString &text, int msec = 0, const QString &button = QString(), std::function<void()> action = nullptr);
@@ -44,7 +45,6 @@ public:
                      const QString &button = QString(), std::function<void()> action = nullptr);
 
 signals:
-    void openTrackerRequested();
     void quitRequested();
     void cardEntered(QString code, QRect rectCard, int maxTop, int maxBottom);
     void cardLeave();

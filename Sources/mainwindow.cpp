@@ -178,7 +178,6 @@ void MainWindow::init()
     trackobotUploader->checkAccount();
 
     //Shown here, after MacFullScreenOverlay exists, so it can show over fullscreen Hearthstone too
-    hideTrackerForMascot();
     mascotWindow->show();
 
 #ifdef Q_OS_LINUX
@@ -1253,6 +1252,8 @@ void MainWindow::createGameWatcher()
     connect(gameWatcher, SIGNAL(coinIdFound(int)),
             deckHandler, SLOT(setFirstOutsiderId(int)));
 
+#ifdef OLD_TRACKER_WINDOWS
+    //Enemy deck and graveyard only fill the old tracker windows
     connect(gameWatcher, SIGNAL(enemyCardPlayed(int,QString,bool)),
             enemyDeckHandler, SLOT(enemyCardPlayed(int,QString)));
     connect(gameWatcher, SIGNAL(enemySecretRevealed(int,QString)),
@@ -1286,6 +1287,7 @@ void MainWindow::createGameWatcher()
             graveyardHandler, SLOT(lockGraveyardInterface()));
     connect(gameWatcher, SIGNAL(endGame(bool,bool)),
             graveyardHandler, SLOT(unlockGraveyardInterface()));
+#endif
 
     connect(gameWatcher, SIGNAL(enemyCardDraw(int,int,bool,QString)),
             enemyHandHandler, SLOT(showEnemyCardDraw(int,int,bool,QString)));
@@ -1427,6 +1429,8 @@ void MainWindow::createGameWatcher()
     connect(gameWatcher, SIGNAL(playerCardPlayed(int,QString,bool,bool)),
             secretsHandler, SLOT(playerCardPlayed(int,QString,bool,bool)));
 
+#ifdef OLD_TRACKER_WINDOWS
+    //Popular, RNG and drawn card lists only fill the old tracker windows
     connect(gameWatcher, SIGNAL(endGame(bool,bool)),
             popularCardsHandler, SLOT(resetCardsInterface()));
     connect(gameWatcher, SIGNAL(newTurn(bool,int,int)),
@@ -1457,6 +1461,7 @@ void MainWindow::createGameWatcher()
             drawCardHandler, SLOT(enterArena()));
     // connect(gameWatcher, SIGNAL(leaveArena()),//MainWindow::leaveArena()
     //         drawCardHandler, SLOT(leaveArena()));
+#endif
 
     connect(gameWatcher, SIGNAL(newArena(QString)),
             draftHandler, SLOT(beginDraft(QString)));
@@ -1516,6 +1521,8 @@ void MainWindow::newGameResult(GameResult gameResult, LoadingScreenState loading
     int deckScoreHA = 0;
     float deckScoreHSR = 0;
     float deckScoreFire = 0;
+#ifdef OLD_TRACKER_WINDOWS
+    //The enemy deck score is only shown in the old Arena tab
     if(loadingScreen == arena)
     {
         int numCards=0;
@@ -1552,6 +1559,7 @@ void MainWindow::newGameResult(GameResult gameResult, LoadingScreenState loading
         pDebug("Enemy deck: " + QString::number(numCards) + " cards - HA(" + QString::number(deckScoreHA) +
                ") - HSR(" + QString::number(deckScoreHSR) + ") - Fire(" + QString::number(deckScoreFire) + ")");
     }
+#endif
     arenaHandler->newGameResult(gameResult, loadingScreen, deckScoreHA, deckScoreHSR, deckScoreFire);
 }
 
@@ -1678,8 +1686,6 @@ void MainWindow::createMascotWindow()
 {
     mascotWindow = new MascotWindow();
     mascotWindow->say("Hi! Open the arena, I'll help you draft.", 8000);
-    connect(mascotWindow, SIGNAL(openTrackerRequested()),
-            this, SLOT(showTrackerFromMascot()));
     connect(mascotWindow, SIGNAL(quitRequested()),
             this, SLOT(closeApp()));
     connect(mascotWindow, SIGNAL(cardEntered(QString,QRect,int,int)),
@@ -1692,6 +1698,8 @@ void MainWindow::createMascotWindow()
             this, SLOT(mascotStartGame()));
     connect(gameWatcher, SIGNAL(endGame(bool,bool)),
             this, SLOT(mascotEndGame(bool,bool)));
+    connect(gameWatcher, SIGNAL(enemySecretPlayed(int,CardClass,LoadingScreenState)),
+            this, SLOT(mascotEnemySecret()));
     connect(draftHandler, SIGNAL(redraftScreenChanged(int)),
             this, SLOT(mascotRedraftScreen(int)));
     connect(arenaHandler, SIGNAL(arenaRecordChanged(int,int,bool)),
@@ -1703,35 +1711,6 @@ void MainWindow::createMascotWindow()
     connect(draftHandler, SIGNAL(cardsScored()),
             this, SLOT(mascotCards()));
     connect(logLoader, &LogLoader::logsCaughtUp, this, [this]() { mascotLive = true; });
-}
-
-
-//The mascot replaces the old tracker windows, which are opened from its menu
-void MainWindow::hideTrackerForMascot()
-{
-    hiddenForMascot.clear();
-    const QList<QWidget *> windows = {this, deckWindow, arenaWindow, enemyWindow, enemyDeckWindow, graveyardWindow, planWindow};
-    for(QWidget *window: windows)
-    {
-        if(window != nullptr && window->isVisible())
-        {
-            hiddenForMascot << window;
-            window->hide();
-        }
-    }
-}
-
-
-void MainWindow::showTrackerFromMascot()
-{
-    if(hiddenForMascot.isEmpty())   hiddenForMascot << this;
-    for(const QPointer<QWidget> &window: std::as_const(hiddenForMascot))
-    {
-        if(window != nullptr)   window->show();
-    }
-    hiddenForMascot.clear();
-    activateWindow();
-    raise();
 }
 
 
@@ -2016,8 +1995,40 @@ void MainWindow::mascotStartGame()
     if(!mascotLive)     return;
     mascotSaysAdvice = false;
     mascotSaysStatus = false;
+    mascotInGame = true;
     mascotWindow->setMood(MascotWindow::Popcorn);
     mascotWindow->say("Popcorn time. Show me what this deck can do.", 5000);
+}
+
+
+//Secrets are not read yet: the mascot only notices them, and the first time asks for support to learn it
+void MainWindow::mascotEnemySecret()
+{
+    if(!mascotLive || !mascotInGame)    return;
+    mascotSaysStatus = false;
+    const int msec = 7000;
+    mascotWindow->setMood(MascotWindow::Detective);
+    if(mascotSecretsSeen++ == 0)
+    {
+        mascotWindow->say("A secret! I can see it... but I can't read secrets yet. Help me learn?", 12000, "Support", []() {
+            QDesktopServices::openUrl(QUrl(MASCOT_SUPPORT_URL));
+        });
+    }
+    else
+    {
+        static const QStringList lines = {
+            "Another secret. My magnifier is ready, my brain isn't. Coming soon.",
+            "Secret spotted. What is it? No idea. Yet.",
+            "Hmm, a secret. Detective school costs popcorn money.",
+            "Elementary! It's a secret. That's all I've got."
+        };
+        mascotWindow->say(lines[QRandomGenerator::global()->bounded(lines.count())], msec);
+    }
+    //Back to the popcorn when the line is over, unless the game or the mood moved on
+    QTimer::singleShot(mascotSecretsSeen == 1 ? 12000 : msec, this, [this]() {
+        if(mascotInGame && mascotWindow->currentMood() == MascotWindow::Detective)
+            mascotWindow->setMood(MascotWindow::Popcorn);
+    });
 }
 
 
@@ -2025,6 +2036,7 @@ void MainWindow::mascotEndGame(bool playerWon, bool playerUnknown)
 {
     if(!mascotLive)     return;
     mascotSaysStatus = false;
+    mascotInGame = false;
     if(playerUnknown)
     {
         mascotWindow->setMood(MascotWindow::Idle);
@@ -2308,12 +2320,12 @@ void MainWindow::readSettings()
 
     this->setAttribute(Qt::WA_TranslucentBackground, transparency!=Framed);
     this->showWindowFrame(transparency == Framed);
-    this->show();
     this->setMinimumSize(100,200);  //El minimumSize inicial es incorrecto
     resize(size);
     moveInScreen(pos, size);
     calculateMinimumWidth();
 
+#ifdef OLD_TRACKER_WINDOWS
     //Detach Windows
     if(settings.value("deckWindow", true).toBool())         createDetachWindow(ui->tabDeck);
     if(settings.value("arenaWindow", false).toBool())       createDetachWindow(ui->tabArena);
@@ -2321,6 +2333,7 @@ void MainWindow::readSettings()
     if(settings.value("enemyDeckWindow", false).toBool())   createDetachWindow(ui->tabEnemyDeck);
     if(settings.value("graveyardWindow", false).toBool())   createDetachWindow(ui->tabGraveyard);
     if(settings.value("planWindow", false).toBool())        createDetachWindow(ui->tabPlan);
+#endif
 }
 
 
@@ -3531,9 +3544,11 @@ void MainWindow::showWindowFrame(bool showFrame)
     {
         this->setWindowFlags(Qt::Window|Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint);
     }
+#ifdef OLD_TRACKER_WINDOWS
     this->show();
 #ifdef Q_OS_MAC
     MacWindow::allowMiniaturize(this);
+#endif
 #endif
 }
 

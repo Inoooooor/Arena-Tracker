@@ -99,9 +99,10 @@ private:
     DetachWindow *deckWindow, *arenaWindow, *enemyWindow, *enemyDeckWindow, *graveyardWindow, *planWindow;
     QList<QPointer<QWidget>> hiddenToDock;   //macOS: windows hidden by the minimize button, shown again from the Dock
     MascotWindow *mascotWindow;
-    QList<QPointer<QWidget>> hiddenForMascot;   //The old tracker windows, hidden while the mascot is shown
     int mascotRedraftScreenShown = 0;           //RedraftScreen the mascot talks about
     bool mascotSupportAsked = false;            //Once per arena run
+    bool mascotInGame = false;
+    int mascotSecretsSeen = 0;                  //Enemy secrets since the app started
     bool mascotSaysStatus = false;              //The bubble shows a draft status, cleared with it
     bool mascotSaysAdvice = false;              //The bubble shows the pick advice: only a new pick or a problem replaces it
     bool mascotLive = false;                    //Game events replayed from the logs at startup are ignored
@@ -304,11 +305,10 @@ private slots:
     void closeApp();
     void minimizeToDock();
     void createMascotWindow();
-    void hideTrackerForMascot();
-    void showTrackerFromMascot();
     void mascotDraftStatus(QString text);
     void mascotStartGame();
     void mascotEndGame(bool playerWon, bool playerUnknown);
+    void mascotEnemySecret();
     void mascotRedraftScreen(int screen);
     void mascotArenaRecord(int wins, int losses, bool lastWon);
     void mascotRunComplete();

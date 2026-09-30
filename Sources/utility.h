@@ -25,6 +25,9 @@
 #define DEBUG_OVERLAYS_RIGHT false
 #define DEBUG_ALLOW_SAME_TRIO false
 
+//The mascot replaced the old tracker windows: they are never shown and the handlers that only fill them get no game events
+//#define OLD_TRACKER_WINDOWS
+
 
 using namespace cv;
 

@@ -34,8 +34,8 @@ MascotWindow::MascotWindow(QWidget *parent)
 
     //Moods without their own art yet use a close one
     const char *files[NumMoods] = {"idle", "popcorn", "thinking", "point", "smile", "grin", "smug", "happy", "sweat",
-                                   "grabbed", "stars"};
-    const Mood fallbacks[NumMoods] = {Idle, Popcorn, Thinking, Point, Smile, Grin, Smug, Happy, Sweat, Sweat, Happy};
+                                   "grabbed", "stars", "detective"};
+    const Mood fallbacks[NumMoods] = {Idle, Popcorn, Thinking, Point, Smile, Grin, Smug, Happy, Sweat, Sweat, Happy, Thinking};
     for(int i=0; i<NumMoods; i++)   sprites[i] = QPixmap(QStringLiteral(":/Images/Mascot/%1.png").arg(files[i]));
     for(int i=0; i<NumMoods; i++)   if(sprites[i].isNull())     sprites[i] = sprites[fallbacks[i]];
 
@@ -431,8 +431,6 @@ void MascotWindow::leaveEvent(QEvent *event)
 void MascotWindow::contextMenuEvent(QContextMenuEvent *event)
 {
     QMenu menu(this);
-    menu.addAction("Open tracker", this, &MascotWindow::openTrackerRequested);
-    menu.addSeparator();
     menu.addAction("Quit", this, &MascotWindow::quitRequested);
 
     QPoint pos = mapToGlobal(QPoint(spriteRect.right() + 1, spriteRect.top() + spriteRect.height()/3));
