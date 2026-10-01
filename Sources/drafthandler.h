@@ -162,6 +162,8 @@ private:
     int screenIndex;
     int numCaptured;
     bool drafting, heroDrafting, redrafting, redraftingReview, capturing, findingFrame, stopLoops;
+    bool heroesShown = false;   //The current heroes are scored (heroesScored)
+    bool bundlePreviewOpen = false; //A legendary group's preview covers the cards: no capture
     bool mouseInApp;
     Transparency transparency;
     DraftHeroWindow *draftHeroWindow;
@@ -244,6 +246,7 @@ private:
     void updateDeckScore(float cardRatingHA=0, float cardRatingFire=0, float cardRatingHSR=0);
     bool screenFound();
     ScreenDetection findScreenRects();
+    bool findHeroRectsByOcr(ScreenDetection &screenDetection);
     void clearScore(QLabel *label, DraftMethod draftMethod, bool clearText=true);
     void highlightScore(QLabel *label, DraftMethod draftMethod);
     void deleteDraftHeroWindow();
@@ -262,7 +265,8 @@ private:
     void removeDuplicatedPicks(QStringList slotCodes[3]);
     void readCardNames(const cv::Mat &screenCapture);
     void readHeroClasses(const cv::Mat &screenCapture);
-    static QString matchCardName(const QStringList &lines, const QMap<QString, QString> &nameMap);
+    //partial: the text can be any part of the name (the curved names of the legendary groups screen)
+    static QString matchCardName(const QStringList &lines, const QMap<QString, QString> &nameMap, bool partial=false);
     void applyOcrCodes(QStringList slotCodes[3]);
     CardRarity getBestRarity();
     void getBestCards(DraftCard bestCards[3]);
@@ -336,6 +340,7 @@ private:
     void showDraftNotice(const QString &text);
     void beginRedraftReview();
     void emitDraftFinished();
+    bool isPickShown();
     void createRedraftRemoveList();
     void createDraftStatus();
     void setDraftStatus(const QString &text);

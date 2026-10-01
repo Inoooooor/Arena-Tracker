@@ -104,7 +104,7 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     connect(redraftWatchTimer, SIGNAL(timeout()), this, SLOT(checkRedraftScreen()));
     connect(&futureRedraftCounter, SIGNAL(finished()), this, SLOT(finishCheckRedraftScreen()));
 
-    bundlePending = bundlePreviewVisible = false;
+    bundlePending = bundlePreviewVisible = bundlePreviewOpen = false;
     bundleMisses = bundleReads = 0;
     bundleTimer = new QTimer(this);
     bundleTimer->setInterval(REDRAFT_REVIEW_OCR_TIME);
@@ -1935,7 +1935,7 @@ void DraftHandler::captureDraft()
     justPickedCard = "";
 
     bool missingTierLists = drafting && (lightForgeTiers.empty() || hearthArenaTiers.empty());
-    if((!drafting && !heroDrafting && !redraftingReview) || missingTierLists ||
+    if((!drafting && !heroDrafting && !redraftingReview) || missingTierLists || bundlePreviewOpen ||
         stopLoops || !screenFound() || !cardsDownloading.isEmpty())
     {
         capturing = false;
@@ -2196,20 +2196,29 @@ void DraftHandler::readCardNames(const cv::Mat &screenCapture)
     //For a few seconds after a pick the previous 3 cards can still be on screen
     bool recentPick = ((QDateTime::currentSecsSinceEpoch() - prevCodesTime) < PREV_CODES_TIME);
 
+    //The first pick is the legendary groups: curved names, lower on the card, read in parts. Only legendaries.
+    const bool legendaryPick = isEmptyDeck() && !redrafting;
+    QMap<QString, QString> legendaryNameMap;
+    if(legendaryPick)
+    {
+        for(auto it=cardsNameMap.constBegin(); it!=cardsNameMap.constEnd(); it++)
+            if(Utility::getRarityFromCode(it.value()) == LEGENDARY)     legendaryNameMap[it.key()] = it.value();
+    }
+
     for(int i=0; i<3; i++)
     {
         if(!ocrCodes[i].isEmpty())  continue;
 
         //Name banner, measured on arenaTemplate.png relative to the art rect
         const cv::Rect &art = screenRects[i];
-        cv::Rect banner(art.x - art.width*0.65, art.y + art.height*1.08, art.width*2.4, art.height*0.44);
+        cv::Rect banner(art.x - art.width*0.65, art.y + art.height*1.08, art.width*2.4, art.height*(legendaryPick ? 0.7 : 0.44));
         banner &= cv::Rect(0, 0, screenCapture.cols, screenCapture.rows);
         if(banner.width < 10 || banner.height < 5)  continue;
 
         cv::Mat crop = screenCapture(banner).clone();
         QImage image(crop.data, crop.cols, crop.rows, static_cast<qsizetype>(crop.step), QImage::Format_RGB32);
         const QStringList lines = MacOcr::recognizeLines(image.copy(), Utility::getLocalLang());
-        QString code = matchCardName(lines, cardsNameMap);
+        QString code = legendaryPick ? matchCardName(lines, legendaryNameMap, true) : matchCardName(lines, cardsNameMap);
         if(code.isEmpty())
         {
             //Log each different unmatched reading once, to find out why a banner isn't recognized
@@ -2321,7 +2330,7 @@ static QString trimCardLine(const QString &line)
 void DraftHandler::resetBundle()
 {
     bundleTimer->stop();
-    bundlePending = bundlePreviewVisible = false;
+    bundlePending = bundlePreviewVisible = bundlePreviewOpen = false;
     bundleMisses = 0;
     bundleLegendary = "";
     bundlePreviews.clear();
@@ -2373,6 +2382,7 @@ void DraftHandler::startBundlePreview(const QString &code)
     emit pDebug("Bundle preview: " + code + " " + Utility::cardEnNameFromCode(code));
     bundleLegendary = code;
     bundlePending = true;
+    bundlePreviewOpen = true;
     bundlePreviewVisible = false;
     bundleMisses = 0;
     bundleReads = 0;
@@ -2462,6 +2472,7 @@ void DraftHandler::finishBundlePreview()
     else if(bundlePreviewVisible || ++bundleMisses == 3)
     {
         bundlePreviewVisible = false;
+        bundlePreviewOpen = false;
         setDraftStatus("Scanning the next cards...");
         //Forget the legendaries, like a pick does: their names were kept and the name reading skips read slots,
         //so the next cards were never read
@@ -2481,7 +2492,7 @@ void DraftHandler::finishBundlePreview()
 
 void DraftHandler::confirmBundle()
 {
-    bundlePending = false;
+    bundlePending = bundlePreviewOpen = false;
     bundleTimer->stop();
     const QString legendary = bundleLegendary;
     const QStringList codes = bundlePreviews.value(legendary);
@@ -2558,7 +2569,7 @@ void DraftHandler::finishDeckList()
 
 
 //Finds the name of nameMap (normalized name -> code) closest to the OCR text.
-QString DraftHandler::matchCardName(const QStringList &lines, const QMap<QString, QString> &nameMap)
+QString DraftHandler::matchCardName(const QStringList &lines, const QMap<QString, QString> &nameMap, bool partial)
 {
     auto normalize = [](const QString &text) {
         QString norm;
@@ -2585,6 +2596,22 @@ QString DraftHandler::matchCardName(const QStringList &lines, const QMap<QString
         }
         return 1.0 - prev[b.length()]/static_cast<double>(std::max(a.length(), b.length()));
     };
+    //Similarity 0..1 of text with its closest part of name (Levenshtein, free start and end in name)
+    auto partSimilarity = [](const QString &text, const QString &name) {
+        if(text.length() < 5 || name.isEmpty())     return 0.0;
+        QVector<int> prev(name.length()+1, 0), cur(name.length()+1);
+        for(int i=1; i<=text.length(); i++)
+        {
+            cur[0] = i;
+            for(int j=1; j<=name.length(); j++)
+            {
+                int cost = (text[i-1] == name[j-1])?0:1;
+                cur[j] = std::min({prev[j]+1, cur[j-1]+1, prev[j-1]+cost});
+            }
+            std::swap(prev, cur);
+        }
+        return 1.0 - *std::min_element(prev.begin(), prev.end())/static_cast<double>(text.length());
+    };
 
     QStringList texts;
     for(const QString &line: lines)     texts << normalize(line);
@@ -2599,6 +2626,7 @@ QString DraftHandler::matchCardName(const QStringList &lines, const QMap<QString
         for(const QString &text: qAsConst(texts))
         {
             sim = std::max(sim, similarity(text, name));
+            if(partial)     sim = std::max(sim, partSimilarity(text, name));
             //Name cut by a banner edge ("Holy Eggbea", "cover Cultist"): compare with the start
             //or the end of the name if at least 60% of it was read.
             if(text.length() < name.length() && text.length() >= 0.6*name.length())
@@ -2621,7 +2649,7 @@ QString DraftHandler::matchCardName(const QStringList &lines, const QMap<QString
     }
 
     //Accept only a close match with no other card almost as close
-    if(best >= 0.8 && (best - second) >= 0.1)   return bestCode;
+    if(best >= (partial ? 0.7 : 0.8) && (best - second) >= 0.1)   return bestCode;
     return "";
 }
 
@@ -2964,6 +2992,7 @@ void DraftHandler::refreshHeroes()
     }
 
     numCaptured = 0;
+    heroesShown = false;
     if(draftHeroWindow != nullptr)  draftHeroWindow->hideScores();
 
     newCaptureDraftLoop();
@@ -4036,7 +4065,8 @@ void DraftHandler::finishFindScreenRects()
     {
         emit pDebug("Hearthstone arena screen not found. Retrying...");
         //Once a second: about 10 s without seeing it. A Rescan shows the cards while this loop checks the screen.
-        if(!draftCards[0].getCode().isEmpty() || gameModeHint)  {}
+        //A legendary group's preview covers the cards: not seeing them is expected, the bundle watch has the status.
+        if(isPickShown() || gameModeHint || bundlePreviewOpen)  {}
         else if(++findScreenFails >= 10)
             setDraftStatus("Can't see the arena screen. Check the Screen Recording permission.");
         else
@@ -4050,7 +4080,7 @@ void DraftHandler::finishFindScreenRects()
     else if(!isFindScreenStable(screenDetection))
     {
         emit pDebug("Hearthstone arena screen detected, waiting for a stable screen...");
-        if(draftCards[0].getCode().isEmpty() && !gameModeHint)  setDraftStatus(heroDrafting?"Scanning heroes...":"Scanning cards...");
+        if(!isPickShown() && !gameModeHint && !bundlePreviewOpen)  setDraftStatus(heroDrafting?"Scanning heroes...":"Scanning cards...");
         QTimer::singleShot(FINDSCREEN_STABLE_TIME, this, SLOT(startFindScreenRects()));
     }
     else
@@ -4069,7 +4099,7 @@ void DraftHandler::finishFindScreenRects()
             this->rarityRects[i] = screenDetection.rarityRects[i];
         }
         findScreenFails = 0;
-        if(draftCards[0].getCode().isEmpty())   setDraftStatus(heroDrafting?"Scanning heroes...":"Scanning cards...");
+        if(!isPickShown() && !bundlePreviewOpen)  setDraftStatus(heroDrafting?"Scanning heroes...":"Scanning cards...");
         emit pDebug("Hearthstone arena screen detected on screen " + QString::number(screenIndex) +
                     ". " + (isSame?QString("It's"):QString("Not")) + " the same.");
 
@@ -4103,6 +4133,15 @@ ScreenDetection DraftHandler::findScreenRects()
 #ifdef Q_OS_MAC
     //Pool threads run at the default QoS, which macOS moves to the efficiency cores while the app is in the background
     pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0);
+#endif
+
+#ifdef Q_OS_MAC
+    //The class labels under the heroes place them better than the frame template, which can match a bit off
+    if(heroDrafting)
+    {
+        ScreenDetection screenDetection;
+        if(findHeroRectsByOcr(screenDetection))     return screenDetection;
+    }
 #endif
 
     std::vector<Point2f> templatePoints;
@@ -4297,6 +4336,101 @@ ScreenDetection DraftHandler::findScreenRects()
 }
 
 
+//The hero slots from the class labels on the banners under the portraits (enUS), read in the Hearthstone window.
+//Each portrait square is above its label, sized by the distance between labels (measured on the 2026 client:
+//side 0.625 and center 0.505 above the label, in label distances).
+bool DraftHandler::findHeroRectsByOcr(ScreenDetection &screenDetection)
+{
+#ifdef Q_OS_MAC
+    if(Utility::getLocalLang() != "enUS")   return false;
+    const QRect hsRect = MacOcr::hearthstoneWindowRect();
+    QScreen *screen = hsRect.isNull() ? nullptr : QGuiApplication::screenAt(hsRect.center());
+    QScreen *primaryScreen = QGuiApplication::primaryScreen();
+    if(screen == nullptr || primaryScreen == nullptr)   return false;
+
+    QImage image = primaryScreen->grabWindow(0, hsRect.x(), hsRect.y(), hsRect.width(), hsRect.height()).toImage();
+    if(image.isNull())  return false;
+    hideTrackerWindows(image, hsRect);
+    if(image.width() > 1400)    image = image.scaledToWidth(1400, Qt::SmoothTransformation);
+    const QList<MacOcr::TextLine> lines = MacOcr::recognizeTextLines(image, "enUS");
+
+    static const QStringList classNames = {"DEATHKNIGHT", "DEMONHUNTER", "DRUID", "HUNTER", "MAGE", "PALADIN",
+                                           "PRIEST", "ROGUE", "SHAMAN", "WARLOCK", "WARRIOR"};
+    auto letters = [](const QString &text) {
+        QString result;
+        for(const QChar &c: text.toUpper())     if(c.isLetter())    result += c;
+        return result;
+    };
+
+    //A label can be split in two lines (DEMON / HUNTER)
+    QList<QPair<QString, QRectF>> labels;
+    QList<int> used;
+    for(int i=0; i<lines.count(); i++)
+    {
+        if(used.contains(i))    continue;
+        const QString text = letters(lines[i].text);
+        QRectF rect = lines[i].rect;
+        QString heroClass = classNames.contains(text) ? text : QString();
+        if(text == "DEMON" || text == "DEATH")
+        {
+            for(int j=0; j<lines.count(); j++)
+            {
+                const QRectF &below = lines[j].rect;
+                const QString merged = text + letters(lines[j].text);
+                if(j != i && classNames.contains(merged) && below.top() > rect.top() &&
+                        below.top() - rect.bottom() < rect.height() && qAbs(below.center().x() - rect.center().x()) < rect.width())
+                {
+                    heroClass = merged;
+                    rect = rect.united(below);
+                    used << j;
+                    break;
+                }
+            }
+        }
+        if(!heroClass.isEmpty())    labels << qMakePair(heroClass, rect);
+    }
+    if(labels.count() != 3)     return false;
+    std::sort(labels.begin(), labels.end(), [](const QPair<QString, QRectF> &a, const QPair<QString, QRectF> &b) {
+        return a.second.center().x() < b.second.center().x();
+    });
+
+    //Three labels in a row, evenly spaced
+    const qreal gap1 = labels[1].second.center().x() - labels[0].second.center().x();
+    const qreal gap2 = labels[2].second.center().x() - labels[1].second.center().x();
+    const qreal gap = (gap1 + gap2)/2;
+    if(gap <= 0 || qAbs(gap1 - gap2) > gap*0.1)     return false;
+    for(int i=1; i<3; i++)  if(qAbs(labels[i].second.center().y() - labels[0].second.center().y()) > gap*0.1)  return false;
+
+    //Hearthstone window image pixels --> screenshot pixels of its screen
+    const QRect screenRect = screen->geometry();
+    const QImage screenshot = Utility::getScreenshot(screen);
+    if(screenshot.isNull())     return false;
+    const qreal pxPerPoint = screenshot.width() / static_cast<qreal>(screenRect.width());
+    const qreal pointsPerImagePx = hsRect.width() / static_cast<qreal>(image.width());
+    auto toScreenPx = [&](const QPointF &p) {
+        return QPointF((hsRect.x() - screenRect.x() + p.x()*pointsPerImagePx) * pxPerPoint,
+                       (hsRect.y() - screenRect.y() + p.y()*pointsPerImagePx) * pxPerPoint);
+    };
+    const qreal side = gap*0.625 * pointsPerImagePx * pxPerPoint;
+    for(int i=0; i<3; i++)
+    {
+        const QPointF labelCenter = labels[i].second.center();
+        const QPointF center = toScreenPx(QPointF(labelCenter.x(), labelCenter.y() - gap*0.505));
+        screenDetection.screenRects[i] = cv::Rect(qRound(center.x() - side/2), qRound(center.y() - side/2), qRound(side), qRound(side));
+    }
+    screenDetection.screenIndex = QGuiApplication::screens().indexOf(screen);
+    screenDetection.screenHeight = screenshot.height();
+    screenDetection.screenScale = QPointF(screenRect.width() / static_cast<qreal>(screenshot.width()),
+                                          screenRect.height() / static_cast<qreal>(screenshot.height()));
+    emit pDebug("Hero slots found by OCR: " + labels[0].first + " " + labels[1].first + " " + labels[2].first);
+    return true;
+#else
+    (void)screenDetection;
+    return false;
+#endif
+}
+
+
 bool DraftHandler::areScreenPointsValid(std::vector<Point2f> screenPoints, int screenHeight)
 {
     for(int i=0; i<3; i++)
@@ -4328,6 +4462,7 @@ void DraftHandler::beginHeroDraft()
     deleteDraftMechanicsWindow();
     clearLists(false);
     this->heroDrafting = true;
+    this->heroesShown = false;
 
 #ifdef Q_OS_LINUX
     if(CaptureManager::isWaylandSession())
@@ -4369,6 +4504,7 @@ void DraftHandler::updateHeroScores()
         classOrder[i] = Utility::className2classOrder(HSRkey);
     }
     draftHeroWindow->setScores(classOrder);
+    heroesShown = true;
     emit heroesScored(classOrder[0], classOrder[1], classOrder[2]);
 }
 
@@ -4390,6 +4526,7 @@ void DraftHandler::showNewHeroes()
         classOrder[i] = Utility::className2classOrder(HSRkey);
     }
     if(draftHeroWindow != nullptr)     draftHeroWindow->setScores(classOrder);
+    heroesShown = true;
     emit heroesScored(classOrder[0], classOrder[1], classOrder[2]);
 
     //Twitch Handler
@@ -4900,6 +5037,13 @@ void DraftHandler::craftGoldenCopy(int cardIndex)
 bool DraftHandler::isDrafting()
 {
     return this->drafting;
+}
+
+
+//The current heroes or cards are already scored: a screen check must not say they're being scanned again
+bool DraftHandler::isPickShown()
+{
+    return heroDrafting ? heroesShown : !draftCards[0].getCode().isEmpty();
 }
 
 

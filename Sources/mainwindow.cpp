@@ -1759,6 +1759,17 @@ void MainWindow::mascotDraftStatus(QString text)
 
     //The same status again (e.g. a retry) keeps the line: the random variants would flicker
     if(mascotSaysStatus && text == mascotLastStatus)    return;
+    //Two loops disagreeing (a status coming back within seconds of the current one) would flip the line every
+    //second: the current one stays
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const qint64 flipTime = 5000;
+    if(mascotSaysStatus && now - mascotStatusShownAt.value(mascotLastStatus, 0) < flipTime &&
+            now - mascotStatusShownAt.value(text, 0) < flipTime)
+    {
+        mascotStatusShownAt[mascotLastStatus] = now;
+        return;
+    }
+    mascotStatusShownAt[text] = now;
     mascotLastStatus = text;
 
     MascotWindow::Mood mood = text.endsWith("...") ? MascotWindow::Thinking : MascotWindow::Idle;
@@ -1786,6 +1797,9 @@ void MainWindow::mascotDraftStatus(QString text)
                                                                                   "Let me take a look...",
                                                                                   "Checking the numbers...",
                                                                                   "Hold on, genius at work..."});
+    else if(text.startsWith("Analyzing bundle"))                line = "Let me peek at this group...";
+    else if(text.startsWith("Bundle read"))                     line = "Got the group's cards. Choose whenever you're ready.";
+    else if(text.startsWith("Can't read this bundle"))          line = "Can't read this group. I'll catch its cards after the pick.";
     else if(text.startsWith("Downloading card images"))         line = "Grabbing card pics" + text.mid(QString("Downloading card images").length());
     mascotWindow->setMood(mood);
     mascotWindow->say(line);
