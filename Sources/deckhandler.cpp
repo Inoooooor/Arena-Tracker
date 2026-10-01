@@ -5,7 +5,7 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QtWidgets>
 
-DeckHandler::DeckHandler(QObject *parent, Ui::Extended *ui, EnemyDeckHandler *enemyDeckHandler) : QObject(parent)
+DeckHandler::DeckHandler(QObject *parent, Ui::Extended *ui) : QObject(parent)
 {
     this->ui = ui;
     this->inGame = false;
@@ -14,7 +14,6 @@ DeckHandler::DeckHandler(QObject *parent, Ui::Extended *ui, EnemyDeckHandler *en
     this->loadedDeckName = QString();
     this->loadDeckItemsMap.clear();
     this->mouseInApp = false;
-    this->enemyDeckHandler = enemyDeckHandler;
     this->showManaLimits = false;
     this->lastCreatedByCode = "";
 
@@ -90,8 +89,6 @@ void DeckHandler::addNewDeckMenu(QPushButton *button)
     action = newDeckMenu->addAction("Clone current deck");
     connect(action, SIGNAL(triggered()), this, SLOT(newCopyCurrentDeck()));
 
-    action = newDeckMenu->addAction("Clone enemy deck");
-    connect(action, SIGNAL(triggered()), this, SLOT(newCopyEnemyDeck()));
 
     button->setMenu(newDeckMenu);
 }
@@ -1251,12 +1248,6 @@ void DeckHandler::newImportDeckString()
 }
 
 
-void DeckHandler::newCopyEnemyDeck()
-{
-    if(newDeck(true))   importEnemyDeck();
-}
-
-
 bool DeckHandler::newDeck(bool reset, bool askSave)
 {
     if(ui->deckButtonSave->isEnabled() && askSave && !askSaveDeck())   return false;
@@ -1325,17 +1316,6 @@ void DeckHandler::exportDeckString()
     QApplication::clipboard()->setText(text);
     emit showMessageProgressBar("HS deck copied");
     emit pDebug("HS deck copied");
-}
-
-
-void DeckHandler::importEnemyDeck()
-{
-    QList<DeckCard> enemyDeckCardList = enemyDeckHandler->getDeckCardList();
-
-    for(DeckCard &deckCard: enemyDeckCardList)
-    {
-        if(!deckCard.getCode().isEmpty() && !deckCard.isOutsider())  newDeckCard(deckCard.getCode(), deckCard.total);
-    }
 }
 
 

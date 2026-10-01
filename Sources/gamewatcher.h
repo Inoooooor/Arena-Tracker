@@ -3,7 +3,7 @@
 
 #include <QObject>
 #include <QString>
-#include "Cards/secretcard.h"
+#include "Cards/deckcard.h"
 #include "utility.h"
 
 

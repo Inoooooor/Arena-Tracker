@@ -48,21 +48,12 @@ MainWindow::MainWindow(QWidget *parent) :
     createTrackobotUploader();
     createCardDownloader();
     createWinratesDownloader();
-    createPlanHandler();
-    createEnemyHandHandler();//-->PlanHandler
-    createEnemyDeckHandler();
-    createGraveyardHandler();
-    createDrawCardHandler();
-    createRngCardHandler();//-->PlanHandler
     createDeckHandler();//-->EnemyDeckHandler
-    createSecretsHandler();//-->EnemyHandHandler -->PlanHandler
-    createPopularCardsHandler();//-->EnemyHandHandler
     createArenaHandler();//-->DeckHandler -->TrackobotUploader -->PlanHandler
     createDraftHandler();//-->CardDownloader -->DeckHandler -->ArenaHandler -->PlanHandler
     createGameWatcher();//-->A lot
     createLogLoader();//-->GameWatcher -->DraftHandler
     createCardWindow();//-->A lot
-    createCardListWindow();//-->PlanHandler -->SecretsHandler -->DraftHandler
     createPremiumHandler();//-->ArenaHandler -->PlanHandler -->DraftHandler -->TrackobotUploader -->DrawCardHandler
     createMascotWindow();//-->DraftHandler -->GameWatcher
 
@@ -90,13 +81,6 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(hdRedrawTimer, &QTimer::timeout, this, [this]() {
         deckHandler->redrawAllCards();
         draftHandler->redrawAllCards();
-        enemyDeckHandler->redrawAllCards();
-        graveyardHandler->redrawAllCards();
-        enemyHandHandler->redrawAllCards();
-        secretsHandler->redrawAllCards();
-        popularCardsHandler->redrawAllCards();
-        drawCardHandler->redrawAllCards();
-        rngCardHandler->redrawAllCards();
     });
     connect(HDImages::instance(), &HDImages::ready, this, [hdRedrawTimer](int kind) {
         if(kind == HDImages::Tile)  hdRedrawTimer->start();
@@ -113,15 +97,8 @@ MainWindow::~MainWindow()
     if(arenaHandler != nullptr)        delete arenaHandler;
     if(cardDownloader != nullptr)      delete cardDownloader;
     if(winratesDownloader != nullptr)  delete winratesDownloader;
-    if(graveyardHandler != nullptr)    delete graveyardHandler;
-    if(enemyDeckHandler != nullptr)    delete enemyDeckHandler;
-    if(enemyHandHandler != nullptr)    delete enemyHandHandler;
     if(draftHandler != nullptr)        delete draftHandler;
     if(deckHandler != nullptr)         delete deckHandler;
-    if(rngCardHandler != nullptr)      delete rngCardHandler;
-    if(drawCardHandler != nullptr)     delete drawCardHandler;
-    if(popularCardsHandler != nullptr) delete popularCardsHandler;
-    if(secretsHandler != nullptr)      delete secretsHandler;
     if(trackobotUploader != nullptr)   delete trackobotUploader;
     if(ui != nullptr)                  delete ui;
     closeLogFile();
@@ -154,15 +131,8 @@ void MainWindow::initVariables()
     arenaHandler = nullptr;
     cardDownloader = nullptr;
     winratesDownloader = nullptr;
-    enemyHandHandler = nullptr;
     draftHandler = nullptr;
-    drawCardHandler = nullptr;
-    rngCardHandler = nullptr;
     deckHandler = nullptr;
-    enemyDeckHandler = nullptr;
-    graveyardHandler = nullptr;
-    secretsHandler = nullptr;
-    popularCardsHandler = nullptr;
     trackobotUploader = nullptr;
     premiumHandler = nullptr;
     twitchTester = nullptr;
@@ -268,7 +238,6 @@ void MainWindow::closedDetachWindow(DetachWindow *detachWindow, QWidget *paneWid
     {
         //Antes de hacer el close de la detach window se llama esta funcion.
         //Volver plan a su size normal si se cierra Plan
-        resetSizePlan();
         planWindow = nullptr;
     }
 
@@ -589,10 +558,6 @@ void MainWindow::initHSRHeroesWinrate()
 
 void MainWindow::readyHSRPickratesMap(QMap<QString, float> *hsrPickratesMap)
 {
-    secretsHandler->setCardsPickratesMap(hsrPickratesMap);
-    secretsHandler->sortSecretsByPickrate(hsrPickratesMap);
-    popularCardsHandler->setCardsPickratesMap(hsrPickratesMap);
-    processPopularCardsHandlerPickrates(hsrPickratesMap);
 }
 void MainWindow::readyHSRWRMap(QMap<QString, float> *hsrWRMap)
 {
@@ -617,22 +582,6 @@ void MainWindow::readyFireWRMap(QMap<QString, float> *fireWRMap)
 void MainWindow::readyFireSamplesMap(QMap<QString, int> *fireSamplesMap)
 {
     draftHandler->setFireSamplesMap(fireSamplesMap);
-}
-
-
-void MainWindow::processPopularCardsHandlerPickrates(QMap<QString, float> *hsrPickratesMap)
-{
-    if(arenaSetsLoaded)
-    {
-        QStringList arenaCodes = Utility::getAllArenaCodes();
-        popularCardsHandler->createCardsByPickrate(hsrPickratesMap,
-            arenaCodes, draftHandler->getSynergyHandler());
-    }
-    else
-    {
-        QTimer::singleShot(1000, this, [=] () {
-            processPopularCardsHandlerPickrates(hsrPickratesMap);});
-    }
 }
 
 
@@ -788,18 +737,6 @@ void MainWindow::createPremiumHandler()
             arenaHandler, SLOT(setPremium(bool)));
     connect(premiumHandler, SIGNAL(setPremium(bool)),
             draftHandler, SLOT(setPremium(bool)));
-    connect(premiumHandler, SIGNAL(setPremium(bool)),
-            planHandler, SLOT(setPremium(bool)));
-    connect(premiumHandler, SIGNAL(setPremium(bool)),
-            graveyardHandler, SLOT(setPremium(bool)));
-    connect(premiumHandler, SIGNAL(setPremium(bool)),
-            popularCardsHandler, SLOT(setPremium(bool)));
-    connect(premiumHandler, SIGNAL(setPremium(bool)),
-            rngCardHandler, SLOT(setPremium(bool)));
-    connect(premiumHandler, SIGNAL(setPremium(bool)),
-            secretsHandler, SLOT(setPremium(bool)));
-    connect(premiumHandler, SIGNAL(setPremium(bool)),
-            drawCardHandler, SLOT(setPremium(bool)));
     connect(trackobotUploader, SIGNAL(connected(QString,QString)),
             premiumHandler, SLOT(checkPremium(QString,QString)));
     connect(trackobotUploader, SIGNAL(disconnected()),
@@ -887,58 +824,9 @@ void MainWindow::createDraftHandler()
 }
 
 
-void MainWindow::createSecretsHandler()
-{
-    secretsHandler = new SecretsHandler(this, ui, enemyHandHandler, planHandler);
-    connect(secretsHandler, SIGNAL(checkCardImage(QString)),
-            this, SLOT(checkCardImage(QString)));
-    connect(secretsHandler, SIGNAL(revealCreatedByCard(QString,QString,int)),
-            enemyHandHandler, SLOT(revealCreatedByCard(QString,QString,int)));
-    connect(secretsHandler, SIGNAL(isolatedSecret(int,QString)),
-            planHandler, SLOT(enemyIsolatedSecret(int,QString)));
-    connect(planHandler, SIGNAL(playerAllManaSpent()),
-            secretsHandler, SLOT(playerAllManaSpent()));
-    connect(secretsHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
-            this, SLOT(pDebug(QString,DebugLevel,QString)));
-
-    QSettings settings("Arena Tracker", "Arena Tracker");
-    QStringList arenaSets = settings.value("arenaSets", QStringList()).toStringList();
-}
-
-
-void MainWindow::createPopularCardsHandler()
-{
-    popularCardsHandler = new PopularCardsHandler(this, ui, enemyHandHandler);
-    connect(popularCardsHandler, SIGNAL(checkCardImage(QString)),
-            this, SLOT(checkCardImage(QString)));
-    connect(popularCardsHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
-            this, SLOT(pDebug(QString,DebugLevel,QString)));
-}
-
-
-void MainWindow::createDrawCardHandler()
-{
-    drawCardHandler = new DrawCardHandler(this, ui);
-    connect(drawCardHandler, SIGNAL(checkCardImage(QString)),
-            this, SLOT(checkCardImage(QString)));
-    connect(drawCardHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
-            this, SLOT(pDebug(QString,DebugLevel,QString)));
-}
-
-
-void MainWindow::createRngCardHandler()
-{
-    rngCardHandler = new RngCardHandler(this, ui, planHandler);
-    connect(rngCardHandler, SIGNAL(checkCardImage(QString)),
-            this, SLOT(checkCardImage(QString)));
-    connect(rngCardHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
-            this, SLOT(pDebug(QString,DebugLevel,QString)));
-}
-
-
 void MainWindow::createArenaHandler()
 {
-    arenaHandler = new ArenaHandler(this, deckHandler, planHandler, ui);
+    arenaHandler = new ArenaHandler(this, deckHandler, ui);
     connect(arenaHandler, SIGNAL(showPremiumDialog()),
             this, SLOT(showPremiumDialog()));
     connect(arenaHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
@@ -950,35 +838,9 @@ void MainWindow::createArenaHandler()
 }
 
 
-void MainWindow::createEnemyDeckHandler()
-{
-    enemyDeckHandler = new EnemyDeckHandler(this, ui);
-    connect(enemyDeckHandler, SIGNAL(checkCardImage(QString)),
-            this, SLOT(checkCardImage(QString)));
-    connect(enemyDeckHandler, SIGNAL(needMainWindowFade(bool)),
-            this, SLOT(fadeBarAndButtons(bool)));
-    connect(enemyDeckHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
-            this, SLOT(pDebug(QString,DebugLevel,QString)));
-}
-
-
-void MainWindow::createGraveyardHandler()
-{
-    graveyardHandler = new GraveyardHandler(this, ui);
-    connect(graveyardHandler, SIGNAL(checkCardImage(QString)),
-            this, SLOT(checkCardImage(QString)));
-    connect(graveyardHandler, SIGNAL(needMainWindowFade(bool)),
-            this, SLOT(fadeBarAndButtons(bool)));
-    connect(graveyardHandler, SIGNAL(showPremiumDialog()),
-            this, SLOT(showPremiumDialog()));
-    connect(graveyardHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
-            this, SLOT(pDebug(QString,DebugLevel,QString)));
-}
-
-
 void MainWindow::createDeckHandler()
 {
-    deckHandler = new DeckHandler(this, ui, enemyDeckHandler);
+    deckHandler = new DeckHandler(this, ui);
     connect(deckHandler, SIGNAL(checkCardImage(QString)),
             this, SLOT(checkCardImage(QString)));
     connect(deckHandler, SIGNAL(needMainWindowFade(bool)),
@@ -994,95 +856,6 @@ void MainWindow::createDeckHandler()
 }
 
 
-void MainWindow::createEnemyHandHandler()
-{
-    enemyHandHandler = new EnemyHandHandler(this, ui);
-    connect(enemyHandHandler, SIGNAL(checkCardImage(QString)),
-            this, SLOT(checkCardImage(QString)));
-    connect(enemyHandHandler, SIGNAL(needMainWindowFade(bool)),
-            this, SLOT(fadeBarAndButtons(bool)));
-    connect(enemyHandHandler, SIGNAL(enemyCardDraw(int,QString,QString,int)),
-            planHandler, SLOT(enemyCardDraw(int,QString,QString,int)));
-    connect(enemyHandHandler, SIGNAL(enemyCardBuff(int,int,int)),
-            planHandler, SLOT(enemyCardBuff(int,int,int)));
-    connect(enemyHandHandler, SIGNAL(enemyCardForge(int)),
-            planHandler, SLOT(enemyCardForge(int)));
-    connect(enemyHandHandler, SIGNAL(revealEnemyCard(int,QString)),
-            planHandler, SLOT(revealEnemyCard(int,QString)));
-    connect(planHandler, SIGNAL(heroTotalAttackChange(bool,int,int)),
-            enemyHandHandler, SLOT(drawHeroTotalAttack(bool,int,int)));
-    connect(enemyHandHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
-            this, SLOT(pDebug(QString,DebugLevel,QString)));
-}
-
-
-void MainWindow::createPlanHandler()
-{
-    planHandler = new PlanHandler(this, ui);
-    connect(planHandler, SIGNAL(checkCardImage(QString,bool)),
-            this, SLOT(checkCardImage(QString,bool)));
-    connect(planHandler, SIGNAL(needMainWindowFade(bool)),
-            this, SLOT(fadeBarAndButtons(bool)));
-    connect(planHandler, SIGNAL(showPremiumDialog()),
-            this, SLOT(showPremiumDialog()));
-    connect(planHandler, SIGNAL(swapSize(bool)),
-            this, SLOT(swapSizePlan(bool)));
-    connect(planHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
-            this, SLOT(pDebug(QString,DebugLevel,QString)));
-}
-
-
-void MainWindow::swapSizePlan(bool sizePlan)
-{
-    QSettings settings("Arena Tracker", "Arena Tracker");
-    QSize newSize;
-    QPoint newPos;
-
-    if(this->planWindow == nullptr)
-    {
-        if(!sizePlan)//sizePlan --> size
-        {
-            settings.setValue("sizePlan", this->size());
-            newSize = settings.value("size", QSize(255, 600)).toSize();
-
-            settings.setValue("posPlan", this->pos());
-            newPos = settings.value("pos", QPoint(0, 0)).toPoint();
-        }
-        else
-        {
-            settings.setValue("size", this->size());
-            newSize = settings.value("sizePlan", QSize(400, 400)).toSize();
-
-            settings.setValue("pos", this->pos());
-            newPos = settings.value("posPlan", QPoint(0, 0)).toPoint();
-        }
-        this->resize(newSize);
-        this->moveInScreen(newPos, newSize);
-    }
-    else
-    {
-        if(!sizePlan)//sizePlan --> size
-        {
-            settings.setValue("sizePlan", planWindow->size());
-            newSize = settings.value("sizeWindowReplay", QSize(255, 600)).toSize();
-
-            settings.setValue("posPlan", planWindow->pos());
-            newPos = settings.value("posWindowReplay", QPoint(0, 0)).toPoint();
-        }
-        else
-        {
-            settings.setValue("sizeWindowReplay", planWindow->size());
-            newSize = settings.value("sizePlan", QSize(400, 400)).toSize();
-
-            settings.setValue("posWindowReplay", planWindow->pos());
-            newPos = settings.value("posPlan", QPoint(0, 0)).toPoint();
-        }
-        planWindow->resize(newSize);
-        planWindow->moveInScreen(newPos, newSize);
-    }
-}
-
-
 void MainWindow::createCardWindow()
 {
     cardWindow = new CardWindow(this);
@@ -1092,25 +865,9 @@ void MainWindow::createCardWindow()
             cardWindow, SLOT(loadCard(QString,QRect,int,int)));
     connect(draftHandler, SIGNAL(cardLeave()),
             cardWindow, SLOT(hide()));
-    connect(enemyDeckHandler, SIGNAL(cardEntered(QString,QRect,int,int)),
-            cardWindow, SLOT(loadCard(QString,QRect,int,int)));
-    connect(graveyardHandler, SIGNAL(cardEntered(QString,QRect,int,int)),
-            cardWindow, SLOT(loadCard(QString,QRect,int,int)));
-    connect(enemyHandHandler, SIGNAL(cardEntered(QString,QRect,int,int)),
-            cardWindow, SLOT(loadCard(QString,QRect,int,int)));
-    connect(secretsHandler, SIGNAL(cardEntered(QString,QRect,int,int)),
-            cardWindow, SLOT(loadCard(QString,QRect,int,int)));
-    connect(popularCardsHandler, SIGNAL(cardEntered(QString,QRect,int,int)),
-            cardWindow, SLOT(loadCard(QString,QRect,int,int)));
-    connect(drawCardHandler, SIGNAL(cardEntered(QString,QRect,int,int)),
-            cardWindow, SLOT(loadCard(QString,QRect,int,int)));
     connect(draftHandler, SIGNAL(overlayCardEntered(QString,QRect,int,int,bool)),
             cardWindow, SLOT(loadCard(QString,QRect,int,int,bool)));
-    connect(planHandler, SIGNAL(cardEntered(QString,QRect,int,int)),
-            cardWindow, SLOT(loadCard(QString,QRect,int,int)));
 
-    connect(planHandler, SIGNAL(cardLeave()),
-            cardWindow, SLOT(hide()));
     connect(ui->tabWidget, SIGNAL(currentChanged(int)),
             cardWindow, SLOT(hide()));
     connect(ui->deckListWidget, SIGNAL(leave()),
@@ -1135,23 +892,6 @@ void MainWindow::createCardWindow()
             cardWindow, SLOT(hide()));
     connect(ui->planGraphicsView, SIGNAL(leave()),
             cardWindow, SLOT(hide()));
-}
-
-
-void MainWindow::createCardListWindow()
-{
-    cardListWindow = new CardListWindow(this, secretsHandler);
-    connect(planHandler, SIGNAL(secretEntered(int,QRect&,int,int)),
-            cardListWindow, SLOT(loadSecret(int,QRect&,int,int)));
-    connect(draftHandler, SIGNAL(itemEnter(QList<SynergyCard>&,QRect&,int,int)),
-            cardListWindow, SLOT(loadDraftItem(QList<SynergyCard>&,QRect&,int,int)));
-    connect(draftHandler, SIGNAL(itemEnterOverlay(QList<SynergyCard>&,QPoint&,int,int)),
-            cardListWindow, SLOT(loadDraftOverlayItem(QList<SynergyCard>&,QPoint&,int,int)));
-
-    connect(planHandler, SIGNAL(cardLeave()),
-            cardListWindow, SLOT(hide()));
-    connect(draftHandler, SIGNAL(itemLeave()),
-            cardListWindow, SLOT(hide()));
 }
 
 
@@ -1202,8 +942,6 @@ void MainWindow::leaveArena()
 {
     draftHandler->leaveArena();
     deckHandler->leaveArena();
-    popularCardsHandler->leaveArena();
-    drawCardHandler->leaveArena();
 }
 
 
@@ -1253,216 +991,6 @@ void MainWindow::createGameWatcher()
     connect(gameWatcher, SIGNAL(coinIdFound(int)),
             deckHandler, SLOT(setFirstOutsiderId(int)));
 
-#ifdef OLD_TRACKER_WINDOWS
-    //Enemy deck and graveyard only fill the old tracker windows
-    connect(gameWatcher, SIGNAL(enemyCardPlayed(int,QString,bool)),
-            enemyDeckHandler, SLOT(enemyCardPlayed(int,QString)));
-    connect(gameWatcher, SIGNAL(enemySecretRevealed(int,QString)),
-            enemyDeckHandler, SLOT(enemySecretRevealed(int,QString)));
-    connect(gameWatcher, SIGNAL(enemyKnownCardDraw(int,QString)),
-            enemyDeckHandler, SLOT(enemyKnownCardDraw(int,QString)));
-    connect(gameWatcher, SIGNAL(startGame()),
-            enemyDeckHandler, SLOT(lockEnemyDeckInterface()));
-    connect(gameWatcher, SIGNAL(endGame(bool,bool)),
-            enemyDeckHandler, SLOT(unlockEnemyDeckInterface()));
-    connect(gameWatcher, SIGNAL(enemyHero(QString)),
-            enemyDeckHandler, SLOT(setEnemyClass(QString)));
-    connect(gameWatcher, SIGNAL(coinIdFound(int)),
-            enemyDeckHandler, SLOT(setFirstOutsiderId(int)));
-
-    connect(gameWatcher, SIGNAL(enemySecretRevealed(int,QString)),
-            graveyardHandler, SLOT(enemySecretRevealed(int,QString)));
-    connect(gameWatcher, SIGNAL(playerMinionGraveyard(int,QString)),
-            graveyardHandler, SLOT(playerCardGraveyard(int,QString)));
-    connect(gameWatcher, SIGNAL(enemyMinionGraveyard(int,QString,bool,int)),
-            graveyardHandler, SLOT(enemyCardGraveyard(int,QString)));
-    connect(gameWatcher, SIGNAL(playerWeaponGraveyard(int,QString)),
-            graveyardHandler, SLOT(playerCardGraveyard(int,QString)));
-    connect(gameWatcher, SIGNAL(enemyWeaponGraveyard(int,QString)),
-            graveyardHandler, SLOT(enemyCardGraveyard(int,QString)));
-    connect(gameWatcher, SIGNAL(playerSpellPlayed(int,QString)),
-            graveyardHandler, SLOT(playerCardGraveyard(int,QString)));
-    connect(gameWatcher, SIGNAL(enemySpellPlayed(int,QString)),
-            graveyardHandler, SLOT(enemyCardGraveyard(int,QString)));
-    connect(gameWatcher, SIGNAL(startGame()),
-            graveyardHandler, SLOT(lockGraveyardInterface()));
-    connect(gameWatcher, SIGNAL(endGame(bool,bool)),
-            graveyardHandler, SLOT(unlockGraveyardInterface()));
-#endif
-
-    connect(gameWatcher, SIGNAL(enemyCardDraw(int,int,bool,QString)),
-            enemyHandHandler, SLOT(showEnemyCardDraw(int,int,bool,QString)));
-    connect(gameWatcher, SIGNAL(enemyCardPlayed(int,QString,bool)),
-            enemyHandHandler, SLOT(hideEnemyCardPlayed(int,QString)));
-    connect(gameWatcher, SIGNAL(lastHandCardIsCoin()),
-            enemyHandHandler, SLOT(lastHandCardIsCoin()));
-    connect(gameWatcher, SIGNAL(specialCardTrigger(QString,QString,int,int)),
-            enemyHandHandler, SLOT(setLastCreatedByCode(QString)));
-    connect(gameWatcher, SIGNAL(buffHandCard(int)),
-            enemyHandHandler, SLOT(buffHandCard(int)));
-    connect(gameWatcher, SIGNAL(forgeHandCard(int)),
-            enemyHandHandler, SLOT(forgeHandCard(int)));
-    connect(gameWatcher, SIGNAL(startGame()),
-            enemyHandHandler, SLOT(lockEnemyInterface()));
-    connect(gameWatcher, SIGNAL(endGame(bool,bool)),
-            enemyHandHandler, SLOT(unlockEnemyInterface()));
-
-    connect(gameWatcher, SIGNAL(playerMinionZonePlayAdd(QString,int,int)),
-            planHandler, SLOT(playerMinionZonePlayAdd(QString,int,int)));
-    connect(gameWatcher, SIGNAL(enemyMinionZonePlayAdd(QString,int,int)),
-            planHandler, SLOT(enemyMinionZonePlayAdd(QString,int,int)));
-    connect(gameWatcher, SIGNAL(playerMinionZonePlayAddTriggered(QString,int,int)),
-            planHandler, SLOT(playerMinionZonePlayAddTriggered(QString,int,int)));
-    connect(gameWatcher, SIGNAL(enemyMinionZonePlayAddTriggered(QString,int,int)),
-            planHandler, SLOT(enemyMinionZonePlayAddTriggered(QString,int,int)));
-    connect(gameWatcher, SIGNAL(playerHeroZonePlayAdd(QString,int)),
-            planHandler, SLOT(playerHeroZonePlayAdd(QString,int)));
-    connect(gameWatcher, SIGNAL(enemyHeroZonePlayAdd(QString,int)),
-            planHandler, SLOT(enemyHeroZonePlayAdd(QString,int)));
-    connect(gameWatcher, SIGNAL(playerHeroPowerZonePlayAdd(QString,int)),
-            planHandler, SLOT(playerHeroPowerZonePlayAdd(QString,int)));
-    connect(gameWatcher, SIGNAL(enemyHeroPowerZonePlayAdd(QString,int)),
-            planHandler, SLOT(enemyHeroPowerZonePlayAdd(QString,int)));
-    connect(gameWatcher, SIGNAL(playerWeaponZonePlayAdd(QString,int)),
-            planHandler, SLOT(playerWeaponZonePlayAdd(QString,int)));
-    connect(gameWatcher, SIGNAL(enemyWeaponZonePlayAdd(QString,int)),
-            planHandler, SLOT(enemyWeaponZonePlayAdd(QString,int)));
-    connect(gameWatcher, SIGNAL(playerWeaponZonePlayRemove(int)),
-            planHandler, SLOT(playerWeaponZonePlayRemove(int)));
-    connect(gameWatcher, SIGNAL(enemyWeaponZonePlayRemove(int)),
-            planHandler, SLOT(enemyWeaponZonePlayRemove(int)));
-    connect(gameWatcher, SIGNAL(playerMinionZonePlayRemove(int)),
-            planHandler, SLOT(playerMinionZonePlayRemove(int)));
-    connect(gameWatcher, SIGNAL(enemyMinionZonePlayRemove(int)),
-            planHandler, SLOT(enemyMinionZonePlayRemove(int)));
-    connect(gameWatcher, SIGNAL(playerMinionZonePlaySteal(int,int)),
-            planHandler, SLOT(playerMinionZonePlaySteal(int,int)));
-    connect(gameWatcher, SIGNAL(enemyMinionZonePlaySteal(int,int)),
-            planHandler, SLOT(enemyMinionZonePlaySteal(int,int)));
-    connect(gameWatcher, SIGNAL(playerMinionPosChange(int,int)),
-            planHandler, SLOT(playerMinionPosChange(int,int)));
-    connect(gameWatcher, SIGNAL(enemyMinionPosChange(int,int)),
-            planHandler, SLOT(enemyMinionPosChange(int,int)));
-    connect(gameWatcher, SIGNAL(playerBoardTagChange(int,QString,QString,QString)),
-            planHandler, SLOT(playerBoardTagChange(int,QString,QString,QString)));
-    connect(gameWatcher, SIGNAL(enemyBoardTagChange(int,QString,QString,QString)),
-            planHandler, SLOT(enemyBoardTagChange(int,QString,QString,QString)));
-    connect(gameWatcher, SIGNAL(unknownTagChange(QString,QString)),
-            planHandler, SLOT(unknownTagChange(QString,QString)));
-    connect(gameWatcher, SIGNAL(playerTagChange(QString,QString)),
-            planHandler, SLOT(playerTagChange(QString,QString)));
-    connect(gameWatcher, SIGNAL(enemyTagChange(QString,QString)),
-            planHandler, SLOT(enemyTagChange(QString,QString)));
-    connect(gameWatcher, SIGNAL(zonePlayAttack(QString,int,int)),
-            planHandler, SLOT(zonePlayAttack(QString,int,int)));
-    connect(gameWatcher, SIGNAL(playerSecretPlayed(int,QString)),
-            planHandler, SLOT(playerSecretPlayed(int,QString)));
-    connect(gameWatcher, SIGNAL(enemySecretPlayed(int,CardClass,LoadingScreenState)),
-            planHandler, SLOT(enemySecretPlayed(int,CardClass)));
-    connect(gameWatcher, SIGNAL(playerSecretRevealed(int,QString)),
-            planHandler, SLOT(playerSecretRevealed(int,QString)));
-    connect(gameWatcher, SIGNAL(enemySecretRevealed(int,QString)),
-            planHandler, SLOT(enemySecretRevealed(int,QString)));
-    connect(gameWatcher, SIGNAL(playerSecretStolen(int,QString)),
-            planHandler, SLOT(playerSecretStolen(int,QString)));
-    connect(gameWatcher, SIGNAL(enemySecretStolen(int,QString,LoadingScreenState)),
-            planHandler, SLOT(enemySecretStolen(int,QString)));
-    connect(gameWatcher, SIGNAL(playerCardToHand(int,QString,int)),
-            planHandler, SLOT(playerCardDraw(int,QString,int)));
-    connect(gameWatcher, SIGNAL(playerCardPlayed(int,QString,bool,bool)),
-            planHandler, SLOT(playerCardPlayed(int,QString,bool)));
-    connect(gameWatcher, SIGNAL(enemyCardPlayed(int,QString,bool)),
-            planHandler, SLOT(enemyCardPlayed(int,QString,bool)));
-    connect(gameWatcher, SIGNAL(playerCardCodeChange(int,QString)),
-            planHandler, SLOT(playerCardCodeChange(int,QString)));
-    connect(gameWatcher, SIGNAL(minionCodeChange(bool,int,QString)),
-            planHandler, SLOT(minionCodeChange(bool,int,QString)));
-    connect(gameWatcher, SIGNAL(newTurn(bool,int,int)),
-            planHandler, SLOT(newTurn(bool,int)));
-    connect(gameWatcher, SIGNAL(logTurn()),
-            planHandler, SLOT(resetLastPowerAddon()));
-    connect(gameWatcher, SIGNAL(specialCardTrigger(QString,QString,int,int)),
-            planHandler, SLOT(setLastTriggerId(QString,QString,int,int)));
-    connect(gameWatcher, SIGNAL(playerCardObjPlayed(QString,int,int)),
-            planHandler, SLOT(playerCardObjPlayed(QString,int,int)));
-    connect(gameWatcher, SIGNAL(enemyCardObjPlayed(QString,int,int)),
-            planHandler, SLOT(enemyCardObjPlayed(QString,int,int)));
-    connect(gameWatcher, SIGNAL(startGame()),
-            planHandler, SLOT(lockPlanInterface()));
-    connect(gameWatcher, SIGNAL(endGame(bool,bool)),
-            planHandler, SLOT(endGame(bool,bool)));
-
-
-    connect(gameWatcher, SIGNAL(endGame(bool,bool)),
-            secretsHandler, SLOT(resetSecretsInterface()));
-    connect(gameWatcher, SIGNAL(enemySecretPlayed(int,CardClass,LoadingScreenState)),
-            secretsHandler, SLOT(secretPlayed(int,CardClass,LoadingScreenState)));
-    connect(gameWatcher, SIGNAL(enemySecretStolen(int,QString,LoadingScreenState)),
-            secretsHandler, SLOT(secretStolen(int,QString,LoadingScreenState)));
-    connect(gameWatcher, SIGNAL(enemySecretRevealed(int,QString)),
-            secretsHandler, SLOT(secretRevealed(int,QString)));
-    connect(gameWatcher, SIGNAL(playerSecretStolen(int,QString)),
-            secretsHandler, SLOT(secretRevealed(int,QString)));
-    connect(gameWatcher, SIGNAL(playerSpellPlayed(int,QString)),
-            secretsHandler, SLOT(playerSpellPlayed(int,QString)));
-    connect(gameWatcher, SIGNAL(playerWeaponPlayed(int,QString)),
-            secretsHandler, SLOT(playerWeaponPlayed(int,QString)));
-    connect(gameWatcher, SIGNAL(playerSpellObjMinionPlayed()),
-            secretsHandler, SLOT(playerSpellObjMinionPlayed()));
-    connect(gameWatcher, SIGNAL(playerSpellObjHeroPlayed()),
-            secretsHandler, SLOT(playerSpellObjHeroPlayed()));
-    connect(gameWatcher, SIGNAL(playerBattlecryObjHeroPlayed()),
-            secretsHandler, SLOT(playerBattlecryObjHeroPlayed()));
-    connect(gameWatcher, SIGNAL(playerMinionPlayed(QString,int,int)),
-            secretsHandler, SLOT(playerMinionPlayed(QString,int,int)));
-    connect(gameWatcher, SIGNAL(enemyMinionGraveyard(int,QString,bool,int)),
-            secretsHandler, SLOT(enemyMinionGraveyard(int,QString,bool,int)));
-    connect(gameWatcher, SIGNAL(playerAttack(bool,bool,int,int,int)),
-            secretsHandler, SLOT(playerAttack(bool,bool,int,int,int)));
-    connect(gameWatcher, SIGNAL(playerHeroPower()),
-            secretsHandler, SLOT(playerHeroPower()));
-    connect(gameWatcher, SIGNAL(specialCardTrigger(QString,QString,int,int)),
-            secretsHandler, SLOT(resetLastMinionDead(QString,QString)));
-    connect(gameWatcher, SIGNAL(newTurn(bool,int,int)),
-            secretsHandler, SLOT(newTurn(bool,int,int)));
-    connect(gameWatcher, SIGNAL(playerCardDraw(QString,int)),
-            secretsHandler, SLOT(playerCardDraw()));
-    connect(gameWatcher, SIGNAL(playerCardPlayed(int,QString,bool,bool)),
-            secretsHandler, SLOT(playerCardPlayed(int,QString,bool,bool)));
-
-#ifdef OLD_TRACKER_WINDOWS
-    //Popular, RNG and drawn card lists only fill the old tracker windows
-    connect(gameWatcher, SIGNAL(endGame(bool,bool)),
-            popularCardsHandler, SLOT(resetCardsInterface()));
-    connect(gameWatcher, SIGNAL(newTurn(bool,int,int)),
-            popularCardsHandler, SLOT(newTurn(bool,int)));
-    connect(gameWatcher, SIGNAL(enemyHero(QString)),
-            popularCardsHandler, SLOT(setEnemyClass(QString)));
-    connect(gameWatcher, SIGNAL(enemyTagChange(QString,QString)),
-            popularCardsHandler, SLOT(enemyTagChange(QString,QString)));
-    connect(gameWatcher, SIGNAL(enterArena()),
-            popularCardsHandler, SLOT(enterArena()));
-    // connect(gameWatcher, SIGNAL(leaveArena()),//MainWindow::leaveArena()
-    //         popularCardsHandler, SLOT(leaveArena()));
-
-    connect(gameWatcher, SIGNAL(endGame(bool,bool)),
-            rngCardHandler, SLOT(clearRngList()));
-    connect(gameWatcher, SIGNAL(playerCardToHand(int,QString,int)),
-            rngCardHandler, SLOT(playerCardToHand(int,QString,int)));
-    connect(gameWatcher, SIGNAL(playerCardPlayed(int,QString,bool,bool)),
-            rngCardHandler, SLOT(removeRngCard(int,QString)));
-
-    connect(gameWatcher, SIGNAL(endGame(bool,bool)),
-            drawCardHandler, SLOT(clearDrawList()));
-    connect(gameWatcher, SIGNAL(clearDrawList()),
-            drawCardHandler, SLOT(clearDrawList()));
-    connect(gameWatcher, SIGNAL(playerCardToHand(int,QString,int)),
-            drawCardHandler, SLOT(playerCardToHand(int,QString,int)));
-    connect(gameWatcher, SIGNAL(enterArena()),
-            drawCardHandler, SLOT(enterArena()));
-    // connect(gameWatcher, SIGNAL(leaveArena()),//MainWindow::leaveArena()
-    //         drawCardHandler, SLOT(leaveArena()));
-#endif
 
     connect(gameWatcher, SIGNAL(newArena(QString)),
             draftHandler, SLOT(beginDraft(QString)));
@@ -1519,49 +1047,7 @@ void MainWindow::createLogLoader()
 
 void MainWindow::newGameResult(GameResult gameResult, LoadingScreenState loadingScreen)
 {
-    int deckScoreHA = 0;
-    float deckScoreHSR = 0;
-    float deckScoreFire = 0;
-#ifdef OLD_TRACKER_WINDOWS
-    //The enemy deck score is only shown in the old Arena tab
-    if(loadingScreen == arena)
-    {
-        int numCards=0;
-        int totalHA=0;
-        float totalHSR=0;
-        float totalFire=0;
-        CardClass enemyClass = enemyDeckHandler->getEnemyClass();
-        draftHandler->initTierLists(enemyClass);
-        for(DeckCard &deckCard: enemyDeckHandler->getDeckCardList())
-        {
-            if(!deckCard.isOutsider())
-            {
-                QString code = deckCard.getCode();
-                if(!code.isEmpty())
-                {
-                    int ha;
-                    float hsr, fire;
-                    draftHandler->getCodeScores(enemyClass, code, ha, hsr, fire);
-                    if(ha!=0 && hsr!=0 && fire!=0)
-                    {
-                        numCards += deckCard.total;
-                        totalHA += ha * deckCard.total;
-                        totalHSR += hsr * deckCard.total;
-                        totalFire += fire * deckCard.total;
-                    }
-                }
-            }
-        }
-
-        deckScoreHA = (numCards==0)?0:static_cast<int>(round(totalHA/static_cast<double>(numCards)));
-        deckScoreHSR = (numCards==0)?0:static_cast<float>(round(static_cast<double>(totalHSR/numCards * 10))/10.0);
-        deckScoreFire = (numCards==0)?0:static_cast<float>(round(static_cast<double>(totalFire/numCards * 10))/10.0);
-        draftHandler->clearTierLists();
-        pDebug("Enemy deck: " + QString::number(numCards) + " cards - HA(" + QString::number(deckScoreHA) +
-               ") - HSR(" + QString::number(deckScoreHSR) + ") - Fire(" + QString::number(deckScoreFire) + ")");
-    }
-#endif
-    arenaHandler->newGameResult(gameResult, loadingScreen, deckScoreHA, deckScoreHSR, deckScoreFire);
+    arenaHandler->newGameResult(gameResult, loadingScreen, 0, 0, 0);
 }
 
 
@@ -1670,7 +1156,6 @@ void MainWindow::closeApp()
 {
     //Check unsaved decks
     if(ui->deckButtonSave->isEnabled() && !deckHandler->askSaveDeck())   return;
-    resetSizePlan();
     draftHandler->endDraftHideMechanicsWindow();
     draftHandler->deleteDraftMechanicsWindow();
     hide();
@@ -2646,7 +2131,6 @@ void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, 
     {
         case -1:
             ui->configSliderDrawTime->setValue(0);
-            updateTimeDraw(0);
             break;
         case 0:
             ui->configSliderDrawTime->setValue(11);
@@ -2658,19 +2142,14 @@ void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, 
     }
 
     ui->configSliderPopular->setValue(popularCardsShown);
-    updatePopularCardsShown(popularCardsShown);
 
     ui->configCheckTotalAttack->setChecked(showTotalAttack);
-    updateShowTotalAttack(showTotalAttack);
 
     ui->configCheckRngList->setChecked(showRngList);
-    updateShowRngList(showRngList);
 
     ui->configCheckSecrets->setChecked(showSecrets);
-    updateShowSecrets(showSecrets);
 
     ui->configCheckWildSecrets->setChecked(showWildSecrets);
-    updateShowWildSecrets(showWildSecrets);
 
 
     //Draft
@@ -2947,10 +2426,6 @@ void MainWindow::spreadMouseInApp()
     QWidget *currentTab = ui->tabWidget->currentWidget();
 
     if(currentTab == ui->tabDeck)           deckHandler->setMouseInApp(mouseInApp);
-    else if(currentTab == ui->tabEnemy)     enemyHandHandler->setMouseInApp(mouseInApp);
-    else if(currentTab == ui->tabPlan)      planHandler->setMouseInApp(mouseInApp);
-    else if(currentTab == ui->tabEnemyDeck) enemyDeckHandler->setMouseInApp(mouseInApp);
-    else if(currentTab == ui->tabGraveyard) graveyardHandler->setMouseInApp(mouseInApp);
     else if(currentTab == ui->tabArena)     arenaHandler->setMouseInApp(mouseInApp);
     else if(currentTab == ui->tabDraft)     draftHandler->setMouseInApp(mouseInApp);
     else                                    updateOtherTabsTransparency();
@@ -2984,13 +2459,6 @@ void MainWindow::changingTabUpdateDraftSize()
 
 void MainWindow::changingTabResetSizePlan()
 {
-    if(planWindow == nullptr)  resetSizePlan();
-}
-
-
-void MainWindow::resetSizePlan()
-{
-    if(planHandler->resetSizePlan())  swapSizePlan(false);
 }
 
 
@@ -3167,10 +2635,6 @@ void MainWindow::pDebug(QString line, qint64 numLine, DebugLevel debugLevel, QSt
 void MainWindow::logReset()
 {
     deckHandler->unlockDeckInterface();
-    rngCardHandler->clearRngList();
-    drawCardHandler->clearDrawList();
-    popularCardsHandler->resetCardsInterface();
-    enemyHandHandler->unlockEnemyInterface();
     leaveArena();
     gameWatcher->reset();
 }
@@ -3195,14 +2659,6 @@ bool MainWindow::checkCardImage(QString code, bool isHero)
 void MainWindow::redrawDownloadedCardImage(QString code)
 {
     deckHandler->redrawDownloadedCardImage(code);
-    enemyDeckHandler->redrawDownloadedCardImage(code);
-    graveyardHandler->redrawDownloadedCardImage(code);
-    enemyHandHandler->redrawDownloadedCardImage(code);
-    planHandler->redrawDownloadedCardImage(code);
-    secretsHandler->redrawDownloadedCardImage(code);
-    popularCardsHandler->redrawDownloadedCardImage(code);
-    drawCardHandler->redrawDownloadedCardImage(code);
-    rngCardHandler->redrawDownloadedCardImage(code);
     draftHandler->redrawDownloadedCardImage(code);
     draftHandler->reHistDownloadedCardImage(code);
     if(!allCardsDownloadList.isEmpty())     this->updateProgressAllCardsDownload(code);
@@ -3675,16 +3131,6 @@ void MainWindow::spreadTransparency(Transparency newTransparency)
     deckHandler->setTransparency(
                 (this->deckWindow != nullptr && kindOfTransparent)?
                     Transparent:transparency);
-    enemyDeckHandler->setTransparency(
-                (this->enemyDeckWindow != nullptr && kindOfTransparent)?
-                    Transparent:transparency);
-    graveyardHandler->setTransparency(
-                (this->graveyardWindow != nullptr && kindOfTransparent)?
-                    Transparent:transparency);
-    enemyHandHandler->setTransparency(
-                (this->enemyWindow != nullptr && kindOfTransparent)?
-                    Transparent:transparency);
-    planHandler->setTransparency(transparency);
     arenaHandler->setTransparency(transparency);
     draftHandler->setTransparency(transparency);
     updateOtherTabsTransparency();
@@ -3891,15 +3337,7 @@ void MainWindow::fadeBarAndButtons(bool fadeOut)
 {
     if(fadeOut)
     {
-        bool inTabEnemy = ui->tabWidget->currentWidget() == ui->tabEnemy;
-        if(inTabEnemy && enemyHandHandler->isEmpty())
-        {
-            Utility::fadeInWidget(ui->tabWidget->tabBar());
-        }
-        else
-        {
-            Utility::fadeOutWidget(ui->tabWidget->tabBar());
-        }
+        Utility::fadeOutWidget(ui->tabWidget->tabBar());
         Utility::fadeOutWidget(ui->minimizeButton);
         Utility::fadeOutWidget(ui->closeButton);
         Utility::fadeOutWidget(ui->resizeButton);
@@ -3922,20 +3360,9 @@ void MainWindow::spreadTheme()
     updateTabIcons();
     arenaHandler->setTheme();
     deckHandler->setTheme();
-    rngCardHandler->setTheme();
     draftHandler->setTheme();
-    planHandler->setTheme();
-    graveyardHandler->setTheme();
-    enemyHandHandler->setTheme();
     deckHandler->redrawAllCards();
     draftHandler->redrawAllCards();
-    enemyDeckHandler->redrawAllCards();
-    graveyardHandler->redrawAllCards();
-    enemyHandHandler->redrawAllCards();
-    secretsHandler->redrawAllCards();
-    popularCardsHandler->redrawAllCards();
-    drawCardHandler->redrawAllCards();
-    rngCardHandler->redrawAllCards();
     resizeChecks();//Recoloca botones -X
     calculateMinimumWidth();//Si hay borde cambia el minimumWidth
 }
@@ -4257,18 +3684,6 @@ void MainWindow::spreadTamCard(int value)
         deckHandler->redrawAllCards();
     }
 
-    if(enemyDeckHandler != nullptr)    enemyDeckHandler->redrawAllCards();
-    if(graveyardHandler != nullptr)    graveyardHandler->redrawAllCards();
-    if(secretsHandler != nullptr)      secretsHandler->redrawAllCards();
-    if(popularCardsHandler != nullptr) popularCardsHandler->redrawAllCards();
-    if(drawCardHandler != nullptr)     drawCardHandler->redrawAllCards();
-    if(rngCardHandler != nullptr)      rngCardHandler->redrawAllCards();
-    if(enemyHandHandler != nullptr)
-    {
-        enemyHandHandler->redrawAllCards();
-        enemyHandHandler->redrawTotalAttack();
-    }
-
     if(draftHandler != nullptr)
     {
         draftHandler->updateTamCard();
@@ -4315,14 +3730,7 @@ void MainWindow::updateShowClassColor(bool checked)
 {
     DeckCard::setDrawClassColor(checked);
     deckHandler->redrawClassCards();
-    secretsHandler->redrawClassCards();
-    popularCardsHandler->redrawClassCards();
-    drawCardHandler->redrawClassCards();
-    rngCardHandler->redrawClassCards();
-    enemyHandHandler->redrawClassCards();
     draftHandler->redrawAllCards();
-    enemyDeckHandler->redrawClassCards();
-    graveyardHandler->redrawClassCards();
 }
 
 
@@ -4330,105 +3738,13 @@ void MainWindow::updateShowSpellColor(bool checked)
 {
     DeckCard::setDrawSpellWeaponColor(checked);
     deckHandler->redrawSpellWeaponCards();
-    secretsHandler->redrawSpellWeaponCards();
-    popularCardsHandler->redrawSpellWeaponCards();
-    drawCardHandler->redrawSpellWeaponCards();
-    rngCardHandler->redrawSpellWeaponCards();
-    enemyHandHandler->redrawSpellWeaponCards();
     draftHandler->redrawAllCards();
-    enemyDeckHandler->redrawSpellWeaponCards();
-    graveyardHandler->redrawSpellWeaponCards();
 }
 
 
 void MainWindow::updateShowManaLimits(bool checked)
 {
     deckHandler->setShowManaLimits(checked);
-}
-
-
-//Valores drawDisappear:
-//  -1  No show
-//  0   Turn
-//  n   Ns
-void MainWindow::updateTimeDraw(int value)
-{
-    //Slider            0  - Ns - 11
-    //DrawDissapear     -1 - Ns - 0
-
-    QString labelText;
-
-    switch(value)
-    {
-        case 0:
-            this->drawDisappear = -1;
-            labelText = "Off";
-            break;
-        case 11:
-            this->drawDisappear = 0;
-            labelText = "Turn";
-            break;
-        default:
-            this->drawDisappear = value;
-            labelText = QString::number(value) + "s";
-            break;
-    }
-
-    ui->configLabelDrawTimeValue->setText(labelText);
-    ui->configSliderDrawTime->setToolTip(labelText);
-
-    drawCardHandler->setDrawDisappear(this->drawDisappear);
-}
-
-
-void MainWindow::updatePopularCardsShown(int value)
-{
-    QString labelText;
-    QString tooltipText;
-
-    switch(value)
-    {
-        case 0:
-            tooltipText = labelText = "Off";
-            break;
-        case 11:
-            tooltipText = labelText = "All";
-            tooltipText = labelText + " cards";
-            break;
-        default:
-            labelText = QString::number(value);
-            tooltipText = labelText + " cards";
-            break;
-    }
-
-    ui->configLabelPopularValue->setText(labelText);
-    ui->configSliderPopular->setToolTip(tooltipText);
-
-    popularCardsHandler->setPopularCardsShown(value);
-}
-
-
-void MainWindow::updateShowTotalAttack(bool checked)
-{
-    enemyHandHandler->setShowAttackBar(checked);
-}
-
-
-void MainWindow::updateShowRngList(bool checked)
-{
-    rngCardHandler->setShowRngList(checked);
-}
-
-
-void MainWindow::updateShowSecrets(bool checked)
-{
-    secretsHandler->setShowSecrets(checked);
-}
-
-
-void MainWindow::updateShowWildSecrets(bool checked)
-{
-    secretsHandler->setShowWildSecrets(checked);
 }
 
 
@@ -4668,12 +3984,6 @@ void MainWindow::completeConfigTab()
     ui->configSliderPopular->hide();
     ui->configCheckRngList->hide();
     ui->configCheckWildSecrets->hide();
-    connect(ui->configSliderDrawTime, SIGNAL(valueChanged(int)), this, SLOT(updateTimeDraw(int)));
-    connect(ui->configSliderPopular, SIGNAL(valueChanged(int)), this, SLOT(updatePopularCardsShown(int)));
-    connect(ui->configCheckTotalAttack, SIGNAL(clicked(bool)), this, SLOT(updateShowTotalAttack(bool)));
-    connect(ui->configCheckRngList, SIGNAL(clicked(bool)), this, SLOT(updateShowRngList(bool)));
-    connect(ui->configCheckSecrets, SIGNAL(clicked(bool)), this, SLOT(updateShowSecrets(bool)));
-    connect(ui->configCheckWildSecrets, SIGNAL(clicked(bool)), this, SLOT(updateShowWildSecrets(bool)));
 
     //Draft
     ui->configBoxDraftMechanics->hide();
@@ -5180,99 +4490,6 @@ void MainWindow::saveHearthArenaTierlistOriginal(const QByteArray &html)
 }
 
 
-void MainWindow::testGraveyard()
-{
-    graveyardHandler->playerCardGraveyard(1, "RLK_503");
-    graveyardHandler->playerCardGraveyard(2, "RLK_038");
-    graveyardHandler->enemyCardGraveyard(1, "RLK_503");
-    graveyardHandler->enemyCardGraveyard(2, "RLK_038");
-}
-
-
-void MainWindow::testEnemyHand()
-{
-    enemyHandHandler->setLastCreatedByCode("KAR_076");
-    enemyHandHandler->showEnemyCardDraw(1, 1, true, "KAR_076");
-    enemyHandHandler->showEnemyCardDraw(2, 2, false, "");
-    enemyHandHandler->showEnemyCardDraw(3, 3, false, "");
-    enemyHandHandler->showEnemyCardDraw(4, 4, true, "");
-    enemyHandHandler->buffHandCard(3);
-    enemyHandHandler->forgeHandCard(2);
-}
-
-
-void MainWindow::testPlan()
-{
-    QStringList arenaCodes = Utility::getAllArenaCodes();
-    draftHandler->getSynergyHandler()->initSynergyCodes(arenaCodes, true);
-
-    planHandler->playerMinionZonePlayAdd("AT_003", 1, 1);
-    planHandler->enemyMinionZonePlayAdd("AT_042t2", 2, 1);
-    planHandler->playerMinionZonePlayAdd("CS1_042", 3, 1);
-    planHandler->playerMinionZonePlayAdd("CS1_042", 5, 1);
-    planHandler->playerMinionZonePlayAdd("AT_096", 6, 1);
-    planHandler->playerMinionZonePlayAdd("CFM_325", 7, 1);
-    planHandler->playerMinionZonePlayAdd("TSC_007", 8, 1);
-    planHandler->playerBoardTagChange(8, "TSC_007", "DORMANT", "1");
-    planHandler->playerMinionZonePlayAdd("REV_333", 9, 1);
-    // planHandler->playerBoardTagChange(8, "TSC_007", "DORMANT", "1");
-    planHandler->enemyMinionZonePlayAdd("EX1_020", 4, 1);
-    planHandler->enemyMinionZonePlayAdd(FLAMEWAKER, 7, 1);
-    planHandler->playerHeroZonePlayAdd("HERO_08", 11);
-    planHandler->enemyHeroZonePlayAdd("HERO_09", 12);
-    planHandler->playerHeroPowerZonePlayAdd("CS1h_001", 13);
-    planHandler->enemyHeroPowerZonePlayAdd("CS1h_001", 14);
-
-    planHandler->newTurn(true, 1);
-//    planHandler->playerCardDraw(21, MAD_BOMBER,2);
-    planHandler->playerCardDraw(24, VOLCANO,2);
-//    planHandler->playerCardDraw(41, MASK_OF_CTHUN,2);
-//    planHandler->playerCardDraw(22, GREATER_ARCANE_MISSILES,2);
-    planHandler->playerCardDraw(21, RENO_THE_RELICOLOGIST,2);
-//    planHandler->playerCardDraw(23, GOBLIN_BLASTMAGE,2);
-//    planHandler->playerCardDraw(44, CANNON_BARRAGE,2);
-//    planHandler->playerCardDraw(45, DARK_SKIES,2);
-    planHandler->playerCardDraw(46, "RLK_015",2);
-    planHandler->zonePlayAttack("AT_003",1,2);
-    planHandler->zonePlayAttack("AT_003",3,2);
-    planHandler->zonePlayAttack("AT_003",11,4);
-    planHandler->playerSecretPlayed(25, "EX1_611");
-    planHandler->playerSecretPlayed(26, "EX1_594");
-    planHandler->playerSecretPlayed(27, "EX1_294");
-    planHandler->playerSecretPlayed(28, "EX1_130");
-    planHandler->enemySecretPlayed(29, MAGE);
-
-    planHandler->newTurn(false, 2);
-    planHandler->enemyMinionZonePlayAdd("AT_007", 5, 1);
-    planHandler->zonePlayAttack("AT_003",12,11);
-    planHandler->zonePlayAttack("AT_003",12,11);
-    planHandler->setLastTriggerId("", "FATIGUE", 0, 0);
-    planHandler->playerBoardTagChange(11, "", "DAMAGE", "1");
-    planHandler->enemyCardObjPlayed("EX1_020", 4, 1);
-    planHandler->setLastTriggerId("CS2_034", "TRIGGER", 134, -1);
-    planHandler->playerBoardTagChange(1, "","DAMAGE", "1");
-//    planHandler->playerMinionTagChange(93, "BRM_027h", "LINKED_ENTITY", "11");
-    planHandler->playerMinionZonePlayRemove(1);
-    planHandler->playerMinionZonePlayRemove(3);
-    planHandler->enemyCardDraw(22, "AT_003", "",2);
-    planHandler->enemyCardDraw(23, "CS1_042", "",2);
-    planHandler->enemyCardDraw(21, "", "",2);
-    planHandler->enemyCardDraw(21, "", "",32);
-    planHandler->enemyCardDraw(24, "AT_002", "",2);
-    planHandler->playerSecretRevealed(25, "EX1_611");
-    planHandler->playerSecretRevealed(26, "EX1_594");
-    planHandler->playerSecretRevealed(27, "EX1_294");
-    planHandler->playerSecretRevealed(28, "EX1_130");
-
-    planHandler->newTurn(true, 3);
-    planHandler->enemyIsolatedSecret(29, "EX1_136");
-    planHandler->enemySecretPlayed(30, MAGE);
-    planHandler->playerTagChange("RESOURCES", "10");
-    planHandler->playerWeaponZonePlayAdd("RLK_012", 31);
-    planHandler->playerTagChange("CORPSES", "18");
-}
-
-
 void MainWindow::testArenaGames()
 {
     GameResult gameResult;
@@ -5384,29 +4601,6 @@ void MainWindow::downloadHeroPortrait(QString code)
             heroImage.save(heroDir + "/" + code + ".png", "png");
         }
     );
-}
-
-
-void MainWindow::testSecretsHSR(LoadingScreenState loadingScreenState)
-{
-    secretsHandler->secretPlayed(1, PALADIN, loadingScreenState);
-    secretsHandler->secretPlayed(2, HUNTER, loadingScreenState);
-    secretsHandler->secretPlayed(3, ROGUE, loadingScreenState);
-    secretsHandler->secretPlayed(4, MAGE, loadingScreenState);
-}
-
-
-void MainWindow::testPopularList(int i)
-{
-    //Comentar !inArena en PopularCardsHandler::showPopularCards()
-    popularCardsHandler->setEnemyClass("02");
-    popularCardsHandler->newTurn(true, i);
-    qDebug()<<"TEST POPULAR!!!";
-    if(i<10)
-    {
-        QTimer::singleShot(2000, this, [=] () {
-            testPopularList(i+2);});
-    }
 }
 
 
@@ -5642,14 +4836,10 @@ void MainWindow::testDelay()
 
 
     // testDraft();
-    // QTimer::singleShot(5000, this, [=] () {testSecretsHSR(arena); }); //320) lang = "enUS";
     // Utility::mergeHSRwithFireCards();
     // Utility::checkMissingGoldenCards();
-    // QTimer::singleShot(15000, this, SLOT(testPopularList()));
 
     // testArenaGames();
-    // testPlan();
-    // testEnemyHand();
 }
 
 
@@ -5811,7 +5001,6 @@ void MainWindow::testDelay()
 // });
 
 
-
 //REPLAY BUGS
 //Mandar a pending tag changes durante 5 segundos, carta robada por mana blind no se pone a 0 mana. Aceptable
 
@@ -5861,11 +5050,7 @@ void MainWindow::testDelay()
 //UNTIMELY_DEATH secret deberia descartarse solo si el minion muerto fue jugado el turno pasado, pero se descarta incluso si fue jugado anteriormente.
 
 
-
 //TODO
 //Manual
-
-
-
 
 

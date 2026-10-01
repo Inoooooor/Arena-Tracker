@@ -1141,7 +1141,7 @@ draft mechanics becoming a patron (3€).</string>
            </layout>
           </item>
           <item>
-           <widget class="PlanGraphicsView" name="planGraphicsView">
+           <widget class="QGraphicsView" name="planGraphicsView">
             <property name="frameShape">
              <enum>QFrame::NoFrame</enum>
             </property>
@@ -2530,11 +2530,6 @@ on a new score under each card.</string>
    <class>MoveTreeWidget</class>
    <extends>QTreeWidget</extends>
    <header>Sources/Widgets/movetreewidget.h</header>
-  </customwidget>
-  <customwidget>
-   <class>PlanGraphicsView</class>
-   <extends>QGraphicsView</extends>
-   <header>Sources/Widgets/plangraphicsview.h</header>
   </customwidget>
   <customwidget>
    <class>EnemyRanking</class>

@@ -4,7 +4,6 @@
 #include "Widgets/ui_extended.h"
 #include "Cards/deckcard.h"
 #include "utility.h"
-#include "enemydeckhandler.h"
 #include <QObject>
 #include <QMap>
 #include <QSignalMapper>
@@ -16,7 +15,7 @@ class DeckHandler : public QObject
     Q_OBJECT
 
 public:
-    DeckHandler(QObject *parent, Ui::Extended *ui, EnemyDeckHandler *enemyDeckHandler);
+    DeckHandler(QObject *parent, Ui::Extended *ui);
     ~DeckHandler();
 
 //Variables
@@ -31,7 +30,6 @@ private:
     bool showManaLimits;
     QTreeWidgetItem *loadDeckClasses[NUM_HEROS + 1];
     QMap<QString, QTreeWidgetItem *> loadDeckItemsMap;
-    EnemyDeckHandler *enemyDeckHandler;
     QString lastCreatedByCode;
     //Nos permite saber el code de las starting cards para devolverlas al deck durante el mulligan.
     //Tb permite identificar cartas originales de nuestro deck de outsiders
@@ -62,7 +60,6 @@ private:
     bool newDeck(bool reset, bool askSave = true);
     void importDeckString();
     void importDeckString(QString deckString);
-    void importEnemyDeck();
     void hideUnknown(bool hidden = true);
     QString getCodeFromDraftLogLine(QString line);
     void updateManaLimits();
@@ -141,7 +138,6 @@ private slots:
     void newEmptyDeck();
     void newCopyCurrentDeck();
     void newImportDeckString();
-    void newCopyEnemyDeck();
     void hideIfDeckSelected();
     void cardTotalPlus(QListWidgetItem *item);
     void exportDeckString();

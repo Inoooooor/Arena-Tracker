@@ -4,7 +4,9 @@
 #include "Widgets/ui_extended.h"
 #include "gamewatcher.h"
 #include "deckhandler.h"
-#include "planhandler.h"
+#include "Widgets/ui_extended.h"
+#include "synergyhandler.h"
+#include "utility.h"
 #include "qnetworkaccessmanager.h"
 #include <QObject>
 #include <QTreeWidgetItem>
@@ -34,13 +36,12 @@ class ArenaHandler : public QObject
 {
     Q_OBJECT
 public:
-    ArenaHandler(QObject *parent, DeckHandler *deckHandler, PlanHandler *planHandler, Ui::Extended *ui);
+    ArenaHandler(QObject *parent, DeckHandler *deckHandler, Ui::Extended *ui);
     ~ArenaHandler();
 
 //Variables
 private:
     DeckHandler *deckHandler;
-    PlanHandler *planHandler;
     Ui::Extended *ui;
     QTreeWidgetItem *arenaCurrent;
     QTreeWidgetItem *rankedTreeItem[NUM_HEROS];

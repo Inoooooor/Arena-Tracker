@@ -6,22 +6,13 @@
 #include "logloader.h"
 #include "gamewatcher.h"
 #include "hscarddownloader.h"
-#include "enemydeckhandler.h"
-#include "graveyardhandler.h"
 #include "deckhandler.h"
-#include "enemyhandhandler.h"
-#include "planhandler.h"
 #include "arenahandler.h"
-#include "secretshandler.h"
-#include "popularcardshandler.h"
-#include "drawcardhandler.h"
-#include "rngcardhandler.h"
 #include "drafthandler.h"
 #include "trackobotuploader.h"
 #include "premiumhandler.h"
 #include "Widgets/cardwindow.h"
 #include "Widgets/mascotwindow.h"
-#include "Widgets/cardlistwindow.h"
 #include <QMainWindow>
 #include <QPointer>
 #include <QJsonObject>
@@ -75,19 +66,10 @@ private:
     GameWatcher *gameWatcher;
     HSCardDownloader *cardDownloader;
     WinratesDownloader *winratesDownloader;
-    EnemyDeckHandler *enemyDeckHandler;
-    GraveyardHandler *graveyardHandler;
-    DrawCardHandler *drawCardHandler;
-    RngCardHandler *rngCardHandler;
     DeckHandler *deckHandler;
-    EnemyHandHandler *enemyHandHandler;
-    PlanHandler *planHandler;
     ArenaHandler *arenaHandler;
-    SecretsHandler *secretsHandler;
-    PopularCardsHandler *popularCardsHandler;
     DraftHandler * draftHandler;
     CardWindow *cardWindow;
-    CardListWindow *cardListWindow;
     TrackobotUploader *trackobotUploader;
     PremiumHandler *premiumHandler;
     QMap<QString, QJsonObject> cardsJson;
@@ -136,18 +118,9 @@ private:
     void createCardWindow();
     static QColor mascotRarityColor(const QString &code);
     static QStringList mascotGoodLuckLines();
-    void createCardListWindow();
     void createCardDownloader();
     void createWinratesDownloader();
-    void createEnemyDeckHandler();
-    void createGraveyardHandler();
-    void createDrawCardHandler();
-    void createRngCardHandler();
     void createDeckHandler();
-    void createEnemyHandHandler();
-    void createPlanHandler();
-    void createSecretsHandler();
-    void createPopularCardsHandler();
     void createDraftHandler();
     void createVersionChecker();
     void createTrackobotUploader();
@@ -283,25 +256,18 @@ public slots:
 
 private slots:
     void test();
-    void testEnemyHand();
-    void testGraveyard();
-    void testPlan();
     void testArenaGames();
     void testDelay();
     void testSynergies();
     void testHeroPortraits();
     void downloadHeroPortrait(QString code);
     void testDownloadRotation(bool fromHearth, const QString &miniSet="");
-    void testSecretsHSR(LoadingScreenState loadingScreenState);
-    void testPopularList(int i=2);
     void testDraft();
     void confirmNewArenaDraft(QString hero);
     void transparentAlways();
     void transparentAuto();
     void transparentNever();
     void transparentFramed();
-    void updateTimeDraw(int value);
-    void updatePopularCardsShown(int value);
     void updateTamCard(int value);
     void updateShowDraftScoresOverlay(bool checked);
     void updateShowDraftMechanicsOverlay(bool checked);
@@ -332,11 +298,6 @@ private slots:
     void spreadCorrectTamCard();
     void completeArenaDeck();
     void changingTabResetSizePlan();
-    void resetSizePlan();
-    void updateShowTotalAttack(bool checked);
-    void updateShowRngList(bool checked);
-    void updateShowSecrets(bool checked);
-    void updateShowWildSecrets(bool checked);
     void setLocalLang();
     void replyFinished(QNetworkReply *reply);
     void checkLinuxShortcut();
@@ -353,14 +314,12 @@ private slots:
     void createDetachWindow(int index, const QPoint &dropPoint);
     void createDetachWindow(QWidget *paneWidget, const QPoint& dropPoint = QPoint());
     void closedDetachWindow(DetachWindow *detachWindow, QWidget *paneWidget);
-    void swapSizePlan(bool sizePlan);
     void calculateMinimumWidth();
     void changingTabUpdateDraftSize();
     void setPremium(bool premium);
     void twitchTesterConnectionOk(bool ok, bool setup = true);
     void updateTwitchChatVotes(bool checked);
     void configureTwitchDialogs();
-    void processPopularCardsHandlerPickrates(QMap<QString, float> *hsrPickratesMap);
     void openUserGuide();
     void spreadDraftMethod();
     void spreadDraftAvg(QString draftAvg);

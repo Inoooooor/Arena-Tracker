@@ -9,11 +9,10 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QtWidgets>
 
-ArenaHandler::ArenaHandler(QObject *parent, DeckHandler *deckHandler, PlanHandler *planHandler,
+ArenaHandler::ArenaHandler(QObject *parent, DeckHandler *deckHandler,
                            Ui::Extended *ui) : QObject(parent)
 {
     this->deckHandler = deckHandler;
-    this->planHandler = planHandler;
     this->ui = ui;
     this->transparency = Opaque;
     this->mouseInApp = false;
