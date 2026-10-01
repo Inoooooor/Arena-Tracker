@@ -33,6 +33,7 @@ public:
 
 //Variables
 private:
+    bool hearthstoneRestartNeeded = false;
     QString logsDirPath, logConfig, recentLogDir;
     QMap<QString, LogWorker *>logWorkerMap;
     QList<QString> logComponentList;
@@ -66,6 +67,7 @@ private:
     void removeOldLogDirs(QStringList logs);
 
 public:
+    bool isHearthstoneRestartNeeded();
     bool init();
     QString getLogConfigPath();
     QString getRecentLogDir();

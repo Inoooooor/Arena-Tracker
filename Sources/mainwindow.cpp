@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #ifdef Q_OS_MAC
 #include "Utils/macwindow.h"
+#include "Utils/macocr.h"
 #endif
 #include "Widgets/ui_extended.h"
 #include "utility.h"
@@ -1821,7 +1822,33 @@ QStringList MainWindow::mascotGoodLuckLines()
 //Once the logs are caught up: the tracker may start in the middle of a draft or a run
 void MainWindow::mascotGreeting()
 {
-    if(draftHandler->isRedrafting())
+    bool hearthstoneRunning = true;
+#ifdef Q_OS_MAC
+    hearthstoneRunning = !MacOcr::hearthstoneWindowRect().isNull();
+#endif
+    bool screenRecording = true;
+#ifdef Q_OS_MAC
+    screenRecording = MacWindow::hasScreenRecording();
+    if(!screenRecording)    MacWindow::requestScreenRecording();
+#endif
+    //Without it the mascot sees no draft: asked first. Stays until something else is said.
+    if(!screenRecording)
+    {
+        mascotWindow->setMood(MascotWindow::Sweat);
+        //The log settings written now aren't checked again at the next start: Hearthstone's restart is asked here too
+        QString line = "I can't see your screen yet. Allow me in System Settings > Privacy & Security > "
+                       "Screen Recording, then restart me.";
+        if(logLoader->isHearthstoneRestartNeeded() && hearthstoneRunning)
+            line += " Restart Hearthstone too, so I can read its logs.";
+        mascotWindow->say(line);
+    }
+    //First run with Hearthstone already open: it only logs after a restart. Stays until something else is said.
+    else if(logLoader->isHearthstoneRestartNeeded() && hearthstoneRunning)
+    {
+        mascotWindow->setMood(MascotWindow::Sweat);
+        mascotWindow->say("First time here? Restart Hearthstone so I can read its logs. I'll wait.");
+    }
+    else if(draftHandler->isRedrafting())
     {
         mascotWindow->setMood(MascotWindow::Smile);
         mascotWindow->say(mascotPick({"Redraft time! Let's patch this deck up.",
@@ -2203,8 +2230,9 @@ void MainWindow::mascotEndGame(bool playerWon, bool playerUnknown)
         mascotWindow->setMood(MascotWindow::Idle);
         return;
     }
-    //In the arena mascotArenaRecord says it with the run's record, right after
     mascotWindow->setMood(playerWon ? MascotWindow::Happy : MascotWindow::Sweat);
+    //In the arena mascotArenaRecord says it with the run's record, a bit later: two lines for one game otherwise
+    if(getLoadingScreen() == arena)     return;
     mascotWindow->say(playerWon ? mascotPick({"GG! Told you that deck was good.", "Nice one! As I calculated."})
                                 : mascotPick({"Unlucky. RNG hates us today.", "Shake it off. Next one's ours."}), 8000);
 }

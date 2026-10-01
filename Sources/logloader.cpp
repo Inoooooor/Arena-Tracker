@@ -227,8 +227,9 @@ bool LogLoader::readLogsDirPath()
             stream << "[Log]" << Qt::endl;
             stream << "FileSizeLimit.Int=-1" << Qt::endl;
 
-            QMessageBox::information(static_cast<QWidget*>(this->parent()), tr("Hearthstone restart"),
-                                     tr("Restart Hearthstone if it's already running."));
+            //The mascot asks for it (MainWindow::mascotGreeting): a dialog here blocked the startup
+            emit pDebug("Hearthstone restart needed (client.config created).");
+            hearthstoneRestartNeeded = true;
         }
     }
     return true;
@@ -311,9 +312,25 @@ QString LogLoader::createDefaultLogConfig()
         {
             return initPath;
         }
+#ifdef Q_OS_MAC
+        //Hearthstone never started on this account yet: its settings dir is created, instead of asking for a file
+        //that doesn't exist. The game reads log.config from there when it starts.
+        if(QDir().mkpath(hsDir))
+        {
+            emit pDebug("Created Hearthstone settings dir: " + hsDir);
+            return initPath;
+        }
+#endif
     }
 
     return "";
+}
+
+
+//Hearthstone was running when its log settings were written: it logs nothing until restarted
+bool LogLoader::isHearthstoneRestartNeeded()
+{
+    return hearthstoneRestartNeeded;
 }
 
 
@@ -344,8 +361,8 @@ bool LogLoader::checkLogConfig()
 
     if(logConfigChanged)
     {
-        QMessageBox::information(static_cast<QWidget*>(this->parent()), tr("Hearthstone restart"),
-                                 tr("Restart Hearthstone if it's already running."));
+        emit pDebug("Hearthstone restart needed (log.config changed).");
+        hearthstoneRestartNeeded = true;
     }
 
     return true;

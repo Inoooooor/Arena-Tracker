@@ -1075,7 +1075,8 @@ ulong Utility::findTemplateOnScene(const QString &templateImage, const SceneFeat
     //-- Get the corners from the image_1 ( the object to be "detected" )
     cv::transform(templatePoints, targetPoints, A);
 
-    //Show matches
+    //Show matches (debug only: highgui isn't linked in the macOS bundle)
+#if DEBUG_SHOW_MATCHES
     if(showMatches)
     {
         Mat img_matches;
@@ -1084,6 +1085,9 @@ ulong Utility::findTemplateOnScene(const QString &templateImage, const SceneFeat
                      vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
         imshow( "Good Matches & Object detection", img_matches );
     }
+#else
+    (void)showMatches;
+#endif
 
     return goodMatches;
 }

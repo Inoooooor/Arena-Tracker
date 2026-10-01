@@ -17,6 +17,18 @@ extern "C" int CGSMainConnectionID(void);
 extern "C" CGError CGSSetConnectionProperty(int connection, int targetConnection, CFStringRef key, CFTypeRef value);
 
 
+bool MacWindow::hasScreenRecording()
+{
+    return CGPreflightScreenCaptureAccess();
+}
+
+
+void MacWindow::requestScreenRecording()
+{
+    CGRequestScreenCaptureAccess();
+}
+
+
 void MacWindow::setCursorNow(Qt::CursorShape shape)
 {
     static bool backgroundCursor = false;

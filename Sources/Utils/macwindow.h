@@ -19,6 +19,11 @@ namespace MacWindow
 
     //Sets the cursor right away, even while another app (Hearthstone) is the active one
     void setCursorNow(Qt::CursorShape shape);
+
+    //Screen Recording permission, without which the draft can't be seen. The request shows the system
+    //prompt once; granting it takes effect after a restart of the app.
+    bool hasScreenRecording();
+    void requestScreenRecording();
 }
 
 

@@ -12,7 +12,14 @@ TEMPLATE = app
 QT_CONFIG -= no-pkg-config
 
 CONFIG += link_pkgconfig
-packagesExist(opencv5): PKGCONFIG += opencv5
+macx:packagesExist(opencv5) {
+    #Only the modules used: pkg-config links all of them, and the app bundle would carry them (and their
+    #dependencies: video codecs, VTK...) for nothing
+    QMAKE_CXXFLAGS += $$system(pkg-config --cflags opencv5)
+    LIBS += -L$$system(pkg-config --variable=libdir opencv5) \
+            -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_features -lopencv_geometry -lopencv_flann
+}
+else: packagesExist(opencv5): PKGCONFIG += opencv5
 else: packagesExist(opencv4): PKGCONFIG += opencv4
 else: PKGCONFIG += opencv
 PKGCONFIG += libzip
@@ -189,6 +196,7 @@ linux{
 win32: RC_ICONS = ArenaTracker.ico
 macx{
     ICON = ArenaTracker.icns
+    QMAKE_TARGET_BUNDLE_PREFIX = com.inoooooor
     LIBS += -liconv
     OBJECTIVE_SOURCES += Sources/Utils/macocr.mm Sources/Utils/macwindow.mm
     HEADERS  += Sources/Utils/macocr.h Sources/Utils/macwindow.h
