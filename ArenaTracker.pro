@@ -26,15 +26,6 @@ PKGCONFIG += libzip
 LIBS += -lz
 
 SOURCES += Sources/main.cpp\
-    Sources/Cards/synergycard.cpp \
-    Sources/Cards/synergyweightcard.cpp \
-    Sources/Synergies/cardtypecounter.cpp \
-    Sources/Synergies/draftdropcounter.cpp \
-    Sources/Synergies/keysynergies.cpp \
-    Sources/Synergies/layeredsynergies.cpp \
-    Sources/Synergies/mechaniccounter.cpp \
-    Sources/Synergies/racecounter.cpp \
-    Sources/Synergies/schoolcounter.cpp \
     Sources/mainwindow.cpp \
     Sources/logloader.cpp \
     Sources/logworker.cpp \
@@ -63,28 +54,13 @@ SOURCES += Sources/main.cpp\
     Sources/Utils/deckstringhandler.cpp \
     Sources/themehandler.cpp \
     Sources/Utils/libzippp.cpp \
-    Sources/synergyhandler.cpp \
-    Sources/Synergies/draftitemcounter.cpp \
-    Sources/Synergies/statsynergies.cpp \
-    Sources/Widgets/hoverlabel.cpp \
-    Sources/Widgets/draftmechanicswindow.cpp \
     Sources/Utils/hdimages.cpp \
     Sources/Utils/hdicons.cpp \
     Sources/detachwindow.cpp \
-    Sources/Widgets/lavabutton.cpp \
     Sources/Widgets/draftherowindow.cpp \
     Sources/winratesdownloader.cpp
 
 HEADERS  += Sources/mainwindow.h \
-    Sources/Cards/synergycard.h \
-    Sources/Cards/synergyweightcard.h \
-    Sources/Synergies/cardtypecounter.h \
-    Sources/Synergies/draftdropcounter.h \
-    Sources/Synergies/keysynergies.h \
-    Sources/Synergies/layeredsynergies.h \
-    Sources/Synergies/mechaniccounter.h \
-    Sources/Synergies/racecounter.h \
-    Sources/Synergies/schoolcounter.h \
     Sources/logloader.h \
     Sources/logworker.h \
     Sources/gamewatcher.h \
@@ -114,16 +90,9 @@ HEADERS  += Sources/mainwindow.h \
     Sources/Utils/deckstringhandler.h \
     Sources/themehandler.h \
     Sources/Utils/libzippp.h \
-    Sources/synergyhandler.h \
-    Sources/Synergies/draftitemcounter.h \
-    Sources/Synergies/statsynergies.h \
-    Sources/Widgets/hoverlabel.h \
-    Sources/Widgets/draftmechanicswindow.h \
-    Sources/Widgets/webenginepage.h \
     Sources/Utils/hdimages.h \
     Sources/Utils/hdicons.h \
     Sources/detachwindow.h \
-    Sources/Widgets/lavabutton.h \
     Sources/Widgets/draftherowindow.h \
     Sources/winratesdownloader.h
 

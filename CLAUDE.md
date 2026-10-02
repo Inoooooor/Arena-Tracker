@@ -39,13 +39,13 @@ Debug toggles (compile-time) are the `DEBUG_*` defines in `Sources/utility.h`.
 1. `LogLoader` finds the HS logs dir and creates one `LogWorker` per component (`LoadingScreen`, `Power`, `Zone`, `Arena`, `Asset`), each tailing its log file.
 2. Lines are optionally merged/sorted across components by timestamp (`sortLogs`) and emitted as `newLogLineRead(LogComponent, line, ...)`.
 3. `GameWatcher` parses lines with regexes (`processPower`, `processZone`, `processArena`, ...) and emits high-level signals (`newArena`, `startGame`, `playerCardDraw`, `enemySecretPlayed`, `playerMinionZonePlayAdd`, ...).
-4. Feature handlers consume those signals: `DeckHandler`, `EnemyHandHandler`, `EnemyDeckHandler`, `SecretsHandler`, `PlanHandler` (board replay), `ArenaHandler` (run results/winrates), `GraveyardHandler`, `DrawCardHandler`, `RngCardHandler`, `PopularCardsHandler`.
+4. Handlers consume those signals: `DeckHandler` (the drafted deck, synced with Hearthstone's deck snapshots), `DraftHandler`, `ArenaHandler` (the run record in `ArenaTrackerStats.json`) and the mascot reactions in `MainWindow`.
 
-**Drafting:** `DraftHandler` (largest file) screen-captures the draft, locates card slots via template images in `Extra/*Template*.png`, and identifies cards by OpenCV histogram comparison against downloaded card images. On macOS it first reads each card's name banner with Apple Vision (`Sources/Utils/macocr.mm`, `DraftHandler::readCardNames`) and fuzzy-matches it against `cardsNameMap`; a matched name overrides the histogram (needed for animated golden cards). It scores picks from two sources (`DraftMethod`/`ScoreSource` enums: HearthArena tier list and Firestone winrates via `WinratesDownloader`) and owns `SynergyHandler`, which uses the counters in `Sources/Synergies/` driven by per-card synergy tags.
+**Drafting:** `DraftHandler` (largest file) screen-captures the draft, locates card slots via template images in `Extra/*Template*.png`, and identifies cards by OpenCV histogram comparison against downloaded card images. On macOS it first reads each card's name banner with Apple Vision (`Sources/Utils/macocr.mm`, `DraftHandler::readCardNames`) and fuzzy-matches it against `cardsNameMap`; a matched name overrides the histogram (needed for animated golden cards). It scores picks from two sources (`DraftMethod`/`ScoreSource` enums: HearthArena tier list and Firestone winrates via `WinratesDownloader`), combined by `PickRating` into the hands on the plates and the mascot's advice.
 
-**Premium gating:** `PremiumHandler` emits `setPremium(bool)` to most handlers; premium status is tied to the Track-o-Bot account (`TrackobotUploader`) checked against `Premium/premium.json`.
+**UI:** the user sees only `MascotWindow` (the mascot and its speech bubble), the draft overlays (`DraftScoreWindow` with the `ScorePlate`s under the cards, `DraftHeroWindow` on the hero choice) and `SplashWindow`. The old main window (`mainwindow.ui`, tabs, config, `ThemeHandler` defaults) is still created but never shown (`OLD_TRACKER_WINDOWS` is off in `utility.h`).
 
-**Card model:** Card data comes from HearthstoneJSON `cards.json` (cached); card metadata lookups are static helpers in `Utility`. Card-ID constants (secrets, special cards) are in `Sources/constants.h`. `Sources/Cards/` holds UI list-item card types (DeckCard base, with Draft/Hand/Secret/Synergy/etc. subclasses).
+**Card model:** Card data comes from HearthstoneJSON `cards.json` (cached); card metadata lookups are static helpers in `Utility`. Card-ID constants (secrets, special cards) are in `Sources/constants.h`. `Sources/Cards/` holds the card list-item types (`DeckCard`, `DraftCard`).
 
 **Settings/storage:** `QSettings("Arena Tracker", "Arena Tracker")`; user data dir is `~/Arena Tracker` (Win/Mac) or `~/.local/share/Arena Tracker` (Linux).
 
@@ -55,13 +55,10 @@ The installed app downloads data directly from this repo's `master` branch via `
 
 - `Version/version.json` — latest version + download URLs; `versionFree` lists versions allowed without premium.
 - `Arena/arenaVersion.json` — current arena card sets, `trustHA`, reset counters.
-- `Synergies/synergies.json` (card ID → list of synergy/mechanic tags; tags must be ones the `Synergies/` counters recognize) + `synergiesVersion.json`.
 - `HearthArena/hearthArena.json` + `haVersion.json`, `LightForge/`, `CardsJson/`, `Extra/`, `Images/`, `HearthstoneCards/`, `HearthstoneSignatureCards/`, `Premium/premium.json`.
 
 Clients only re-download a JSON when its companion `*Version.json` number increases — bump the version number whenever the data file changes.
 
 `tools/update_data.py` refreshes cards.json, arena sets, card images and the HearthArena tier list (bumping the versions). `.github/workflows/update-data.yml` runs it on the 1st and 15th of each month (or manually from the Actions tab) and opens a "Data update" pull request.
-
-Synergy tags (`Synergies/synergies.json`) are not automated: the script only warns (at the top of the PR) about arena cards missing from it. Tag them by hand from each card's text, using the suggestions of `SynergyHandler::debugSynergiesCode` and the tags of similar existing cards; only tags accepted by `SynergyHandler::isValidSynergyCode` are valid. Add new entries just before `"DIRECT_LINKS":`, one line per card, and bump `synergiesVersion.json`. Don't add partial entries: a card listed in the file loses the app's heuristic fallback tags.
 
 

@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "Widgets/scorebutton.h"
 #ifdef Q_OS_MAC
 #include "Utils/macwindow.h"
 #include "Utils/macocr.h"
@@ -40,7 +41,6 @@ MainWindow::MainWindow(QWidget *parent) :
     initCardsJson();
     downloadArenaVersion();
     downloadHearthArenaVersion();
-    downloadSynergiesVersion();
     downloadExtraFiles();
 
     HDImages::create(this);
@@ -430,19 +430,6 @@ void MainWindow::replyFinished(QNetworkReply *reply)
             pDebug("Extra: Json HearthArena --> Download Success.");
             QByteArray jsonData = reply->readAll();
             Utility::dumpOnFile(jsonData, Utility::extraPath() + "/hearthArena.json");
-        }
-        //Synergies version
-        else if(endUrl == "synergiesVersion.json")
-        {
-            int synergiesVersion = QJsonDocument::fromJson(reply->readAll()).object().value("synergiesVersion").toInt();
-            downloadSynergiesJson(synergiesVersion);
-        }
-        //Synergies json
-        else if(endUrl == "synergies.json")
-        {
-            pDebug("Extra: Json synergies --> Download Success.");
-            QByteArray jsonData = reply->readAll();
-            Utility::dumpOnFile(jsonData, Utility::extraPath() + "/synergies.json");
         }
         //Extra files
         else
@@ -879,11 +866,9 @@ void MainWindow::createGameWatcher()
     connect(gameWatcher, SIGNAL(heroDraftDeck(QString)),
             draftHandler, SLOT(heroDraftDeck(QString)));
     connect(gameWatcher, SIGNAL(activeDraftDeck()),
-            draftHandler, SLOT(endDraftShowMechanicsWindow()));
+            draftHandler, SLOT(activeDraftDeck()));
     connect(gameWatcher, SIGNAL(startGame()),
-            draftHandler, SLOT(endDraftHideMechanicsWindow()));
-    connect(gameWatcher, SIGNAL(inRewards()),
-            draftHandler, SLOT(deleteDraftMechanicsWindow()));
+            draftHandler, SLOT(stopDraft()));
     connect(gameWatcher, SIGNAL(pickCard(QString)),
             draftHandler, SLOT(pickCard(QString)));
     //Lo usabamos para reanudar el drafting, pero ya no lo pausamos, lo terminamos completamente al salir de arena
@@ -1030,8 +1015,7 @@ void MainWindow::closeApp()
 {
     //Check unsaved decks
     if(ui->deckButtonSave->isEnabled() && !deckHandler->askSaveDeck())   return;
-    draftHandler->endDraftHideMechanicsWindow();
-    draftHandler->deleteDraftMechanicsWindow();
+    draftHandler->stopDraft();
     hide();
     draftHandler->closeFindScreenRects();
     winratesDownloader->waitFinishThreads();
@@ -1718,34 +1702,6 @@ void MainWindow::initConfigTheme()
 }
 
 
-void MainWindow::initConfigAvgScore(QString draftAvg)
-{
-    ui->configComboDraftAvg->setCurrentText(draftAvg);
-    spreadDraftAvg(draftAvg);
-}
-
-
-void MainWindow::initWantedMechanics(bool wantedMechanics[M_NUM_MECHANICS])
-{
-    ui->iconDrop2->setChecked(wantedMechanics[M_DROP2]);
-    ui->iconDrop3->setChecked(wantedMechanics[M_DROP3]);
-    ui->iconDrop4->setChecked(wantedMechanics[M_DROP4]);
-    ui->iconDraw->setChecked(wantedMechanics[M_DISCOVER_DRAW]);
-    ui->iconPing->setChecked(wantedMechanics[M_PING]);
-    ui->iconDamage->setChecked(wantedMechanics[M_DAMAGE]);
-    ui->iconDestroy->setChecked(wantedMechanics[M_DESTROY]);
-    ui->iconAoe->setChecked(wantedMechanics[M_AOE]);
-    ui->iconReach->setChecked(wantedMechanics[M_REACH]);
-    ui->iconTaunt->setChecked(wantedMechanics[M_TAUNT_ALL]);
-    ui->iconSurvival->setChecked(wantedMechanics[M_SURVIVABILITY]);
-
-    for(uint i=0; i<M_NUM_MECHANICS; i++)
-    {
-        setWantedMechanic(i, wantedMechanics[i]);
-    }
-}
-
-
 void MainWindow::moveInScreen(QPoint pos, QSize size)
 {
     QRect appRect(pos, size);
@@ -1795,10 +1751,7 @@ void MainWindow::readSettings()
     this->drawDisappear = settings.value("drawDisappear", 5).toInt();
     int popularCardsShown = settings.value("popularCardsShown", 5).toInt();
     bool showDraftScoresOverlay = settings.value("showDraftScoresOverlay", true).toBool();
-    bool showDraftMechanicsOverlay = settings.value("showDraftMechanicsOverlay", true).toBool();
     bool draftLearningMode = settings.value("draftLearningMode", false).toBool();
-    bool draftShowDrops = settings.value("draftShowDrops", true).toBool();
-    QString draftAvg = settings.value("draftAvg", "FireStone").toString();
     bool draftMethodHA = settings.value("draftMethodHA", true).toBool();
     bool draftMethodLF = settings.value("draftMethodFire", true).toBool();
     int tooltipScale = settings.value("tooltipScale", 10).toInt();
@@ -1814,16 +1767,11 @@ void MainWindow::readSettings()
     bool showMyWR = settings.value("showMyWR", true).toBool();
     bool downloadLB = settings.value("downloadLB", true).toBool();
 
-    bool wantedMechanics[M_NUM_MECHANICS];
-    for(int i=0; i<M_NUM_MECHANICS; i++)
-    {
-        wantedMechanics[i] = settings.value("icon" + QString::number(i), true).toBool();
-    }
 
     initConfigTab(tooltipScale, cardHeight, autoSize, showClassColor, showSpellColor, showManaLimits, showTotalAttack, showRngList,
-                  twitchChatVotes, draftMethodHA, draftMethodLF, draftAvg, popularCardsShown,
-                  showSecrets, showWildSecrets, showDraftScoresOverlay, showDraftMechanicsOverlay, draftLearningMode,
-                  draftShowDrops, showMyWR, downloadLB, wantedMechanics);
+                  twitchChatVotes, draftMethodHA, draftMethodLF, popularCardsShown,
+                  showSecrets, showWildSecrets, showDraftScoresOverlay, draftLearningMode,
+                  showMyWR, downloadLB);
 
 
     this->setAttribute(Qt::WA_TranslucentBackground, transparency!=Framed);
@@ -1857,11 +1805,7 @@ void MainWindow::writeSettings()
     settings.setValue("drawDisappear", this->drawDisappear);
     settings.setValue("popularCardsShown", ui->configSliderPopular->value());
     settings.setValue("showDraftScoresOverlay", ui->configCheckScoresOverlay->isChecked());
-    settings.setValue("showDraftMechanicsOverlay", ui->configCheckMechanicsOverlay->isChecked());
     settings.setValue("draftLearningMode", ui->configCheckLearning->isChecked());
-    settings.setValue("draftShowDrops", ui->configCheckShowDrops->isChecked());
-    QString draftAvg = ui->configComboDraftAvg->currentText();
-    if(!draftAvg.isEmpty()) settings.setValue("draftAvg", draftAvg);
     settings.setValue("draftMethodHA", ui->configCheckHA->isChecked());
     settings.setValue("draftMethodFire", ui->configCheckLF->isChecked());
     settings.setValue("tooltipScale", ui->configSliderTooltipSize->value());
@@ -1883,27 +1827,15 @@ void MainWindow::writeSettings()
     settings.setValue("graveyardWindow", graveyardWindow != nullptr);
     settings.setValue("planWindow", planWindow != nullptr);
 
-    settings.setValue("icon" + QString::number(M_DROP2), ui->iconDrop2->isChecked());
-    settings.setValue("icon" + QString::number(M_DROP3), ui->iconDrop3->isChecked());
-    settings.setValue("icon" + QString::number(M_DROP4), ui->iconDrop4->isChecked());
-    settings.setValue("icon" + QString::number(M_DISCOVER_DRAW), ui->iconDraw->isChecked());
-    settings.setValue("icon" + QString::number(M_PING), ui->iconPing->isChecked());
-    settings.setValue("icon" + QString::number(M_DAMAGE), ui->iconDamage->isChecked());
-    settings.setValue("icon" + QString::number(M_DESTROY), ui->iconDestroy->isChecked());
-    settings.setValue("icon" + QString::number(M_AOE), ui->iconAoe->isChecked());
-    settings.setValue("icon" + QString::number(M_REACH), ui->iconReach->isChecked());
-    settings.setValue("icon" + QString::number(M_TAUNT_ALL), ui->iconTaunt->isChecked());
-    settings.setValue("icon" + QString::number(M_SURVIVABILITY), ui->iconSurvival->isChecked());
 }
 
 
 void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, bool showClassColor, bool showSpellColor,
                                bool showManaLimits, bool showTotalAttack, bool showRngList,
                                bool twitchChatVotes, bool draftMethodHA, bool draftMethodLF,
-                               QString draftAvg,
                                int popularCardsShown, bool showSecrets, bool showWildSecrets, bool showDraftScoresOverlay,
-                               bool showDraftMechanicsOverlay, bool draftLearningMode, bool draftShowDrops, bool showMyWR,
-                               bool downloadLB, bool wantedMechanics[M_NUM_MECHANICS])
+                               bool draftLearningMode, bool showMyWR,
+                               bool downloadLB)
 {
     //New Config Step 3 - Actualizar UI con valores cargados
 
@@ -1985,14 +1917,8 @@ void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, 
     if(showDraftScoresOverlay)      ui->configCheckScoresOverlay->setChecked(true);
     updateShowDraftScoresOverlay(showDraftScoresOverlay);
 
-    if(showDraftMechanicsOverlay)   ui->configCheckMechanicsOverlay->setChecked(true);
-    updateShowDraftMechanicsOverlay(showDraftMechanicsOverlay);
-
     if(draftLearningMode)           ui->configCheckLearning->setChecked(true);
     updateDraftLearningMode(draftLearningMode);
-
-    if(draftShowDrops)              ui->configCheckShowDrops->setChecked(true);
-    updateDraftShowDrops(draftShowDrops);
 
     if(showMyWR)                    ui->configCheckWR->setChecked(true);
     updateShowMyWR(showMyWR);
@@ -2000,9 +1926,6 @@ void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, 
     ui->configCheckHA->setChecked(draftMethodHA);
     ui->configCheckLF->setChecked(draftMethodLF);
     spreadDraftMethod(draftMethodHA, draftMethodLF);
-
-    initConfigAvgScore(draftAvg);
-    initWantedMechanics(wantedMechanics);
 
     //Twitch
     ui->configCheckVotes->setChecked(twitchChatVotes);
@@ -2123,7 +2046,7 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
             else if(event->key() == Qt::Key_1)  draftHandler->pickCard("0");
             else if(event->key() == Qt::Key_2)  draftHandler->pickCard("1");
             else if(event->key() == Qt::Key_3)  draftHandler->pickCard("2");
-            else if(event->key() == Qt::Key_5)  draftHandler->endDraftShowMechanicsWindow();
+            else if(event->key() == Qt::Key_5)  draftHandler->activeDraftDeck();
 #ifdef Q_OS_LINUX
             else if(event->key() == Qt::Key_S)  askLinuxShortcut();
             else if(event->key() == Qt::Key_Z)
@@ -2437,7 +2360,6 @@ bool MainWindow::checkCardImage(QString code, bool isHero)
 void MainWindow::redrawDownloadedCardImage(QString code)
 {
     deckHandler->redrawDownloadedCardImage(code);
-    draftHandler->redrawDownloadedCardImage(code);
     draftHandler->reHistDownloadedCardImage(code);
     if(!allCardsDownloadList.isEmpty())     this->updateProgressAllCardsDownload(code);
 }
@@ -2587,41 +2509,6 @@ void MainWindow::downloadHearthArenaJson(int version)
         settings.setValue("haVersion", version);
         networkManager->get(QNetworkRequest(QUrl(HA_URL + QString("/hearthArena.json"))));
         pDebug("Extra: Json HearthArena --> Download from: " + QString(HA_URL) + QString("/hearthArena.json"));
-    }
-}
-
-
-void MainWindow::downloadSynergiesVersion()
-{
-    networkManager->get(QNetworkRequest(QUrl(SYNERGIES_URL + QString("/synergiesVersion.json"))));
-}
-
-
-void MainWindow::downloadSynergiesJson(int version)
-{
-    bool needDownload = false;
-    QSettings settings("Arena Tracker", "Arena Tracker");
-    int storedVersion = settings.value("synergiesVersion", 0).toInt();
-
-    QFileInfo fileInfo(Utility::extraPath() + "/synergies.json");
-    if(!fileInfo.exists())          needDownload = true;
-    if(version != storedVersion)    needDownload = true;
-
-    pDebug("Extra: Json Synergies: Local(" + QString::number(storedVersion) + ") - "
-                        "Web(" + QString::number(version) + ")" + (!needDownload?" up-to-date":""));
-
-    if(needDownload)
-    {
-        if(fileInfo.exists())
-        {
-            QFile file(Utility::extraPath() + "/synergies.json");
-            file.remove();
-            pDebug("Extra: Json Synergies removed.");
-        }
-
-        settings.setValue("synergiesVersion", version);
-        networkManager->get(QNetworkRequest(QUrl(SYNERGIES_URL + QString("/synergies.json"))));
-        pDebug("Extra: Json Synergies --> Download from: " + QString(SYNERGIES_URL) + QString("/synergies.json"));
     }
 }
 
@@ -2951,9 +2838,7 @@ void MainWindow::updateOtherTabsTransparency()
         ui->configBoxHand->setStyleSheet(groupBoxCSS);
         ui->configBoxDraft->setStyleSheet(groupBoxCSS);
         ui->configBoxDraftMethod->setStyleSheet(groupBoxCSS);
-        ui->configBoxDraftMechanics->setStyleSheet(groupBoxCSS);
         ui->configBoxDraftScores->setStyleSheet(groupBoxCSS);
-        ui->configBoxDraftIcons->setStyleSheet(groupBoxCSS);
         ui->configBoxTwitch->setStyleSheet(groupBoxCSS);
 
         QString labelCSS = "QLabel {background-color: transparent; color: white;}";
@@ -2967,7 +2852,6 @@ void MainWindow::updateOtherTabsTransparency()
         ui->configLabelPopularValue->setStyleSheet(labelCSS);
         ui->configLabelTheme->setStyleSheet(labelCSS);
         ui->configLabelVotesStatus->setStyleSheet(labelCSS);
-        ui->configLabelDraftAvg->setStyleSheet(labelCSS);
 
         QString radioCSS = "QRadioButton {background-color: transparent; color: white;}";
         ui->configRadioTransparent->setStyleSheet(radioCSS);
@@ -2979,9 +2863,7 @@ void MainWindow::updateOtherTabsTransparency()
         ui->configCheckClassColor->setStyleSheet(checkCSS);
         ui->configCheckSpellColor->setStyleSheet(checkCSS);
         ui->configCheckScoresOverlay->setStyleSheet(checkCSS);
-        ui->configCheckMechanicsOverlay->setStyleSheet(checkCSS);
         ui->configCheckLearning->setStyleSheet(checkCSS);
-        ui->configCheckShowDrops->setStyleSheet(checkCSS);
         ui->configCheckAutoSize->setStyleSheet(checkCSS);
         ui->configCheckManaLimits->setStyleSheet(checkCSS);
         ui->configCheckTotalAttack->setStyleSheet(checkCSS);
@@ -2993,17 +2875,6 @@ void MainWindow::updateOtherTabsTransparency()
         ui->configCheckLB->setStyleSheet(checkCSS);
         ui->configCheckHA->setStyleSheet(checkCSS);
         ui->configCheckLF->setStyleSheet(checkCSS);
-        ui->iconDrop2->setStyleSheet(checkCSS);
-        ui->iconDrop3->setStyleSheet(checkCSS);
-        ui->iconDrop4->setStyleSheet(checkCSS);
-        ui->iconDraw->setStyleSheet(checkCSS);
-        ui->iconPing->setStyleSheet(checkCSS);
-        ui->iconDamage->setStyleSheet(checkCSS);
-        ui->iconDestroy->setStyleSheet(checkCSS);
-        ui->iconAoe->setStyleSheet(checkCSS);
-        ui->iconReach->setStyleSheet(checkCSS);
-        ui->iconTaunt->setStyleSheet(checkCSS);
-        ui->iconSurvival->setStyleSheet(checkCSS);
     }
     else
     {
@@ -3017,9 +2888,7 @@ void MainWindow::updateOtherTabsTransparency()
         ui->configBoxHand->setStyleSheet("");
         ui->configBoxDraft->setStyleSheet("");
         ui->configBoxDraftMethod->setStyleSheet("");
-        ui->configBoxDraftMechanics->setStyleSheet("");
         ui->configBoxDraftScores->setStyleSheet("");
-        ui->configBoxDraftIcons->setStyleSheet("");
         ui->configBoxTwitch->setStyleSheet("");
 
 
@@ -3033,7 +2902,6 @@ void MainWindow::updateOtherTabsTransparency()
         ui->configLabelPopularValue->setStyleSheet("");
         ui->configLabelTheme->setStyleSheet("");
         ui->configLabelVotesStatus->setStyleSheet("");
-        ui->configLabelDraftAvg->setStyleSheet("");
 
         ui->configRadioTransparent->setStyleSheet("");
         ui->configRadioAuto->setStyleSheet("");
@@ -3043,9 +2911,7 @@ void MainWindow::updateOtherTabsTransparency()
         ui->configCheckClassColor->setStyleSheet("");
         ui->configCheckSpellColor->setStyleSheet("");
         ui->configCheckScoresOverlay->setStyleSheet("");
-        ui->configCheckMechanicsOverlay->setStyleSheet("");
         ui->configCheckLearning->setStyleSheet("");
-        ui->configCheckShowDrops->setStyleSheet("");
         ui->configCheckAutoSize->setStyleSheet("");
         ui->configCheckManaLimits->setStyleSheet("");
         ui->configCheckTotalAttack->setStyleSheet("");
@@ -3057,17 +2923,6 @@ void MainWindow::updateOtherTabsTransparency()
         ui->configCheckLB->setStyleSheet("");
         ui->configCheckHA->setStyleSheet("");
         ui->configCheckLF->setStyleSheet("");
-        ui->iconDrop2->setStyleSheet("");
-        ui->iconDrop3->setStyleSheet("");
-        ui->iconDrop4->setStyleSheet("");
-        ui->iconDraw->setStyleSheet("");
-        ui->iconPing->setStyleSheet("");
-        ui->iconDamage->setStyleSheet("");
-        ui->iconDestroy->setStyleSheet("");
-        ui->iconAoe->setStyleSheet("");
-        ui->iconReach->setStyleSheet("");
-        ui->iconTaunt->setStyleSheet("");
-        ui->iconSurvival->setStyleSheet("");
     }
 }
 
@@ -3362,17 +3217,6 @@ void MainWindow::updateButtonsTheme()
     ui->guideButton->setIcon(QIcon(ThemeHandler::buttonGamesGuideFile()));
     ui->resizeButton->setIcon(QIcon(ThemeHandler::buttonResizeFile()));
 
-    ui->iconDrop2->setIcon(QIcon(ThemeHandler::drop2CounterFile()));
-    ui->iconDrop3->setIcon(QIcon(ThemeHandler::drop3CounterFile()));
-    ui->iconDrop4->setIcon(QIcon(ThemeHandler::drop4CounterFile()));
-    ui->iconDraw->setIcon(QIcon(ThemeHandler::drawMechanicFile()));
-    ui->iconPing->setIcon(QIcon(ThemeHandler::pingMechanicFile()));
-    ui->iconDamage->setIcon(QIcon(ThemeHandler::damageMechanicFile()));
-    ui->iconDestroy->setIcon(QIcon(ThemeHandler::destroyMechanicFile()));
-    ui->iconAoe->setIcon(QIcon(ThemeHandler::aoeMechanicFile()));
-    ui->iconReach->setIcon(QIcon(ThemeHandler::reachMechanicFile()));
-    ui->iconTaunt->setIcon(QIcon(ThemeHandler::tauntMechanicFile()));
-    ui->iconSurvival->setIcon(QIcon(ThemeHandler::survivalMechanicFile()));
 }
 
 
@@ -3490,77 +3334,15 @@ void MainWindow::updateShowDraftScoresOverlay(bool checked)
 }
 
 
-void MainWindow::updateShowDraftMechanicsOverlay(bool checked)
-{
-    draftHandler->setShowDraftMechanicsOverlay(checked);
-}
-
-
 void MainWindow::updateDraftLearningMode(bool checked)
 {
     draftHandler->setLearningMode(checked);
 }
 
 
-void MainWindow::updateDraftShowDrops(bool checked)
-{
-    draftHandler->setShowDrops(checked);
-}
-
-
 void MainWindow::updateShowMyWR(bool checked)
 {
     draftHandler->setShowMyWR(checked);
-}
-
-
-void MainWindow::updateDrop2(bool checked)
-{
-    setWantedMechanic(M_DROP2, checked);
-}
-void MainWindow::updateDrop3(bool checked)
-{
-    setWantedMechanic(M_DROP3, checked);
-}
-void MainWindow::updateDrop4(bool checked)
-{
-    setWantedMechanic(M_DROP4, checked);
-}
-void MainWindow::updateReach(bool checked)
-{
-    setWantedMechanic(M_REACH, checked);
-}
-void MainWindow::updateTaunt(bool checked)
-{
-    setWantedMechanic(M_TAUNT_ALL, checked);
-}
-void MainWindow::updateSurvival(bool checked)
-{
-    setWantedMechanic(M_SURVIVABILITY, checked);
-}
-void MainWindow::updateDraw(bool checked)
-{
-    setWantedMechanic(M_DISCOVER_DRAW, checked);
-}
-void MainWindow::updatePing(bool checked)
-{
-    setWantedMechanic(M_PING, checked);
-}
-void MainWindow::updateDamage(bool checked)
-{
-    setWantedMechanic(M_DAMAGE, checked);
-}
-void MainWindow::updateDestroy(bool checked)
-{
-    setWantedMechanic(M_DESTROY, checked);
-}
-void MainWindow::updateAoe(bool checked)
-{
-    setWantedMechanic(M_AOE, checked);
-}
-void MainWindow::setWantedMechanic(uint mechanicIcon, bool value)
-{
-    draftHandler->setWantedMechanic(mechanicIcon, value);
 }
 
 
@@ -3573,33 +3355,6 @@ void MainWindow::spreadDraftMethod()
 void MainWindow::spreadDraftMethod(bool draftMethodHA, bool draftMethodLF)
 {
     draftHandler->setDraftMethod(draftMethodHA, draftMethodLF);
-}
-
-
-DraftMethod MainWindow::draftMethodFromString(QString draftAvg)
-{
-    if(draftAvg == "HearthArena")       return HearthArena;
-    else if(draftAvg == "FireStone")    return FireStone;
-    return None;
-}
-
-
-void MainWindow::spreadDraftAvg(QString draftAvg)
-{
-    DraftMethod dm = draftMethodFromString(draftAvg);
-    draftHandler->setDraftMethodAvgScore(dm);
-}
-
-
-void MainWindow::completeConfigComboAvg()
-{
-    ui->configComboDraftAvg->addItem("FireStone");
-    ui->configComboDraftAvg->addItem("HearthArena");
-
-    ui->configComboDraftAvg->setEditable(false);
-
-    connect(ui->configComboDraftAvg, SIGNAL(activated(QString)),
-            this, SLOT(spreadDraftAvg(QString)));
 }
 
 
@@ -3648,24 +3403,7 @@ void MainWindow::completeConfigTab()
     ui->configCheckWildSecrets->hide();
 
     //Draft
-    ui->configBoxDraftMechanics->hide();
-    ui->configCheckMechanicsOverlay->hide();
-    ui->configCheckShowDrops->hide();
-    ui->configLabelDraftAvg->hide();
-    ui->configComboDraftAvg->hide();
     ui->configCheckWR->hide();
-    ui->configBoxDraftIcons->hide();
-    ui->iconDrop2->hide();
-    ui->iconDrop3->hide();
-    ui->iconDrop4->hide();
-    ui->iconDraw->hide();
-    ui->iconPing->hide();
-    ui->iconDamage->hide();
-    ui->iconDestroy->hide();
-    ui->iconAoe->hide();
-    ui->iconReach->hide();
-    ui->iconTaunt->hide();
-    ui->iconSurvival->hide();
     connect(ui->configCheckScoresOverlay, SIGNAL(clicked(bool)), this, SLOT(updateShowDraftScoresOverlay(bool)));
     connect(ui->configCheckMechanicsOverlay, SIGNAL(clicked(bool)), this, SLOT(updateShowDraftMechanicsOverlay(bool)));
     connect(ui->configCheckLearning, SIGNAL(clicked(bool)), this, SLOT(updateDraftLearningMode(bool)));
@@ -3684,8 +3422,6 @@ void MainWindow::completeConfigTab()
     connect(ui->iconReach, SIGNAL(clicked(bool)), this, SLOT(updateReach(bool)));
     connect(ui->iconTaunt, SIGNAL(clicked(bool)), this, SLOT(updateTaunt(bool)));
     connect(ui->iconSurvival, SIGNAL(clicked(bool)), this, SLOT(updateSurvival(bool)));
-
-    completeConfigComboAvg();
 
     //Twitch
     ui->configLabelVotesStatus->setPixmap(ThemeHandler::loseFile());
@@ -4402,20 +4138,10 @@ void MainWindow::testDownloadRotation(bool fromHearth, const QString &miniSet)
 }
 
 
-void MainWindow::testSynergies()
-{
-    // draftHandler->getSynergyHandler()->testSynergies(/*"DINO_"*/);
-    // draftHandler->getSynergyHandler()->debugSynergiesSet("TIME_TRAVEL", 120, 150/*, "DINO_"*/);//modelo/synergiesSet.json
-    // draftHandler->getSynergyHandler()->debugDrops();
-    draftHandler->getSynergyHandler()->debugMissingSynergies(true, false);
-}
-
-
 void MainWindow::testDelay()
 {
     qDebug() << Qt::endl << "--------------------------" << "DEBUG TESTS" << "--------------------------";
     // testHeroPortraits();
-    testSynergies();
 
     //HA en orden
     // downloadHearthArenaTierlistOriginal();

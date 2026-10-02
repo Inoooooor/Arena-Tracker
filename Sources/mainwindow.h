@@ -27,7 +27,6 @@
 #define IMAGES_URL AT_REPO_RAW_URL "/Images"
 #define HA_URL AT_REPO_RAW_URL "/HearthArena"
 #define ARENA_URL AT_REPO_RAW_URL "/Arena"
-#define SYNERGIES_URL AT_REPO_RAW_URL "/Synergies"
 #define CARDS_URL AT_REPO_RAW_URL "/CardsJson"
 #define USER_GUIDE_URL "https://triodo.gitbook.io/arena-tracker-documentation/en"
 
@@ -149,10 +148,10 @@ private:
     void calculateCardWindowMinimumWidth(DetachWindow *detachWindow, bool hasBorders);
     void initConfigTab(int tooltipScale, int cardHeight, bool autoSize, bool showClassColor, bool showSpellColor,
                        bool showManaLimits, bool showTotalAttack, bool showRngList, bool twitchChatVotes,
-                       bool draftMethodHA, bool draftMethodLF, QString draftAvg,
+                       bool draftMethodHA, bool draftMethodLF,
                        int popularCardsShown, bool showSecrets, bool showWildSecrets,
-                       bool showDraftScoresOverlay, bool showDraftMechanicsOverlay, bool draftLearningMode, bool draftShowDrops,
-                       bool showMyWR, bool downloadLB, bool wantedMechanics[]);
+                       bool showDraftScoresOverlay, bool draftLearningMode,
+                       bool showMyWR, bool downloadLB);
     void moveInScreen(QPoint pos, QSize size);
     int getScreenHighest();
     void completeHighResConfigTab();
@@ -171,7 +170,6 @@ private:
     void createDebugPack();
     void showWindowFrame(bool showFrame=true);
     void spreadDraftMethod(bool draftMethodHA, bool draftMethodLF);
-    DraftMethod draftMethodFromString(QString draftAvg);
     void showProgressBar(bool animated=true);
     void setProgressBarText(const QString &text);
     void fitProgressBarText();
@@ -180,7 +178,6 @@ private:
     void hideProgressBarMini();
     void advanceProgressBarMini(int remaining);
     void updateProgressAllCardsDownload(QString code);
-    void completeConfigComboAvg();
     void initConfigTheme();
     void downloadExtraFile(QString nameFile);
     void downloadExtraFiles();
@@ -188,8 +185,6 @@ private:
     void downloadHearthArenaJson(int version);
     void downloadArenaVersion();
     void checkArenaVersionJson(const QJsonObject &jsonObject);
-    void downloadSynergiesVersion();
-    void downloadSynergiesJson(int version);
     void updateTabIcons();
     void initHeroesWinrate();
     void checkArenaCards();
@@ -197,9 +192,6 @@ private:
     void initWRCards();
     void downloadHearthArenaTierlistOriginal();
     void saveHearthArenaTierlistOriginal(const QByteArray &html="");
-    void initConfigAvgScore(QString draftAvg);
-    void setWantedMechanic(uint mechanicIcon, bool value);
-    void initWantedMechanics(bool wantedMechanics[]);
     void downloadCardsJsonVersion();
     void downloadCardsJson(int version);
     void testDownloadCardsJson();
@@ -250,7 +242,6 @@ private slots:
     void test();
     void testArenaGames();
     void testDelay();
-    void testSynergies();
     void testHeroPortraits();
     void downloadHeroPortrait(QString code);
     void testDownloadRotation(bool fromHearth, const QString &miniSet="");
@@ -262,9 +253,7 @@ private slots:
     void transparentFramed();
     void updateTamCard(int value);
     void updateShowDraftScoresOverlay(bool checked);
-    void updateShowDraftMechanicsOverlay(bool checked);
     void updateDraftLearningMode(bool checked);
-    void updateDraftShowDrops(bool checked);
     void updateTooltipScale(int value);
     void closeApp();
     void minimizeToDock();
@@ -310,20 +299,8 @@ private slots:
     void changingTabUpdateDraftSize();
     void openUserGuide();
     void spreadDraftMethod();
-    void spreadDraftAvg(QString draftAvg);
     void newGameResult(GameResult gameResult, LoadingScreenState loadingScreen);
     void updateShowMyWR(bool checked);
-    void updateDrop2(bool checked);
-    void updateDrop3(bool checked);
-    void updateDrop4(bool checked);
-    void updateReach(bool checked);
-    void updateTaunt(bool checked);
-    void updateSurvival(bool checked);
-    void updateDraw(bool checked);
-    void updatePing(bool checked);
-    void updateDamage(bool checked);
-    void updateDestroy(bool checked);
-    void updateAoe(bool checked);
     void newDeckCardDraft(QString code);
     void leaveArena();
     void readyFireWRMap(QMap<QString, float> *fireWRMap);

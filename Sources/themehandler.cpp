@@ -13,7 +13,6 @@ QString ThemeHandler::themeColor2_;
 QString ThemeHandler::bgWidgets_;
 QString ThemeHandler::bgTabsColor_, ThemeHandler::hoverTabsColor_, ThemeHandler::selectedTabsColor_;
 QString ThemeHandler::bgTopButtonsColor_, ThemeHandler::hoverTopButtonsColor_;
-QString ThemeHandler::synergyTagColor_;
 QString ThemeHandler::fgMenuColor_, ThemeHandler::bgMenuColor_;
 QString ThemeHandler::bgSelectedItemMenuColor_, ThemeHandler::fgSelectedItemMenuColor_;
 int ThemeHandler::borderDecksWidth_;
@@ -27,35 +26,22 @@ QString ThemeHandler::defaultFont_, ThemeHandler::cardsFont_, ThemeHandler::bigF
 int ThemeHandler::cardsFontOffsetY_;
 QString ThemeHandler::tabArenaFile_, ThemeHandler::tabConfigFile_, ThemeHandler::tabDeckFile_;
 QString ThemeHandler::tabEnemyDeckFile_, ThemeHandler::tabGraveyardFile_;
-QString ThemeHandler::tabGamesFile_, ThemeHandler::tabHandFile_, ThemeHandler::tabLogFile_, ThemeHandler::tabPlanFile_;
+QString ThemeHandler::tabGamesFile_, ThemeHandler::tabHandFile_, ThemeHandler::tabPlanFile_;
 QString ThemeHandler::buttonRemoveDeckFile_, ThemeHandler::buttonLoadDeckFile_, ThemeHandler::buttonNewDeckFile_, ThemeHandler::buttonSaveDeckFile_;
 QString ThemeHandler::buttonMinFile_, ThemeHandler::buttonPlusFile_, ThemeHandler::buttonRemoveFile_;
 QString ThemeHandler::buttonCloseFile_, ThemeHandler::buttonMinimizeFile_, ThemeHandler::buttonResizeFile_;
 QString ThemeHandler::buttonForceDraftFile_, ThemeHandler::buttonDraftRefreshFile_;
-QString ThemeHandler::buttonGamesReplayFile_, ThemeHandler::buttonGamesWebFile_, ThemeHandler::buttonGamesGuideFile_;
-QString ThemeHandler::buttonPlanFirstFile_, ThemeHandler::buttonPlanLastFile_, ThemeHandler::buttonPlanRefreshFile_;
-QString ThemeHandler::buttonPlanPrevFile_, ThemeHandler::buttonPlanNextFile_, ThemeHandler::buttonPlanResizeFile_;
-QString ThemeHandler::buttonGraveyardPlayerFile_, ThemeHandler::buttonGraveyardEnemyFile_;
-QString ThemeHandler::buttonGraveyardAllFile_, ThemeHandler::buttonGraveyardMinionsFile_;
-QString ThemeHandler::buttonGraveyardWeaponsFile_, ThemeHandler::buttonGraveyardSpellsFile_;
+QString ThemeHandler::buttonGamesGuideFile_;
 QString ThemeHandler::bgCard1Files_[NUM_HEROS+1], ThemeHandler::bgCard2Files_[NUM_HEROS+1], ThemeHandler::heroFiles_[NUM_HEROS];
-QString ThemeHandler::bgTotalAttackFile_, ThemeHandler::bgLeaderboardFile_;
 QString ThemeHandler::branchClosedFile_, ThemeHandler::branchOpenFile_;
 QString ThemeHandler::coinFile_, ThemeHandler::firstFile_;
 QString ThemeHandler::loseFile_, ThemeHandler::winFile_;
 QString ThemeHandler::haBestFile_, ThemeHandler::haCloseFile_, ThemeHandler::haOpenFile_, ThemeHandler::haTextFile_;
 QString ThemeHandler::lfBestFile_, ThemeHandler::lfCloseFile_, ThemeHandler::lfOpenFile_, ThemeHandler::lfTextFile_;
 QString ThemeHandler::youTextFile_;
-QString ThemeHandler::speedLavaFile_, ThemeHandler::speedCloseFile_, ThemeHandler::speedOpenFile_;
-QString ThemeHandler::speedDWTextFile_, ThemeHandler::speedTwitchTextFile_;
-QString ThemeHandler::handCardFile_, ThemeHandler::handCardBYFile_, ThemeHandler::handCardBYFile2_, ThemeHandler::handCardBYUnknownFile_;
+QString ThemeHandler::speedCloseFile_;
+QString ThemeHandler::handCardBYFile_, ThemeHandler::handCardBYFile2_;
 QString ThemeHandler::starFile_, ThemeHandler::manaLimitFile_, ThemeHandler::unknownFile_;
-QString ThemeHandler::minionsCounterFile_, ThemeHandler::spellsCounterFile_, ThemeHandler::weaponsCounterFile_, ThemeHandler::manaCounterFile_;
-QString ThemeHandler::drop2CounterFile_, ThemeHandler::drop3CounterFile_, ThemeHandler::drop4CounterFile_;
-QString ThemeHandler::aoeMechanicFile_, ThemeHandler::tauntMechanicFile_, ThemeHandler::survivalMechanicFile_, ThemeHandler::drawMechanicFile_;
-QString ThemeHandler::pingMechanicFile_, ThemeHandler::damageMechanicFile_, ThemeHandler::destroyMechanicFile_, ThemeHandler::reachMechanicFile_;
-QString ThemeHandler::checkCardOkFile_, ThemeHandler::goldenMechanicFile_, ThemeHandler::greenMechanicFile_, ThemeHandler::redMechanicFile_;
-QString ThemeHandler::bgDraftMechanicsFile_, ThemeHandler::bgDraftMechanicsHelpFile_, ThemeHandler::bgDraftMechanicsHelpDropsFile_, ThemeHandler::bgDraftMechanicsReenterFile_, ThemeHandler::fgDraftMechanicsColor_;
 bool ThemeHandler::manaLimitBehind_;
 
 
@@ -127,12 +113,6 @@ QString ThemeHandler::bgTopButtonsColor()
 QString ThemeHandler::hoverTopButtonsColor()
 {
     return hoverTopButtonsColor_;
-}
-
-
-QString ThemeHandler::synergyTagColor()
-{
-    return synergyTagColor_;
 }
 
 
@@ -322,12 +302,6 @@ QString ThemeHandler::tabHandFile()
 }
 
 
-QString ThemeHandler::tabLogFile()
-{
-    return tabLogFile_;
-}
-
-
 QString ThemeHandler::tabPlanFile()
 {
     return tabPlanFile_;
@@ -406,93 +380,9 @@ QString ThemeHandler::buttonDraftRefreshFile()
 }
 
 
-QString ThemeHandler::buttonGamesReplayFile()
-{
-    return buttonGamesReplayFile_;
-}
-
-
-QString ThemeHandler::buttonGamesWebFile()
-{
-    return buttonGamesWebFile_;
-}
-
-
 QString ThemeHandler::buttonGamesGuideFile()
 {
     return buttonGamesGuideFile_;
-}
-
-
-QString ThemeHandler::buttonPlanFirstFile()
-{
-    return buttonPlanFirstFile_;
-}
-
-
-QString ThemeHandler::buttonPlanLastFile()
-{
-    return buttonPlanLastFile_;
-}
-
-
-QString ThemeHandler::buttonPlanRefreshFile()
-{
-    return buttonPlanRefreshFile_;
-}
-
-
-QString ThemeHandler::buttonPlanPrevFile()
-{
-    return buttonPlanPrevFile_;
-}
-
-
-QString ThemeHandler::buttonPlanNextFile()
-{
-    return buttonPlanNextFile_;
-}
-
-
-QString ThemeHandler::buttonPlanResizeFile()
-{
-    return buttonPlanResizeFile_;
-}
-
-
-QString ThemeHandler::buttonGraveyardPlayerFile()
-{
-    return buttonGraveyardPlayerFile_;
-}
-
-
-QString ThemeHandler::buttonGraveyardEnemyFile()
-{
-    return buttonGraveyardEnemyFile_;
-}
-
-
-QString ThemeHandler::buttonGraveyardAllFile()
-{
-    return buttonGraveyardAllFile_;
-}
-
-
-QString ThemeHandler::buttonGraveyardMinionsFile()
-{
-    return buttonGraveyardMinionsFile_;
-}
-
-
-QString ThemeHandler::buttonGraveyardWeaponsFile()
-{
-    return buttonGraveyardWeaponsFile_;
-}
-
-
-QString ThemeHandler::buttonGraveyardSpellsFile()
-{
-    return buttonGraveyardSpellsFile_;
 }
 
 
@@ -520,18 +410,6 @@ QString ThemeHandler::heroFile(int order)
 QString ThemeHandler::heroFile(QString heroLog)
 {
     return heroFile(Utility::classLogNumber2classOrder(heroLog));
-}
-
-
-QString ThemeHandler::bgTotalAttackFile()
-{
-    return bgTotalAttackFile_;
-}
-
-
-QString ThemeHandler::bgLeaderboardFile()
-{
-    return bgLeaderboardFile_;
 }
 
 
@@ -625,39 +503,9 @@ QString ThemeHandler::youTextFile()
 }
 
 
-QString ThemeHandler::speedLavaFile()
-{
-    return speedLavaFile_;
-}
-
-
 QString ThemeHandler::speedCloseFile()
 {
     return speedCloseFile_;
-}
-
-
-QString ThemeHandler::speedOpenFile()
-{
-    return speedOpenFile_;
-}
-
-
-QString ThemeHandler::speedDWTextFile()
-{
-    return speedDWTextFile_;
-}
-
-
-QString ThemeHandler::speedTwitchTextFile()
-{
-    return speedTwitchTextFile_;
-}
-
-
-QString ThemeHandler::handCardFile()
-{
-    return handCardFile_;
 }
 
 
@@ -673,159 +521,9 @@ QString ThemeHandler::handCardBYFile2()
 }
 
 
-QString ThemeHandler::handCardBYUnknownFile()
-{
-    return handCardBYUnknownFile_;
-}
-
-
 QString ThemeHandler::starFile()
 {
     return starFile_;
-}
-
-
-QString ThemeHandler::minionsCounterFile()
-{
-    return minionsCounterFile_;
-}
-
-
-QString ThemeHandler::spellsCounterFile()
-{
-    return spellsCounterFile_;
-}
-
-
-QString ThemeHandler::weaponsCounterFile()
-{
-    return weaponsCounterFile_;
-}
-
-
-QString ThemeHandler::manaCounterFile()
-{
-    return manaCounterFile_;
-}
-
-
-QString ThemeHandler::drop2CounterFile()
-{
-    return drop2CounterFile_;
-}
-
-
-QString ThemeHandler::drop3CounterFile()
-{
-    return drop3CounterFile_;
-}
-
-
-QString ThemeHandler::drop4CounterFile()
-{
-    return drop4CounterFile_;
-}
-
-
-QString ThemeHandler::aoeMechanicFile()
-{
-    return aoeMechanicFile_;
-}
-
-
-QString ThemeHandler::tauntMechanicFile()
-{
-    return tauntMechanicFile_;
-}
-
-
-QString ThemeHandler::survivalMechanicFile()
-{
-    return survivalMechanicFile_;
-}
-
-
-QString ThemeHandler::drawMechanicFile()
-{
-    return drawMechanicFile_;
-}
-
-
-QString ThemeHandler::pingMechanicFile()
-{
-    return pingMechanicFile_;
-}
-
-
-QString ThemeHandler::damageMechanicFile()
-{
-    return damageMechanicFile_;
-}
-
-
-QString ThemeHandler::destroyMechanicFile()
-{
-    return destroyMechanicFile_;
-}
-
-
-QString ThemeHandler::reachMechanicFile()
-{
-    return reachMechanicFile_;
-}
-
-
-QString ThemeHandler::checkCardOkFile()
-{
-    return checkCardOkFile_;
-}
-
-
-QString ThemeHandler::goldenMechanicFile()
-{
-    return goldenMechanicFile_;
-}
-
-
-QString ThemeHandler::greenMechanicFile()
-{
-    return greenMechanicFile_;
-}
-
-
-QString ThemeHandler::redMechanicFile()
-{
-    return redMechanicFile_;
-}
-
-
-QString ThemeHandler::bgDraftMechanicsFile()
-{
-    return bgDraftMechanicsFile_;
-}
-
-
-QString ThemeHandler::bgDraftMechanicsHelpFile()
-{
-    return bgDraftMechanicsHelpFile_;
-}
-
-
-QString ThemeHandler::bgDraftMechanicsHelpDropsFile()
-{
-    return bgDraftMechanicsHelpDropsFile_;
-}
-
-
-QString ThemeHandler::bgDraftMechanicsReenterFile()
-{
-    return bgDraftMechanicsReenterFile_;
-}
-
-
-QString ThemeHandler::fgDraftMechanicsColor()
-{
-    return fgDraftMechanicsColor_;
 }
 
 
@@ -961,7 +659,6 @@ void ThemeHandler::defaultEmptyValues()
     if(tabGraveyardFile_.isEmpty())         tabGraveyardFile_ = ":/Images/graveyard.png";
     if(tabGamesFile_.isEmpty())             tabGamesFile_ = ":/Images/games.png";
     if(tabHandFile_.isEmpty())              tabHandFile_ = ":/Images/hand.png";
-    if(tabLogFile_.isEmpty())               tabLogFile_ = ":/Images/log.png";
     if(tabPlanFile_.isEmpty())              tabPlanFile_ = ":/Images/plan.png";
     if(buttonRemoveDeckFile_.isEmpty())     buttonRemoveDeckFile_ = ":/Images/clearDeck.png";
     if(buttonLoadDeckFile_.isEmpty())       buttonLoadDeckFile_ = ":/Images/loadDeck.png";
@@ -975,21 +672,7 @@ void ThemeHandler::defaultEmptyValues()
     if(buttonResizeFile_.isEmpty())         buttonResizeFile_ = ":/Images/resize.png";
     if(buttonForceDraftFile_.isEmpty())     buttonForceDraftFile_ = ":/Images/draft.png";
     if(buttonDraftRefreshFile_.isEmpty())   buttonDraftRefreshFile_ = ":/Images/refresh.png";
-    if(buttonGamesReplayFile_.isEmpty())    buttonGamesReplayFile_ = ":/Images/replay.png";
-    if(buttonGamesWebFile_.isEmpty())       buttonGamesWebFile_ = ":/Images/web.png";
     if(buttonGamesGuideFile_.isEmpty())     buttonGamesGuideFile_ = ":/Images/userGuide.png";
-    if(buttonPlanFirstFile_.isEmpty())      buttonPlanFirstFile_ = ":/Images/planFirst.png";
-    if(buttonPlanLastFile_.isEmpty())       buttonPlanLastFile_ = ":/Images/planLast.png";
-    if(buttonPlanRefreshFile_.isEmpty())    buttonPlanRefreshFile_ = ":/Images/refresh.png";
-    if(buttonPlanPrevFile_.isEmpty())       buttonPlanPrevFile_ = ":/Images/planPrev.png";
-    if(buttonPlanNextFile_.isEmpty())       buttonPlanNextFile_ = ":/Images/planNext.png";
-    if(buttonPlanResizeFile_.isEmpty())     buttonPlanResizeFile_ = ":/Images/planResize.png";
-    if(buttonGraveyardPlayerFile_.isEmpty())    buttonGraveyardPlayerFile_ = ":/Images/graveyardPlayer.png";
-    if(buttonGraveyardEnemyFile_.isEmpty())     buttonGraveyardEnemyFile_ = ":/Images/graveyardEnemy.png";
-    if(buttonGraveyardAllFile_.isEmpty())       buttonGraveyardAllFile_ = ":/Images/weaponsMinionsSpells.png";
-    if(buttonGraveyardMinionsFile_.isEmpty())   buttonGraveyardMinionsFile_ = ":/Images/minionsCounter.png";
-    if(buttonGraveyardWeaponsFile_.isEmpty())   buttonGraveyardWeaponsFile_ = ":/Images/weaponsCounter.png";
-    if(buttonGraveyardSpellsFile_.isEmpty())    buttonGraveyardSpellsFile_ = ":/Images/spellsCounter.png";
 
     for(int i=0; i<NUM_HEROS; i++)
     {
@@ -1007,8 +690,6 @@ void ThemeHandler::defaultEmptyValues()
     }
     if(bgCard1Files_[NUM_HEROS].isEmpty())  bgCard1Files_[NUM_HEROS] = ":/Images/bgCard1.png";
     if(bgCard2Files_[NUM_HEROS].isEmpty())  bgCard2Files_[NUM_HEROS] = ":/Images/bgCard2.png";
-    if(bgTotalAttackFile_.isEmpty())    bgTotalAttackFile_ = ":/Images/bgTotalAttack.png";
-    if(bgLeaderboardFile_.isEmpty())    bgLeaderboardFile_ = ":/Images/bgLeaderboard.png";
     if(branchClosedFile_.isEmpty())     branchClosedFile_ = ":/Images/branchClosed.png";
     if(branchOpenFile_.isEmpty())       branchOpenFile_ = ":/Images/branchOpen.png";
     if(coinFile_.isEmpty())             coinFile_ = ":/Images/coin.png";
@@ -1024,41 +705,10 @@ void ThemeHandler::defaultEmptyValues()
     if(lfOpenFile_.isEmpty())           lfOpenFile_ = ":/Images/lfOpen.png";
     if(lfTextFile_.isEmpty())           lfTextFile_ = ":/Images/lfText.png";
     if(youTextFile_.isEmpty())          youTextFile_ = ":/Images/youText.png";
-    if(speedLavaFile_.isEmpty())        speedLavaFile_ = ":/Images/speedLava.png";
     if(speedCloseFile_.isEmpty())       speedCloseFile_ = ":/Images/speedClose.png";
-    if(speedOpenFile_.isEmpty())        speedOpenFile_ = ":/Images/speedOpen.png";
-    if(speedDWTextFile_.isEmpty())      speedDWTextFile_ = ":/Images/speedDWText.png";
-    if(speedTwitchTextFile_.isEmpty())  speedTwitchTextFile_ = ":/Images/speedTwitchText.png";
-    if(handCardFile_.isEmpty())         handCardFile_ = ":/Images/handCard1.png";
     if(handCardBYFile_.isEmpty())       handCardBYFile_ = ":/Images/handCard3.png";
     if(handCardBYFile2_.isEmpty())      handCardBYFile2_ = ":/Images/handCard4.png";
-    if(handCardBYUnknownFile_.isEmpty())handCardBYUnknownFile_ = ":/Images/handCard2.png";
     if(starFile_.isEmpty())             starFile_ = ":/Images/legendaryStar.png";
     if(manaLimitFile_.isEmpty())        manaLimitFile_ = ":/Images/manaLimit.png";
     if(unknownFile_.isEmpty())          unknownFile_ = ":/Images/unknown.png";
-    if(minionsCounterFile_.isEmpty())   minionsCounterFile_ = ":/Images/minionsCounter.png";
-    if(spellsCounterFile_.isEmpty())    spellsCounterFile_ = ":/Images/spellsCounter.png";
-    if(weaponsCounterFile_.isEmpty())   weaponsCounterFile_ = ":/Images/weaponsCounter.png";
-    if(manaCounterFile_.isEmpty())      manaCounterFile_ = ":/Images/manaCounter.png";
-    if(drop2CounterFile_.isEmpty())     drop2CounterFile_ = ":/Images/drop2Counter.png";
-    if(drop3CounterFile_.isEmpty())     drop3CounterFile_ = ":/Images/drop3Counter.png";
-    if(drop4CounterFile_.isEmpty())     drop4CounterFile_ = ":/Images/drop4Counter.png";
-    if(aoeMechanicFile_.isEmpty())      aoeMechanicFile_ = ":/Images/aoeMechanic.png";
-    if(tauntMechanicFile_.isEmpty())    tauntMechanicFile_ = ":/Images/tauntMechanic.png";
-    if(goldenMechanicFile_.isEmpty())   goldenMechanicFile_ = ":/Images/goldenMechanic.png";
-    if(greenMechanicFile_.isEmpty())    greenMechanicFile_ = ":/Images/greenMechanic.png";
-    if(redMechanicFile_.isEmpty())      redMechanicFile_ = ":/Images/redMechanic.png";
-    if(survivalMechanicFile_.isEmpty()) survivalMechanicFile_ = ":/Images/restoreMechanic.png";
-    if(drawMechanicFile_.isEmpty())     drawMechanicFile_ = ":/Images/drawMechanic.png";
-    if(pingMechanicFile_.isEmpty())     pingMechanicFile_ = ":/Images/pingMechanic.png";
-    if(damageMechanicFile_.isEmpty())   damageMechanicFile_ = ":/Images/damageMechanic.png";
-    if(destroyMechanicFile_.isEmpty())  destroyMechanicFile_ = ":/Images/destroyMechanic.png";
-    if(reachMechanicFile_.isEmpty())    reachMechanicFile_ = ":/Images/reachMechanic.png";
-    if(checkCardOkFile_.isEmpty())      checkCardOkFile_ = ":/Images/checkCardOk.png";
-    if(bgDraftMechanicsFile_.isEmpty()) bgDraftMechanicsFile_ = ":/Images/bgDraftMechanics.png";
-    if(bgDraftMechanicsHelpFile_.isEmpty())         bgDraftMechanicsHelpFile_ = ":/Images/bgDraftMechanicsHelp.png";
-    if(bgDraftMechanicsHelpDropsFile_.isEmpty())    bgDraftMechanicsHelpDropsFile_ = ":/Images/bgDraftMechanicsHelpDrops.png";
-    if(bgDraftMechanicsReenterFile_.isEmpty())      bgDraftMechanicsReenterFile_ = ":/Images/bgDraftMechanicsReenter.png";
-    if(fgDraftMechanicsColor_.isEmpty())fgDraftMechanicsColor_ = fgColor_;
-    if(synergyTagColor_.isEmpty())      synergyTagColor_ = themeColor1_;
 }

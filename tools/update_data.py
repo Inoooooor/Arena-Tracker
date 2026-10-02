@@ -10,9 +10,6 @@
                                  (falls back to a copy of the plain image)
 - HearthArena/hearthArena.json <- heartharena.com tier list scores per class (bumps haVersion.json)
 
-It also reports arena cards missing from Synergies/synergies.json: those tags need reading the card
-text, so they are added by hand (see CLAUDE.md).
-
 Usage:  python3 tools/update_data.py [--dry-run] [--sets SET1,SET2,...]
 Requires Pillow (pip install pillow).
 """
@@ -219,19 +216,6 @@ def update_card_images(cards, sets, dry_run):
     return failed
 
 
-def report_missing_synergies(cards, sets):
-    print("synergies.json")
-    synergies = read_json(ROOT / "Synergies" / "synergies.json")
-    # Like SynergyHandler::debugSynergiesCode: CORE_ reprints use the tags of the original card
-    missing = [code for code in arena_pool_codes(cards, sets)
-               if code not in synergies and not (code.startswith("CORE_") and code[5:] in synergies)]
-    if missing:
-        print(f"WARNING: {len(missing)} arena cards have no synergy tags in Synergies/synergies.json: "
-              + ", ".join(missing))
-    else:
-        print("  all arena cards tagged")
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dry-run", action="store_true", help="show what would change without writing files")
@@ -242,7 +226,6 @@ def main():
     sets = update_arena_version(cards, args.sets.split(",") if args.sets else None, args.dry_run)
     update_hearth_arena(args.dry_run)
     failed = update_card_images(cards, sets, args.dry_run)
-    report_missing_synergies(cards, sets)
     return 1 if failed else 0
 
 

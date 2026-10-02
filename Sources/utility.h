@@ -13,7 +13,7 @@
 #include <QPropertyAnimation>
 
 
-//Repo the app downloads its data from (cards, arena sets, synergies, images...)
+//Repo the app downloads its data from (cards, arena sets, tier lists, images...)
 #define AT_REPO_RAW_URL "https://raw.githubusercontent.com/Inoooooor/Arena-Tracker/master"
 
 #define REMOVE_CARDS_ON_VERSION_UPDATE false
@@ -25,8 +25,7 @@
 #define DEBUG_OVERLAYS_RIGHT false
 #define DEBUG_ALLOW_SAME_TRIO false
 
-//The mascot replaced the old interface: the tracker windows are never shown, the handlers that only fill them get no game
-//events, and the draft overlays show only the plates (no card check, synergy lists or mechanic icons)
+//The mascot replaced the old interface: the tracker windows are never shown
 //#define OLD_TRACKER_WINDOWS
 
 
@@ -43,20 +42,17 @@ enum LoadingScreenState { menu, arena, ranked, adventure, tavernBrawl, friendly,
 enum LogComponent { logLoadingScreen, logArena, logPower, logZone, logAsset, logInvalid };
 enum DraftMethod { HearthArena, FireStone, None };
 enum ScoreSource { Score_HearthArena, Score_Fire, Score_Heroes, Score_Heroes_Player, Score_None };
-enum MechanicBorderColor { MechanicBorderRed, MechanicBorderGrey, MechanicBorderGreen };
 
 
 //DeckCard
 //Usamos sus numeros para comparacion con rarity template en DraftHandler::reviewBestCards()
 enum CardRarity {COMMON=0, RARE=1, EPIC=2, LEGENDARY=3, FREE, INVALID_RARITY};
-//Nuevos CardType revisar SynergyHandler::updateCardTypeCounters
 enum CardType {INVALID_TYPE, HERO, MINION, SPELL, WEAPON, HERO_POWER, LOCATION};
 //New race step
 enum CardRace {INVALID_RACE, BLOODELF, DRAENEI, DWARF, GNOME, GOBLIN, HUMAN, NIGHTELF, ORC, TAUREN, TROLL, UNDEAD,
                 WORGEN, GOBLIN2, MURLOC, DEMON, SCOURGE, MECHANICAL, ELEMENTAL, OGRE, BEAST, TOTEM, NERUBIAN, PIRATE,
                 DRAGON, BLANK, ALL, EGG, QUILBOAR, CENTAUR, FURBOLG, HIGHELF, TREANT, OWLKIN, HALFORC, LOCK, NAGA, OLDGOD,
                 PANDAREN, GRONN};
-//Nuevos CardSchool revisar SynergyCard::setSchoolTag()
 enum CardSchool {INVALID_SCHOOL, NONE, ARCANE, FEL, FIRE, FROST, HOLY, SHADOW, NATURE, PHYSICAL_COMBAT};
 //--------------------------------------------------------
 //----NEW HERO CLASS - Orden alfabetico
@@ -64,10 +60,6 @@ enum CardSchool {INVALID_SCHOOL, NONE, ARCANE, FEL, FIRE, FROST, HOLY, SHADOW, N
 enum CardClass {DEATHKNIGHT, DEMONHUNTER, DRUID, HUNTER, MAGE, PALADIN, PRIEST, ROGUE, SHAMAN, WARLOCK, WARRIOR,
                  NUM_HEROS, INVALID_CLASS, NEUTRAL};
 
-
-enum MechanicIcons {M_DROP2, M_DROP3, M_DROP4,
-                    M_REACH, M_TAUNT_ALL, M_SURVIVABILITY, M_DISCOVER_DRAW,
-                    M_PING, M_DAMAGE, M_DESTROY, M_AOE, M_NUM_MECHANICS};
 
 
 class GameResultPost
@@ -186,7 +178,6 @@ public:
     static bool setExecutablePermissions(const QString &filePath);
     static QString getCodeFromCardAttribute(const QString &attribute, QJsonValue value);
     static void drawShadowText(QPainter &painter, const QFont &font, const QString &text, int x, int y, bool alignCenter, bool isCardText=true);
-    static void drawTagText(QPainter &painter, const QFont &font, const QString &text, int x, int y, int xBorder, int yBorder, float scale=1, bool alignCenter=false);
     static QString histogramsPath();
     static QString arenaStatsPath();
     static int classLogNumber2classOrder(const QString &heroLog);
