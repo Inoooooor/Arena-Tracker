@@ -1555,14 +1555,16 @@ void DeckHandler::deleteDraftDeck(QString hero)
 }
 
 
+//Hearthstone's list of the deck (Arena.log) says which cards are in it; it may list a card once with 2 copies, so the
+//saved draft only gives the copies of those cards. It used to replace the deck when they were close: a draft saved
+//with wrong redraft discards (read by OCR) then brought the discarded cards back.
 void DeckHandler::completeArenaDeck(QString hero)
 {
-    //Create cardsInDeck list
-    QList<QString> cardsInDeck;
-    for(DeckCard &deckCard: deckCardList)
+    QMap<QString, int> logTotals;
+    for(int i=1; i<deckCardList.count(); i++)
     {
-        QString code = deckCard.getCode();
-        if(!code.isEmpty()) cardsInDeck.append(code);
+        const QString code = deckCardList[i].getCode();
+        if(!code.isEmpty() && !deckCardList[i].isOutsider())    logTotals[code] += deckCardList[i].total;
     }
 
     QJsonObject draftsJson;
@@ -1574,34 +1576,29 @@ void DeckHandler::completeArenaDeck(QString hero)
         return;
     }
     QJsonObject draftObject = draftsJson[hero].toObject();
-    const QList<QString> codeList = draftObject.keys();
-    for(const QString &code: codeList)
-    {
-        if(cardsInDeck.contains(code))
-        {
-            cardsInDeck.removeAll(code);
-        }
-    }
 
-    //Check lists make sense
-    if(cardsInDeck.count() > 10)
+    //Nothing listed: the saved draft is all there is
+    if(logTotals.isEmpty())
     {
-        emit pDebug("Completing Arena Deck: Hero " + hero + " - DraftJson differs too much from decklist. " +
-                    QString::number(cardsInDeck.count()) + " diff cards.");
+        emit pDebug("Completing Arena Deck: Hero " + hero + " - Empty decklist, load the draft deck.");
+        reset();
+        for(const QString &code: draftObject.keys())
+        {
+            for(int i=0; i<draftObject[code].toInt(); i++)  newDeckCardDraft(code);
+        }
         return;
     }
 
-    //Complete deck
-    emit pDebug("Completing Arena Deck: Hero " + hero + " - Load whole draft deck. " +
-                QString::number(cardsInDeck.count()) + " diff cards.");
+    int extraCopies = 0;
     reset();
-    for(const QString &code: codeList)
+    for(auto it=logTotals.constBegin(); it!=logTotals.constEnd(); it++)
     {
-        for(int i=0; i<draftObject[code].toInt(); i++)
-        {
-            newDeckCardDraft(code);
-        }
+        const int copies = std::max(it.value(), draftObject.value(it.key()).toInt());
+        extraCopies += copies - it.value();
+        for(int i=0; i<copies; i++)     newDeckCardDraft(it.key());
     }
+    emit pDebug("Completing Arena Deck: Hero " + hero + " - " + QString::number(logTotals.count()) +
+                " cards from the decklist, " + QString::number(extraCopies) + " extra copies from the draft.");
 }
 
 

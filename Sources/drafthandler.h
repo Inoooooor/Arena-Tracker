@@ -9,7 +9,6 @@
 #include "Widgets/draftscorewindow.h"
 #include "Widgets/draftmechanicswindow.h"
 #include "synergyhandler.h"
-#include "twitchhandler.h"
 #include <QObject>
 #include <QFutureWatcher>
 #include <QPointer>
@@ -125,7 +124,6 @@ public:
 
 //Variables
 private:
-    bool patreonVersion;
     Ui::Extended *ui;
     DeckHandler *deckHandler;
     SynergyHandler *synergyHandler;
@@ -181,14 +179,13 @@ private:
     QLabel *labelHAscore[3];
     QLabel *labelHSRscore[3];
     QComboBox *comboBoxCard[3];
-    bool extendedCapture, resetTwitchScores;
+    bool extendedCapture;
     QStringList heroCodesList;
     QMap<QString, float> *cardsIncludedWinratesMap;
     QMap<QString, int> *cardsIncludedDecksMap;
     QMap<QString, float> *cardsPlayedWinratesMap;
     QMap<QString, float> *fireWRMap;
     QMap<QString, int> *fireSamplesMap;
-    TwitchHandler *twitchHandler;
     bool multiclassArena;
     bool needSaveCardHist;
     int cardsJsonWaits;
@@ -204,6 +201,8 @@ private:
     //the redraft picks happened when AT could not see them (Hearthstone restarted in the review screen)
     QTimer *redraftWatchTimer;
     QFutureWatcher<int> futureRedraftCounter;
+    QFutureWatcher<int> futureRewardsWins;
+    int rewardsWinsTries = 0;
     //macOS: the cards picked in the redraft review screen are found by reading their names
     QTimer *redraftReviewTimer;
     QFutureWatcher<RedraftScreenRead> futureRedraftReviewCodes;
@@ -278,15 +277,12 @@ private:
     void connectAllComboBox();
     void clearAndDisconnectAllComboBox();
     void clearAndDisconnectComboBox(int index);
-    void initDraftMechanicsWindowCounters();
     void initSynergyCounters(QList<DeckCard> &deckCardList);
     void updateLabelDeckScore(float deckScoreFire, int deckScoreHA, float deckScoreHSR, int numCards);
     void showMessageDeckScore(float deckScoreFire, int deckScoreHA, float deckScoreHSR);
     void updateAvgScoresVisibility();
     void endHeroDraft();
     void showNewHeroes();
-    void createTwitchHandler();
-    void deleteTwitchHandler();
     QString getDeckAvgString(float deckScoreFire, int deckScoreHA, float deckScoreHSR);
     bool buildDraftMechanicsWindow();
     bool loadTemplateSettings();
@@ -385,6 +381,7 @@ public:
     void craftGoldenCopy(int cardIndex);
     bool isDrafting();
     bool isRedrafting();
+    void readRewardsWins();
     bool isEmptyDeck();
     void deMinimizeScoreWindow();
     QStringList getAllHeroCodes();
@@ -393,7 +390,6 @@ public:
     void setCardsPlayedWinratesMap(QMap<QString, float> cardsPlayedWinratesMap[]);
     void setFireWRMap(QMap<QString, float> fireWRMap[]);
     void setFireSamplesMap(QMap<QString, int> fireSamplesMap[]);
-    void updateTwitchChatVotes();
     void setDraftMethodAvgScore(DraftMethod draftMethodAvgScore);
     void setMulticlassArena(bool multiclassArena);
     SynergyHandler *getSynergyHandler();
@@ -410,6 +406,7 @@ public:
 signals:
     void draftStatusChanged(QString text);
     void redraftScreenChanged(int screen);      //RedraftScreen
+    void rewardsWinsRead(int wins);             //The number on the rewards chest, -1 when it couldn't be read
     void draftFinished(int knownCards, float avgFire, float avgHA);   //A new deck (not a redraft), for the mascot
     void heroesScored(int classOrder0, int classOrder1, int classOrder2);
     void cardsScored();     //getPickScores() has the new pick
@@ -430,7 +427,6 @@ signals:
     void itemLeave();
     void cardEntered(QString code, QRect rectCard, int maxTop, int maxBottom);
     void cardLeave();
-    void showPremiumDialog();
     void calculateMinimumWidth();
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="DraftHandler");
 
@@ -450,19 +446,18 @@ public slots:
     // void enterArena();//OLD
     void leaveArena();
     void minimizeScoreWindow();
-    void setPremium(bool premium);
     void updateMinimumHeight();
     void redraft();
     void checkRedraft();
 
 private slots:
+    void tryReadRewardsWins();
+    void finishReadRewardsWins();
     void captureDraft();
     void finishFindScreenRects();
     void startFindScreenRects();
     void comboBoxActivated();
     void refreshDraft();
-    void twitchHandlerConnectionOk(bool ok);
-    void twitchHandlerVoteUpdate(int vote1, int vote2, int vote3, QString username);
     void showHSRwebPicks();
     void showFirewebPicks();
     void newFindScreenLoop(bool skipScreenSettings=false);

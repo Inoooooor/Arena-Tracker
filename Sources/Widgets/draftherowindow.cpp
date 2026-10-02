@@ -71,21 +71,9 @@ void DraftHeroWindow::hideScores(bool quick)
 }
 
 
-void DraftHeroWindow::showTwitchScores(bool show)
-{
-    (void)show;
-}
-
-
 void DraftHeroWindow::showPlayerScores(bool show)
 {
     (void)show;
-}
-
-
-void DraftHeroWindow::setTwitchScores(int vote1, int vote2, int vote3, QString username)
-{
-    (void)vote1; (void)vote2; (void)vote3; (void)username;
 }
 
 

@@ -46,7 +46,6 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     this->deckRatingFire = 0;
     this->numCaptured = 0;
     this->extendedCapture = false;
-    this->resetTwitchScores = true;
     this->drafting = false;
     this->redrafting = false;
     this->redraftingReview = false;
@@ -64,7 +63,6 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     this->draftMethodFire = true;
     this->draftMethodHSR = false;
     this->draftMethodAvgScore = HSReplay;
-    this->twitchHandler = nullptr;
     this->multiclassArena = false;
     this->learningMode = false;
     this->showDrops = true;
@@ -103,6 +101,7 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     redraftWatchTimer->setInterval(REDRAFT_WATCH_TIME);
     connect(redraftWatchTimer, SIGNAL(timeout()), this, SLOT(checkRedraftScreen()));
     connect(&futureRedraftCounter, SIGNAL(finished()), this, SLOT(finishCheckRedraftScreen()));
+    connect(&futureRewardsWins, SIGNAL(finished()), this, SLOT(finishReadRewardsWins()));
 
     bundlePending = bundlePreviewVisible = bundlePreviewOpen = false;
     bundleMisses = bundleReads = 0;
@@ -123,7 +122,6 @@ DraftHandler::~DraftHandler()
     deleteDraftHeroWindow();
     deleteDraftScoreWindow();
     deleteDraftMechanicsWindow();
-    deleteTwitchHandler();
     if(synergyHandler != nullptr)  delete synergyHandler;
     //Once shown the tab belongs to the tab widget (removeTab keeps it as parent), which deletes it with the window.
     //Deleting it here would switch tabs while the other handlers are already gone.
@@ -416,24 +414,12 @@ void DraftHandler::completeUI()
     connect(&futureReviewBestCards, SIGNAL(finished()), this, SLOT(finishReviewBestCards()));
 
 
-    setPremium(false);
 }
 
 
 void DraftHandler::setMulticlassArena(bool multiclassArena)
 {
     this->multiclassArena = multiclassArena;
-}
-
-
-void DraftHandler::setPremium(bool premium)
-{
-    if(drafting)    return;
-    this->patreonVersion = premium;
-
-    ui->labelDeckScore->setVisible(patreonVersion);
-
-    if(draftHeroWindow != nullptr)  draftHeroWindow->showPlayerScores(this->showMyWR && patreonVersion);
 }
 
 
@@ -923,8 +909,8 @@ void DraftHandler::resetTab(bool alreadyDrafting)
         ui->tabWidget->setTabToolTip(0, "Draft");
 
         //Reset scores
-        synergyHandler->setHidden(!patreonVersion);
-        lavaButton->setHidden(!patreonVersion);
+        synergyHandler->setHidden(true);
+        lavaButton->setHidden(true);
         scoreButtonHA->setEnabled(false);
         scoreButtonLF->setEnabled(false);
         scoreButtonHSR->setEnabled(false);
@@ -984,7 +970,6 @@ void DraftHandler::clearLists(bool keepCounters)
     screenScale = QPointF(1,1);
     numCaptured = 0;
     extendedCapture = false;
-    resetTwitchScores = true;
     stopLoops = true;
 }
 
@@ -1004,7 +989,6 @@ void DraftHandler::clearLists(bool keepCounters)
 //         else if(draftCards[0].getCode().isEmpty())
 //         {
 //             this->extendedCapture = false;
-//             this->resetTwitchScores = true;
 //             newCaptureDraftLoop(true);
 //         }
 //     }
@@ -1280,7 +1264,6 @@ void DraftHandler::beginDraft(QString hero, QList<DeckCard> deckCardList, bool s
     initCodesAndHistMaps(deckCardList, skipScreenSettings);
     resetTab(alreadyDrafting);
     initSynergyCounters(deckCardList);
-    createTwitchHandler();
     loadImgTemplates(manaTemplates, "MANA.dat");
     loadImgTemplates(rarityTemplates, "RARITY.dat");
 
@@ -1316,6 +1299,119 @@ void DraftHandler::stopRedraftWatch()
     if(!redraftWatchTimer->isActive())  return;
     emit pDebug("Stop watching for the redraft review screen.");
     redraftWatchTimer->stop();
+}
+
+
+#ifdef Q_OS_MAC
+static QImage grabHearthstoneWindow(int maxWidth);
+#endif
+
+//The rewards screen of a run shows its final wins on the chest, also the games the tracker didn't see (closed).
+//Tried for a few seconds: the chest comes in with an animation.
+void DraftHandler::readRewardsWins()
+{
+    rewardsWinsTries = 0;
+    tryReadRewardsWins();
+}
+
+
+void DraftHandler::tryReadRewardsWins()
+{
+#ifdef Q_OS_MAC
+    if(Utility::getLocalLang() != "enUS")
+    {
+        emit rewardsWinsRead(-1);
+        return;
+    }
+    if(futureRewardsWins.isRunning())   return;
+    rewardsWinsTries++;
+    const QImage image = grabHearthstoneWindow(1400);
+
+    futureRewardsWins.setFuture(QtConcurrent::run([image]() {
+        if(image.isNull())  return -1;
+        //"Run Complete!" is the anchor: the number is under it, in its widths (measured on 2026 clients)
+        QRectF label;
+        for(const MacOcr::TextLine &line: MacOcr::recognizeTextLines(image, "enUS", true))
+        {
+            if(line.text.contains("Run Complete", Qt::CaseInsensitive))     label = line.rect;
+        }
+        if(label.isNull())  return -1;
+        const qreal w = label.width();
+        const QImage rgb = image.convertToFormat(QImage::Format_RGB32);
+        const QRect crop = QRect(qRound(label.center().x() - 0.22*w), qRound(label.center().y() + 0.97*w),
+                                 qRound(0.44*w), qRound(0.48*w)) & rgb.rect();
+        if(crop.isEmpty())  return -1;
+
+        //The white digits alone, black on white, three times in a row: Vision drops a lone digit (both recognizers,
+        //depending on the digit and its size) but reads "444" or "000"; the fast one reads all of them
+        QRect ink;
+        for(int y=0; y<crop.height(); y++)
+        {
+            for(int x=0; x<crop.width(); x++)
+            {
+                const QRgb p = rgb.pixel(crop.x() + x, crop.y() + y);
+                if(std::min({qRed(p), qGreen(p), qBlue(p)}) > 200)  ink |= QRect(crop.x() + x, crop.y() + y, 1, 1);
+            }
+        }
+        if(ink.width() < 3 || ink.height() < 8)     return -1;
+        const int gapPx = ink.height()/4;
+        QImage row(gapPx + 3*(ink.width() + gapPx), ink.height()*2, QImage::Format_RGB32);
+        row.fill(Qt::white);
+        for(int copy=0; copy<3; copy++)
+        {
+            const int left = gapPx + copy*(ink.width() + gapPx);
+            for(int y=0; y<ink.height(); y++)
+            {
+                for(int x=0; x<ink.width(); x++)
+                {
+                    const QRgb p = rgb.pixel(ink.x() + x, ink.y() + y);
+                    if(std::min({qRed(p), qGreen(p), qBlue(p)}) > 200)  row.setPixel(left + x, ink.height()/2 + y, qRgb(0, 0, 0));
+                }
+            }
+        }
+        QString number;
+        for(const MacOcr::TextLine &line: MacOcr::recognizeTextLines(row, "enUS", true))
+        {
+            for(QChar c: line.text)
+            {
+                //Letters the fast recognizer reads for these digits
+                if(c == 'o' || c == 'O' || c == 'D')                    c = '0';
+                else if(c == 'l' || c == 'I' || c == 'i' || c == '|')   c = '1';
+                else if(c == 'Z' || c == 'z')                           c = '2';
+                else if(c == 'S' || c == 's')                           c = '5';
+                else if(c == 'B')                                       c = '8';
+                if(c.isDigit())     number += c;
+            }
+        }
+        //The three copies must agree
+        if(number.isEmpty() || number.length() % 3 != 0)    return -1;
+        const QString third = number.left(number.length()/3);
+        if(number != third + third + third)     return -1;
+        number = third;
+        bool ok = false;
+        const int wins = number.toInt(&ok);
+        return (ok && wins >= 0 && wins <= 12) ? wins : -1;
+    }));
+#else
+    emit rewardsWinsRead(-1);
+#endif
+}
+
+
+void DraftHandler::finishReadRewardsWins()
+{
+    const int wins = futureRewardsWins.result();
+    if(wins >= 0)
+    {
+        emit pDebug("Rewards chest: " + QString::number(wins) + " wins.");
+        emit rewardsWinsRead(wins);
+    }
+    else if(rewardsWinsTries < 8)   QTimer::singleShot(1000, this, SLOT(tryReadRewardsWins()));
+    else
+    {
+        emit pDebug("Rewards chest not read.");
+        emit rewardsWinsRead(-1);
+    }
 }
 
 
@@ -1489,74 +1585,6 @@ void DraftHandler::continueDraft()
 }
 
 
-void DraftHandler::createTwitchHandler()
-{
-    deleteTwitchHandler();
-
-    if(TwitchHandler::isWellConfigured())
-    {
-        this->twitchHandler = new TwitchHandler(this);
-        connect(twitchHandler, SIGNAL(connectionOk(bool)),
-                this, SLOT(twitchHandlerConnectionOk(bool)));
-        connect(twitchHandler, SIGNAL(voteUpdate(int,int,int,QString)),
-                this, SLOT(twitchHandlerVoteUpdate(int,int,int,QString)));
-        connect(twitchHandler, SIGNAL(showMessageProgressBar(QString,int)),
-                this, SIGNAL(showMessageProgressBar(QString,int)));
-        connect(twitchHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
-                this, SIGNAL(pDebug(QString,DebugLevel,QString)));
-    }
-}
-
-
-void DraftHandler::deleteTwitchHandler()
-{
-    if(twitchHandler != nullptr)
-    {
-        delete twitchHandler;
-        twitchHandler = nullptr;
-    }
-}
-
-
-void DraftHandler::twitchHandlerConnectionOk(bool ok)
-{
-    if(ok)
-    {
-        if(draftScoreWindow != nullptr && TwitchHandler::isActive())   draftScoreWindow->showTwitchScores();
-        if(draftHeroWindow != nullptr && TwitchHandler::isActive())    draftHeroWindow->showTwitchScores();
-    }
-    else
-    {
-        deleteTwitchHandler();
-    }
-}
-
-
-void DraftHandler::twitchHandlerVoteUpdate(int vote1, int vote2, int vote3, QString username)
-{
-    if(draftScoreWindow != nullptr)    draftScoreWindow->setTwitchScores(vote1, vote2, vote3, username);
-    if(draftHeroWindow != nullptr)     draftHeroWindow->setTwitchScores(vote1, vote2, vote3, username);
-}
-
-
-void DraftHandler::updateTwitchChatVotes()
-{
-    if(draftScoreWindow != nullptr)
-    {
-        if(twitchHandler != nullptr && twitchHandler->isConnectionOk() &&
-                TwitchHandler::isActive())  draftScoreWindow->showTwitchScores();
-        else                                draftScoreWindow->showTwitchScores(false);
-    }
-
-    if(draftHeroWindow != nullptr)
-    {
-        if(twitchHandler != nullptr && twitchHandler->isConnectionOk() &&
-                TwitchHandler::isActive())  draftHeroWindow->showTwitchScores();
-        else                                draftHeroWindow->showTwitchScores(false);
-    }
-}
-
-
 void DraftHandler::initSynergyCounters(QList<DeckCard> &deckCardList)
 {
     if(deckCardList.count() == 1 || CardTypeCounter::draftedCardsCount() > 0)  return;
@@ -1651,7 +1679,6 @@ void DraftHandler::endDraft(bool createNewArena)
     this->justPickedCard = "";
 
     deleteDraftScoreWindow();
-    deleteTwitchHandler();
 
     if(redrafting)  beginRedraftReview();
 }
@@ -1769,14 +1796,6 @@ void DraftHandler::endDraftShowMechanicsWindow()
             emit saveDraftDeck(Utility::classEnum2classLogNumber(arenaHero));
 
             //Send Deck Score
-            if(patreonVersion)
-            {
-                int deckScoreHA = static_cast<int>(round(deckRatingHA/30.0));
-                float deckScoreHSR = round(deckRatingHSR/30 * 10)/10.0;
-                float deckScoreFire = round(deckRatingFire/30 * 10)/10.0;
-                QString heroLog = Utility::classEnum2classLogNumber(arenaHero);
-                emit scoreAvg(deckScoreHA, deckScoreHSR, deckScoreFire, heroLog);
-            }
         }
     }
 }
@@ -2889,7 +2908,6 @@ void DraftHandler::pickCard(QString code)
     prevCodesTime = QDateTime::currentSecsSinceEpoch();
     this->numCaptured = 0;
     this->extendedCapture = false;
-    this->resetTwitchScores = true;
     if(draftScoreWindow != nullptr)    draftScoreWindow->hideScores();
 
     emit pDebug("Pick card: " + code);
@@ -2926,7 +2944,6 @@ void DraftHandler::refreshCapturedCards()
 
     this->numCaptured = 0;
     this->extendedCapture = true;
-    this->resetTwitchScores = false;
     if(draftScoreWindow != nullptr)    draftScoreWindow->hideScores();
 
     newCaptureDraftLoop();
@@ -2971,7 +2988,6 @@ void DraftHandler::refreshDraft()
 
     this->numCaptured = 0;
     this->extendedCapture = true;
-    this->resetTwitchScores = false;
 
     //Force draft
     QList<DeckCard> deckCardList = deckHandler->getDeckCardList();
@@ -3310,22 +3326,6 @@ void DraftHandler::showNewCards(DraftCard bestCards[])
     emit cardsScored();
 
 
-    //Twitch Handler
-    if(this->twitchHandler != nullptr)
-    {
-        //No twitch reset al usar boton refresh o comboBox change.
-        if(this->resetTwitchScores) twitchHandler->reset();
-
-        if(TwitchHandler::isActive())
-        {
-            QString pickTag = TwitchHandler::getPickTag();
-            twitchHandler->sendMessage((patreonVersion?QString("["+QString::number(CardTypeCounter::draftedCardsCount()+1)+
-                                       "/30] -- "):QString("")) +
-                                       "(" + pickTag + "1) " + bestCards[0].getName() +
-                                       " / (" + pickTag + "2) " + bestCards[1].getName() +
-                                       " / (" + pickTag + "3) " + bestCards[2].getName());
-        }
-    }
 
 
     //Legendary bundles
@@ -3343,20 +3343,6 @@ void DraftHandler::showNewCards(DraftCard bestCards[])
 
 void DraftHandler::showSynergies()
 {
-    if(patreonVersion)
-    {
-        if(draftScoreWindow != nullptr)
-        {
-            for(int i=0; i<3; i++)
-            {
-                QMap<QString, QMap<QString, int>> synergyTagMap;
-                QMap<MechanicIcons, int> mechanicIcons;
-                MechanicBorderColor dropBorderColor;
-                synergyHandler->getSynergies(draftCards[i], synergyTagMap, mechanicIcons, dropBorderColor);
-                draftScoreWindow->setSynergies(i, synergyTagMap, mechanicIcons, dropBorderColor);
-            }
-        }
-    }
 }
 
 
@@ -4473,7 +4459,6 @@ void DraftHandler::beginHeroDraft()
 
     QList<DeckCard> deckCardList;
     initCodesAndHistMaps(deckCardList, true);
-    createTwitchHandler();
 }
 
 
@@ -4487,7 +4472,6 @@ void DraftHandler::endHeroDraft()
 
     this->heroDrafting = false;
     deleteDraftHeroWindow();
-    deleteTwitchHandler();
 }
 
 
@@ -4529,45 +4513,6 @@ void DraftHandler::showNewHeroes()
     heroesShown = true;
     emit heroesScored(classOrder[0], classOrder[1], classOrder[2]);
 
-    //Twitch Handler
-    if(this->twitchHandler != nullptr)
-    {
-        twitchHandler->reset();
-
-        if(TwitchHandler::isActive())
-        {
-            QString pickTag = TwitchHandler::getPickTag();
-            twitchHandler->sendMessage("(" + pickTag + "1) " + draftCardMaps[0][bestMatchesMaps[0].first()].getName() +
-                                       " / (" + pickTag + "2) " + draftCardMaps[1][bestMatchesMaps[1].first()].getName() +
-                                       " / (" + pickTag + "3) " + draftCardMaps[2][bestMatchesMaps[2].first()].getName());
-        }
-    }
-}
-
-
-void DraftHandler::initDraftMechanicsWindowCounters()
-{
-    int numCards = CardTypeCounter::draftedCardsCount();
-
-    if(numCards == 0 || !patreonVersion || draftMechanicsWindow == nullptr)    return;
-
-    QMultiMap<QString, QString> spellMap, minionMap, weaponMap,
-                drop2Map, drop3Map, drop4Map,
-                aoeMap, tauntMap, survivabilityMap, drawMap,
-                pingMap, damageMap, destroyMap, reachMap;
-    QList<SynergyWeightCard> synergyWeightCardList;
-    int manaCounter = synergyHandler->getCounters(spellMap, minionMap, weaponMap,
-                                                  drop2Map, drop3Map, drop4Map,
-                                                  aoeMap, tauntMap, survivabilityMap, drawMap,
-                                                  pingMap, damageMap, destroyMap, reachMap,
-                                                  synergyWeightCardList);
-    draftMechanicsWindow->updateCounters(spellMap, minionMap, weaponMap,
-                                         drop2Map, drop3Map, drop4Map,
-                                         aoeMap, tauntMap, survivabilityMap, drawMap,
-                                         pingMap, damageMap, destroyMap, reachMap,
-                                         manaCounter, numCards);
-    draftMechanicsWindow->updateDeckWeight(synergyWeightCardList, numCards);
-    updateDeckScore();
 }
 
 
@@ -4611,23 +4556,16 @@ void DraftHandler::createDraftWindows()
 
         draftScoreWindow->setLearningMode(this->learningMode);
         draftScoreWindow->setDraftMethod(this->draftMethodHA, this->draftMethodFire, this->draftMethodHSR, false);
-        if(twitchHandler != nullptr && twitchHandler->isConnectionOk() && TwitchHandler::isActive())
-        {
-            draftScoreWindow->showTwitchScores();
-        }
 
         draftMechanicsWindow = new DraftMechanicsWindow(mainWindow, draftRect, sizeCard, screenIndex,
-                                                        patreonVersion, arenaHero);
+                                                        arenaHero);
         draftMechanicsWindow->setDraftMethodAvgScore(draftMethodAvgScore);
         draftMechanicsWindow->setShowDrops(this->showDrops);
-        initDraftMechanicsWindowCounters();
 
         connect(draftMechanicsWindow, SIGNAL(itemEnter(QList<SynergyCard>&,QPoint&,int,int)),
                 this, SIGNAL(itemEnterOverlay(QList<SynergyCard>&,QPoint&,int,int)));
         connect(draftMechanicsWindow, SIGNAL(itemLeave()),
                 this, SIGNAL(itemLeave()));
-        connect(draftMechanicsWindow, SIGNAL(showPremiumDialog()),
-                this, SIGNAL(showPremiumDialog()));
     }
     else if(heroDrafting)
     {
@@ -4646,17 +4584,14 @@ void DraftHandler::createDraftWindows()
         connect(draftHeroWindow, SIGNAL(pDebug(QString,DebugLevel,QString)),
                 this, SIGNAL(pDebug(QString,DebugLevel,QString)));
 
-        if(twitchHandler != nullptr && twitchHandler->isConnectionOk() && TwitchHandler::isActive())   draftHeroWindow->showTwitchScores();
-        if(draftHeroWindow != nullptr)  draftHeroWindow->showPlayerScores(this->showMyWR && patreonVersion);
     }
     else//buildMechanicsWindow
     {
         emit pDebug("Create mechanic window.");
         draftMechanicsWindow = new DraftMechanicsWindow(mainWindow, draftRect, sizeCard, screenIndex,
-                                                        patreonVersion, arenaHero);
+                                                        arenaHero);
         draftMechanicsWindow->setDraftMethodAvgScore(draftMethodAvgScore);
         draftMechanicsWindow->setShowDrops(this->showDrops);
-        initDraftMechanicsWindowCounters();
         //Despues de calcular todo podemos limpiar draftHandler, lo que nos interesa esta todo en draftMechanicsWindow
         clearLists(false);
 
@@ -4664,8 +4599,6 @@ void DraftHandler::createDraftWindows()
                 this, SIGNAL(itemEnterOverlay(QList<SynergyCard>&,QPoint&,int,int)));
         connect(draftMechanicsWindow, SIGNAL(itemLeave()),
                 this, SIGNAL(itemLeave()));
-        connect(draftMechanicsWindow, SIGNAL(showPremiumDialog()),
-                this, SIGNAL(showPremiumDialog()));
     }
 
     showOverlay();
@@ -4840,8 +4773,7 @@ void DraftHandler::showOverlay()
 
     if(this->draftMechanicsWindow != nullptr)
     {
-        if(showDraftMechanicsOverlay && patreonVersion) this->draftMechanicsWindow->show();
-        else                                            this->draftMechanicsWindow->hide();
+        this->draftMechanicsWindow->hide();
     }
 }
 
@@ -4865,7 +4797,6 @@ void DraftHandler::setShowDrops(bool value)
 void DraftHandler::setShowMyWR(bool value)
 {
     this->showMyWR = value;
-    if(draftHeroWindow != nullptr)  draftHeroWindow->showPlayerScores(this->showMyWR && patreonVersion);
 }
 
 
@@ -4961,23 +4892,6 @@ void DraftHandler::updateAvgScoresVisibility()
     scoreButtonHA->hide();
     scoreButtonHSR->hide();
 
-    if(patreonVersion)
-    {
-        switch(draftMethodAvgScore)
-        {
-            case FireStone:
-                scoreButtonLF->show();
-            break;
-            case HearthArena:
-                scoreButtonHA->show();
-            break;
-            case HSReplay:
-                scoreButtonHSR->show();
-            break;
-            default:
-            break;
-        }
-    }
 }
 
 
@@ -5057,7 +4971,6 @@ void DraftHandler::minimizeScoreWindow()
 {
     if(this->draftHeroWindow != nullptr)                                                       draftHeroWindow->showMinimized();
     if(this->draftScoreWindow != nullptr && showDraftScoresOverlay)                            draftScoreWindow->showMinimized();
-    if(this->draftMechanicsWindow != nullptr && showDraftMechanicsOverlay && patreonVersion)   draftMechanicsWindow->showMinimized();
 }
 
 
@@ -5065,7 +4978,6 @@ void DraftHandler::deMinimizeScoreWindow()
 {
     if(this->draftHeroWindow != nullptr)                                                       draftHeroWindow->setWindowState(Qt::WindowActive);
     if(this->draftScoreWindow != nullptr && showDraftScoresOverlay)                            draftScoreWindow->setWindowState(Qt::WindowActive);
-    if(this->draftMechanicsWindow != nullptr && showDraftMechanicsOverlay && patreonVersion)   draftMechanicsWindow->setWindowState(Qt::WindowActive);
 }
 
 
@@ -5262,7 +5174,6 @@ void DraftHandler::showComboBoxesCards(DraftCard bestCards[3])
     }
 
     if(draftScoreWindow != nullptr)    draftScoreWindow->hideScores(true);
-    this->resetTwitchScores = false;
     showNewCards(bestCards);
 }
 
@@ -5367,7 +5278,6 @@ void DraftHandler::finishReviewBestCards()
             else    bestCards[i] = draftCards[i];
         }
 
-        this->resetTwitchScores = false;
         showNewCards(bestCards);
     }
 }

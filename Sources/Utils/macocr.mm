@@ -11,7 +11,7 @@ QStringList MacOcr::recognizeLines(const QImage &image, const QString &language)
 }
 
 
-QList<MacOcr::TextLine> MacOcr::recognizeTextLines(const QImage &image, const QString &language)
+QList<MacOcr::TextLine> MacOcr::recognizeTextLines(const QImage &image, const QString &language, bool fast)
 {
     QList<TextLine> lines;
     if(image.isNull())  return lines;
@@ -22,7 +22,7 @@ QList<MacOcr::TextLine> MacOcr::recognizeTextLines(const QImage &image, const QS
         if(cgImage == nullptr)  return lines;
 
         VNRecognizeTextRequest *request = [[VNRecognizeTextRequest alloc] init];
-        request.recognitionLevel = VNRequestTextRecognitionLevelAccurate;
+        request.recognitionLevel = fast ? VNRequestTextRecognitionLevelFast : VNRequestTextRecognitionLevelAccurate;
         //Card names are not dictionary words
         request.usesLanguageCorrection = NO;
         //enUS --> en-US

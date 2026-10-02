@@ -44,7 +44,6 @@ SOURCES += Sources/main.cpp\
     Sources/deckhandler.cpp \
     Sources/arenahandler.cpp \
     Sources/drafthandler.cpp \
-    Sources/heartharenamentor.cpp \
     Sources/utility.cpp \
     Sources/Cards/deckcard.cpp \
     Sources/Cards/draftcard.cpp \
@@ -61,7 +60,6 @@ SOURCES += Sources/main.cpp\
     Sources/Widgets/cardwindow.cpp \
     Sources/versionchecker.cpp \
     Sources/Utils/qcompressor.cpp \
-    Sources/trackobotuploader.cpp \
     Sources/Utils/deckstringhandler.cpp \
     Sources/themehandler.cpp \
     Sources/Utils/libzippp.cpp \
@@ -70,15 +68,11 @@ SOURCES += Sources/main.cpp\
     Sources/Synergies/statsynergies.cpp \
     Sources/Widgets/hoverlabel.cpp \
     Sources/Widgets/draftmechanicswindow.cpp \
-    Sources/LibSmtp/smtp.cpp \
     Sources/Utils/hdimages.cpp \
     Sources/Utils/hdicons.cpp \
-    Sources/premiumhandler.cpp \
     Sources/detachwindow.cpp \
     Sources/Widgets/lavabutton.cpp \
     Sources/Widgets/draftherowindow.cpp \
-    Sources/twitchhandler.cpp \
-    Sources/Widgets/twitchbutton.cpp \
     Sources/winratesdownloader.cpp
 
 HEADERS  += Sources/mainwindow.h \
@@ -99,7 +93,6 @@ HEADERS  += Sources/mainwindow.h \
     Sources/deckhandler.h \
     Sources/arenahandler.h \
     Sources/drafthandler.h \
-    Sources/heartharenamentor.h \
     Sources/utility.h \
     Sources/Cards/deckcard.h \
     Sources/Cards/draftcard.h \
@@ -117,7 +110,6 @@ HEADERS  += Sources/mainwindow.h \
     Sources/Widgets/cardwindow.h \
     Sources/versionchecker.h \
     Sources/Utils/qcompressor.h \
-    Sources/trackobotuploader.h \
     Sources/constants.h \
     Sources/Utils/deckstringhandler.h \
     Sources/themehandler.h \
@@ -128,15 +120,11 @@ HEADERS  += Sources/mainwindow.h \
     Sources/Widgets/hoverlabel.h \
     Sources/Widgets/draftmechanicswindow.h \
     Sources/Widgets/webenginepage.h \
-    Sources/LibSmtp/smtp.h \
     Sources/Utils/hdimages.h \
     Sources/Utils/hdicons.h \
-    Sources/premiumhandler.h \
     Sources/detachwindow.h \
     Sources/Widgets/lavabutton.h \
     Sources/Widgets/draftherowindow.h \
-    Sources/twitchhandler.h \
-    Sources/Widgets/twitchbutton.h \
     Sources/winratesdownloader.h
 
 FORMS    += mainwindow.ui

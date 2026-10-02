@@ -6,7 +6,6 @@
 #include <QHBoxLayout>
 #include "movelistwidget.h"
 #include "scorebutton.h"
-#include "twitchbutton.h"
 #include "hoverlabel.h"
 #include "../utility.h"
 #include "../Cards/synergycard.h"
@@ -52,14 +51,13 @@ private:
     ScoreButton *scoresPushButton[3];
     ScoreButton *scoresPushButton2[3];
     ScoreButton *scoresPushButton3[3];
-    TwitchButton *twitchButton[3];
     MoveListWidget *synergiesListWidget[3];
     QList<SynergyCard> synergyCardLists[3];
     SynergyMotion synergyMotions[3];
     int scoreWidth;
     int maxSynergyHeight, maxSynergyHeight1Row, maxSynergyHeight2Row;
     bool scores2Rows;
-    bool showHA, showLF, showHSR, showTwitch;
+    bool showHA, showLF, showHSR;
     bool wantedMechanics[M_NUM_MECHANICS];
     SynergyCard *warningCard[3];
     HoverLabel *warningCardLabel[3];
@@ -96,12 +94,10 @@ public:
     void hideScores(bool quick=false);
     void setLegendaryGroups(bool legendaryGroups);     //The first pick: the plates sit differently
     void setLearningMode(bool value);
-    void showTwitchScores(bool show=true);
     void setDraftMethod(bool draftMethodHA, bool draftMethodLF, bool draftMethodHSR, bool updateSynergies);
     void redrawSynergyCards();
     void setSynergies(int posCard, QMap<QString, QMap<QString, int> > &synergyTagMap, QMap<MechanicIcons, int> &mechanicIcons,
                       const MechanicBorderColor dropBorderColor);
-    void setTwitchScores(int vote1, int vote2, int vote3, QString username);
     void setWantedMechanic(uint mechanicIcon, bool value);
     void setWantedMechanics(bool wantedMechanics[]);
     void setWarningCard(const int posCard, const QString &code);

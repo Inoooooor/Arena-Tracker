@@ -16,7 +16,8 @@ namespace MacOcr
         QString text;
         QRectF rect;    //In image pixels, top-left origin
     };
-    QList<TextLine> recognizeTextLines(const QImage &image, const QString &language);
+    //fast: Vision's fast recognizer, which also reads single characters (the accurate one drops a lone digit)
+    QList<TextLine> recognizeTextLines(const QImage &image, const QString &language, bool fast=false);
 
     //Global geometry of the biggest on-screen Hearthstone window, or a null QRect if there is none.
     //Needs no Screen Recording permission.

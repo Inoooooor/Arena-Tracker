@@ -19,13 +19,12 @@ class DraftMechanicsWindow : public QMainWindow
 
 //Constructor
 public:
-    DraftMechanicsWindow(QWidget *parent, QRect rect, QSize sizeCard, int screenIndex, bool patreonVersion, int classOrder);
+    DraftMechanicsWindow(QWidget *parent, QRect rect, QSize sizeCard, int screenIndex, int classOrder);
     ~DraftMechanicsWindow();
 
 
 //Variables
 private:
-    bool patreonVersion;
     LavaButton *lavaButton;
     ScoreButton *scoreButtonFire, *scoreButtonHA, *scoreButtonHSR;
     HoverLabel *helpMark;
@@ -72,7 +71,6 @@ private slots:
 signals:
     void itemEnter(QList<SynergyCard> &synergyCardList, QPoint &originList, int maxLeft, int maxRight);
     void itemLeave();
-    void showPremiumDialog();
 };
 
 #endif // DRAFTMECHANICSWINDOW_H

@@ -55,7 +55,7 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
 
     QWidget *centralWidget = new QWidget(this);
     QHBoxLayout *horLayout = new QHBoxLayout(centralWidget);
-    //The old score badges and Twitch votes are kept (the draft code still sets them) but never shown:
+    //The old score badges are kept (the draft code still sets them) but never shown:
     //a ScorePlate shows the scores
     hiddenHolder = new QWidget(this);
     hiddenHolder->hide();
@@ -140,10 +140,6 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
         connect(scoresPushButton3[i], SIGNAL(showHSRwebPicks()),
                 this, SIGNAL(showHSRwebPicks()));
 
-        twitchButton[i] = new TwitchButton(hiddenHolder, 0, 1);
-        twitchButton[i]->setFixedHeight(scoreWidth);
-        twitchButton[i]->setFixedWidth(scoreWidth);
-        twitchButton[i]->hide();
 
         //Opacity effects
         effect = new QGraphicsOpacityEffect(scoresPushButton[i]);
@@ -155,9 +151,6 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
         effect = new QGraphicsOpacityEffect(scoresPushButton3[i]);
         effect->setOpacity(0);
         scoresPushButton3[i]->setGraphicsEffect(effect);
-        effect = new QGraphicsOpacityEffect(twitchButton[i]);
-        effect->setOpacity(0);
-        twitchButton[i]->setGraphicsEffect(effect);
 
         //LAYOUTS scores
         plates[i] = new ScorePlate(centralWidget);     //Only keeps the room: the plates are in platesWindow
@@ -221,7 +214,7 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
     maxSynergyHeight2Row = rectScreen.y() + rectScreen.height() - this->y() - 2*MARGIN - 2.2*scoreWidth;
     maxSynergyHeight = maxSynergyHeight2Row;
     scores2Rows = true;
-    showLF = showHSR = showHA = showTwitch = false;
+    showLF = showHSR = showHA = false;
     setCentralWidget(centralWidget);
     setAttribute(Qt::WA_TranslucentBackground, true);
     setWindowTitle("AT Scores");
@@ -292,15 +285,6 @@ void DraftScoreWindow::reorderMechanics()
             i++;
         }
     }
-}
-
-
-void DraftScoreWindow::showTwitchScores(bool show)
-{
-    showTwitch = show;
-    checkScoresSpace();
-
-    for(int i=0; i<3; i++)  twitchButton[i]->setVisible(showTwitch);
 }
 
 
@@ -404,11 +388,10 @@ void DraftScoreWindow::setScores(float rating1, float rating2, float rating3,
                 warningCardLabel[i]->show();
                 warningOkLabel[i]->show();
             }
-            //Fade-in twitch scores
+            //Fade-in scores
             else
             {
                 showScores(i);
-                Utility::fadeInWidget(twitchButton[i]);
             }
         }
         //Lo mostramos aqui y en setSynergies pq setSynergies no se llama en la free version
@@ -421,26 +404,6 @@ void DraftScoreWindow::setScores(float rating1, float rating2, float rating3,
             this->showNormal();
             this->activateWindow();
         }
-    }
-}
-
-
-void DraftScoreWindow::setTwitchScores(int vote1, int vote2, int vote3, QString username)
-{
-    int votes[3] = {vote1, vote2, vote3};
-    float totalVotes = votes[0] + votes[1] + votes[2];
-    float topVotes = std::max(std::max(votes[0], votes[1]), votes[2]);
-
-    if(totalVotes == 0)
-    {
-        for(int i=0; i<3; i++)  twitchButton[i]->reset();
-        emit pDebug("Twitch scores reset.");
-    }
-    else
-    {
-        for(int i=0; i<3; i++)  twitchButton[i]->setValue(votes[i]/totalVotes, votes[i], FLOATEQ(votes[i], topVotes), username);
-        emit pDebug(username + ": " + QString::number(votes[0]) + " - " +
-                QString::number(votes[1]) + " - " + QString::number(votes[2]));
     }
 }
 
@@ -717,7 +680,6 @@ void DraftScoreWindow::showScores(int i)
     scoresPushButton[i]->setVisible(showLF);
     scoresPushButton2[i]->setVisible(showHA);
     scoresPushButton3[i]->setVisible(showHSR);
-    twitchButton[i]->setVisible(showTwitch);
 }
 
 
@@ -733,13 +695,10 @@ void DraftScoreWindow::hideScores(bool quick)
             eff->setOpacity(0);
             eff = static_cast<QGraphicsOpacityEffect *>(scoresPushButton3[i]->graphicsEffect());
             eff->setOpacity(0);
-            eff = static_cast<QGraphicsOpacityEffect *>(twitchButton[i]->graphicsEffect());
-            eff->setOpacity(0);
 
             scoresPushButton[i]->hide();
             scoresPushButton2[i]->hide();
             scoresPushButton3[i]->hide();
-            twitchButton[i]->hide();
         }
         clearMechanics();
     }
@@ -750,7 +709,6 @@ void DraftScoreWindow::hideScores(bool quick)
             QPropertyAnimation *animation = Utility::fadeOutWidget(scoresPushButton[i]);
             Utility::fadeOutWidget(scoresPushButton2[i]);
             Utility::fadeOutWidget(scoresPushButton3[i]);
-            Utility::fadeOutWidget(twitchButton[i]);
             Utility::fadeOutLayout(gridLayoutMechanics[i]);
 
             if(i==0)
@@ -1014,7 +972,6 @@ void DraftScoreWindow::warningOkClick(HoverLabel *hoverLabel)
     Utility::fadeInWidget(scoresPushButton[index], true);
     Utility::fadeInWidget(scoresPushButton2[index], true);
     Utility::fadeInWidget(scoresPushButton3[index], true);
-    Utility::fadeInWidget(twitchButton[index], true);
     showScores(index);
     synergiesListWidget[index]->show();
     Utility::fadeInLayout(gridLayoutMechanics[index]);

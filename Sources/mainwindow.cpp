@@ -45,7 +45,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
     HDImages::create(this);
     HDIcons::prefetch();
-    createTrackobotUploader();
     createCardDownloader();
     createWinratesDownloader();
     createDeckHandler();//-->EnemyDeckHandler
@@ -54,7 +53,6 @@ MainWindow::MainWindow(QWidget *parent) :
     createGameWatcher();//-->A lot
     createLogLoader();//-->GameWatcher -->DraftHandler
     createCardWindow();//-->A lot
-    createPremiumHandler();//-->ArenaHandler -->PlanHandler -->DraftHandler -->TrackobotUploader -->DrawCardHandler
     createMascotWindow();//-->DraftHandler -->GameWatcher
 
     //Se hace despues de descargar el nuevo cards json o cuando se sabe que no hay
@@ -65,7 +63,6 @@ MainWindow::MainWindow(QWidget *parent) :
     checkFirstRunNewVersion();
     createVersionChecker();//Despues de createDataDir (removeHSDir) y checkFirstRunNewVersion() ya que reescribe el settings "runVersion"
 
-    setAcceptDrops(true);
 
     QTimer::singleShot(1000, this, SLOT(init()));
 
@@ -91,7 +88,6 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
     if(networkManager != nullptr)      delete networkManager;
-    if(premiumHandler != nullptr)      delete premiumHandler;
     if(logLoader != nullptr)           delete logLoader;
     if(gameWatcher != nullptr)         delete gameWatcher;
     if(arenaHandler != nullptr)        delete arenaHandler;
@@ -99,7 +95,6 @@ MainWindow::~MainWindow()
     if(winratesDownloader != nullptr)  delete winratesDownloader;
     if(draftHandler != nullptr)        delete draftHandler;
     if(deckHandler != nullptr)         delete deckHandler;
-    if(trackobotUploader != nullptr)   delete trackobotUploader;
     if(ui != nullptr)                  delete ui;
     closeLogFile();
     QFontDatabase::removeAllApplicationFonts();
@@ -119,7 +114,6 @@ void MainWindow::initVariables()
     graveyardWindow = nullptr;
     planWindow = nullptr;
     cardHeight = -1;
-    patreonVersion = false;
     transparency = AutoTransparent;
     cardsJsonLoaded = arenaSetsLoaded = false;
     allCardsDownloadNeeded = !settings.value("allCardsDownloaded", false).toBool();
@@ -133,9 +127,6 @@ void MainWindow::initVariables()
     winratesDownloader = nullptr;
     draftHandler = nullptr;
     deckHandler = nullptr;
-    trackobotUploader = nullptr;
-    premiumHandler = nullptr;
-    twitchTester = nullptr;
 
 #ifdef Q_OS_LINUX
     CaptureManager::init(this);
@@ -146,7 +137,6 @@ void MainWindow::initVariables()
 void MainWindow::init()
 {
     spreadTransparency();
-    trackobotUploader->checkAccount();
 
     //Shown here, after MacFullScreenOverlay exists, so it can show over fullscreen Hearthstone too; not over the splash
     initDone = true;
@@ -729,40 +719,6 @@ void MainWindow::createVersionChecker()
 }
 
 
-void MainWindow::createPremiumHandler()
-{
-    premiumHandler = new PremiumHandler(this);
-    connect(premiumHandler, SIGNAL(setPremium(bool)),
-            this, SLOT(setPremium(bool)));
-    connect(premiumHandler, SIGNAL(setPremium(bool)),
-            arenaHandler, SLOT(setPremium(bool)));
-    connect(premiumHandler, SIGNAL(setPremium(bool)),
-            draftHandler, SLOT(setPremium(bool)));
-    connect(trackobotUploader, SIGNAL(connected(QString,QString)),
-            premiumHandler, SLOT(checkPremium(QString,QString)));
-    connect(trackobotUploader, SIGNAL(disconnected()),
-            premiumHandler, SLOT(checkPremium()));
-    connect(premiumHandler, SIGNAL(importAccount(QByteArray)),
-            trackobotUploader, SLOT(importAccount(QByteArray)));
-    connect(premiumHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
-            this, SLOT(pDebug(QString,DebugLevel,QString)));
-}
-
-
-void MainWindow::createTrackobotUploader()
-{
-    trackobotUploader = new TrackobotUploader(this);
-    connect(trackobotUploader, SIGNAL(startProgressBar(int,QString)),
-            this, SLOT(startProgressBar(int,QString)));
-    connect(trackobotUploader, SIGNAL(advanceProgressBar(int,QString)),
-            this, SLOT(advanceProgressBar(int,QString)));
-    connect(trackobotUploader, SIGNAL(showMessageProgressBar(QString)),
-            this, SLOT(showMessageProgressBar(QString)));
-    connect(trackobotUploader, SIGNAL(pDebug(QString,DebugLevel,QString)),
-            this, SLOT(pDebug(QString,DebugLevel,QString)));
-}
-
-
 //Durante un redraft repasamos los scores de todo el deck despues de cada pick, (despues de incluirlo en el deck)
 void MainWindow::newDeckCardDraft(QString code)
 {
@@ -784,8 +740,6 @@ void MainWindow::createDraftHandler()
             this, SLOT(showMessageProgressBar(QString,int)));
     connect(draftHandler, SIGNAL(checkCardImage(QString,bool)),
             this, SLOT(checkCardImage(QString,bool)));
-    connect(draftHandler, SIGNAL(showPremiumDialog()),
-            this, SLOT(showPremiumDialog()));
     connect(draftHandler, SIGNAL(calculateMinimumWidth()),
             this, SLOT(calculateMinimumWidth()));
 
@@ -828,8 +782,6 @@ void MainWindow::createDraftHandler()
 void MainWindow::createArenaHandler()
 {
     arenaHandler = new ArenaHandler(this, deckHandler, ui);
-    connect(arenaHandler, SIGNAL(showPremiumDialog()),
-            this, SLOT(showPremiumDialog()));
     connect(arenaHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
             this, SLOT(pDebug(QString,DebugLevel,QString)));
 
@@ -890,8 +842,6 @@ void MainWindow::createCardWindow()
     connect(draftHandler, SIGNAL(overlayCardLeave()),
             cardWindow, SLOT(hide()));
     connect(draftHandler, SIGNAL(draftStarted()),
-            cardWindow, SLOT(hide()));
-    connect(ui->planGraphicsView, SIGNAL(leave()),
             cardWindow, SLOT(hide()));
 }
 
@@ -1162,7 +1112,6 @@ void MainWindow::closeApp()
     draftHandler->deleteDraftMechanicsWindow();
     hide();
     draftHandler->closeFindScreenRects();
-    if(patreonVersion)  arenaHandler->saveMapLeaderboard();
     winratesDownloader->waitFinishThreads();
     close();
     //On macOS closing the window used to leave the app running in the Dock, with no way to show it again
@@ -1205,6 +1154,7 @@ void MainWindow::createMascotWindow()
     connect(gameWatcher, &GameWatcher::newArena, this, [this]() { mascotNoRun = false; });
     connect(gameWatcher, SIGNAL(inRewards()),
             this, SLOT(mascotRunComplete()));
+    connect(draftHandler, &DraftHandler::rewardsWinsRead, this, &MainWindow::mascotRewards);
     connect(draftHandler, SIGNAL(heroesScored(int,int,int)),
             this, SLOT(mascotHeroes(int,int,int)));
     connect(draftHandler, SIGNAL(cardsScored()),
@@ -1493,7 +1443,9 @@ void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
     else
     {
         mood = MascotWindow::Sweat;
-        if(losses >= 3)         line = QStringLiteral("Run's over: %1 wins. Good run anyway. Next draft will be even better.").arg(wins);
+        //The final wins are said on the rewards screen, from its chest: the tracker may have missed games
+        if(losses >= 3)         line = mascotPick({"That's three. Let's go see the loot.",
+                                                   "Three losses, run's over. Chin up, loot time."});
         else if(losses == 2)    line = mascotPick({"Two losses. Careful now, one more and we're done.",
                                                    "Two down. Deep breath, we've still got this."});
         else                    line = mascotPick({"Unlucky. RNG hates us today.",
@@ -1502,44 +1454,75 @@ void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
     }
     mascotWindow->setMood(mood);
     mascotWindow->say(line, 8000);
+}
 
-    if(lastWon && wins >= 7 && !mascotSupportAsked)
+
+//The run is over (the rewards screen): its chest shows the final wins, read before saying them
+void MainWindow::mascotRunComplete()
+{
+    mascotRewardsRetired = mascotRetired;
+    mascotRetired = false;
+    if(!mascotLive)     return;
+    mascotSaysStatus = false;
+    draftHandler->readRewardsWins();
+}
+
+
+//The final wins (-1: the chest couldn't be read, the tracker's record is used), and for a good run the support ask
+void MainWindow::mascotRewards(int wins)
+{
+    if(!mascotLive)     return;
+    MascotWindow::Mood mood = MascotWindow::Sweat;
+    QString line;
+    if(mascotRewardsRetired)
+    {
+        mood = MascotWindow::Smile;
+        line = mascotPick({"Retired? Fair call. Some decks just aren't meant to be. Next one's ours.",
+                           "A tactical retreat. Let's draft a better one.",
+                           "Retiring? Smart. I never liked that deck anyway."});
+    }
+    else if(wins < 0)
+    {
+        line = mascotLastWon ? "TWELVE WINS! I drafted it, you just clicked. We're legends."
+                             : "Run's over. Good run anyway. Next draft will be even better.";
+        mood = mascotLastWon ? MascotWindow::Stars : MascotWindow::Sweat;
+    }
+    else if(wins == 12)
+    {
+        mood = MascotWindow::Stars;
+        line = "TWELVE WINS! I drafted it, you just clicked. We're legends.";
+    }
+    else if(wins >= 7)
+    {
+        mood = MascotWindow::Stars;
+        line = QStringLiteral("%1 wins! ").arg(wins) + mascotPick({"That's a monster run. Told you that deck was good.",
+                                                                     "What a run. We make a great team. Mostly me."});
+    }
+    else if(wins >= MASCOT_SUPPORT_WINS)
+    {
+        mood = MascotWindow::Grin;
+        line = QStringLiteral("%1 wins. ").arg(wins) + mascotPick({"Solid run, enjoy the loot.",
+                                                                     "Not bad at all. Next one goes even deeper."});
+    }
+    else
+    {
+        line = QStringLiteral("Run's over: %1 win%2. ").arg(wins).arg(wins == 1 ? "" : "s") +
+               mascotPick({"Good run anyway. Next draft will be even better.",
+                           "The arena wasn't kind today. We'll get it next time."});
+    }
+    mascotWindow->setMood(mood);
+    mascotWindow->say(line, 10000);
+
+    //A good run is the moment to ask, once per run
+    if(wins >= MASCOT_SUPPORT_WINS && !mascotSupportAsked)
     {
         mascotSupportAsked = true;
-        QTimer::singleShot(8500, this, [this]() {
+        QTimer::singleShot(10500, this, [this]() {
             mascotWindow->setMood(MascotWindow::Smile);
             mascotWindow->say("Enjoying the wins? Support my development. Genius runs on popcorn.", 15000, "Support", []() {
                 QDesktopServices::openUrl(QUrl(MASCOT_SUPPORT_URL));
             });
         });
-    }
-}
-
-
-//The run is over (the rewards screen). The record only counts the games the tracker saw: a run started before
-//it ended with fewer than 3 losses in it
-void MainWindow::mascotRunComplete()
-{
-    const bool retired = mascotRetired;
-    mascotRetired = false;
-    if(!mascotLive)     return;
-    mascotSaysStatus = false;
-    if(retired)
-    {
-        mascotWindow->setMood(MascotWindow::Smile);
-        mascotWindow->say(mascotPick({"Retired? Fair call. Some decks just aren't meant to be. Next one's ours.",
-                                      "A tactical retreat. Let's draft a better one.",
-                                      "Retiring? Smart. I never liked that deck anyway."}), 10000);
-    }
-    else if(mascotLastWon)
-    {
-        mascotWindow->setMood(MascotWindow::Stars);
-        mascotWindow->say("TWELVE WINS! I drafted it, you just clicked. We're legends.", 10000);
-    }
-    else if(mascotLastLosses < 3)
-    {
-        mascotWindow->setMood(MascotWindow::Sweat);
-        mascotWindow->say("Run's over. Good run anyway. Next draft will be even better.", 10000);
     }
 }
 
@@ -1836,129 +1819,6 @@ void MainWindow::moveInScreen(QPoint pos, QSize size)
 }
 
 
-void MainWindow::configureTwitchDialogs()
-{
-    QMessageBox msgBox(this);
-    msgBox.setText("Configuring twitch integration will let your chat vote during drafts. "
-                   "A new element will appear below the cards to show the votes counted for each card."
-                   "<br><br>It's a 3-step process:"
-                   "<br><br>1) Get an OAuth Password by login with your twitch account."
-                   " e.g. oauth:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                   "<br><br>2) Set your twitch username."
-                   "<br><br>3) Set the tag your chat will use to vote cards. The default one is empty, "
-                   "this means chat will type 1, 2 or 3 to vote for cards 1, 2 or 3.");
-    msgBox.setWindowTitle(tr("Twitch Chat Vote"));
-    msgBox.setTextFormat(Qt::RichText);
-    msgBox.setIcon(QMessageBox::Information);
-    QPushButton *button1 = msgBox.addButton("Get OAuth", QMessageBox::ActionRole);
-    QPushButton *button2 = msgBox.addButton("Cancel", QMessageBox::ActionRole);
-
-    msgBox.exec();
-
-    if(msgBox.clickedButton() == button1)
-    {
-        //Activamos el chechbox
-        ui->configCheckVotes->setChecked(true);
-        updateTwitchChatVotes(true);
-
-        //Step 1: Oauth
-        QDesktopServices::openUrl(QUrl(
-            "http://twitchapps.com/tmi/"
-            ));
-
-        bool ok;
-        QString twitchOauth = QInputDialog::getText(this, tr("OAuth Password"),
-                                             tr("OAuth:"), QLineEdit::Normal,
-                                             TwitchHandler::getOauth(), &ok);
-        if(!ok)
-        {
-            checkTwitchConnection();
-            return;
-        }
-        TwitchHandler::setOauth(twitchOauth);
-
-        //Step 2: Username
-        QString twitchChannel = TwitchHandler::getChannel();
-        if(!twitchChannel.isEmpty())    twitchChannel = twitchChannel.mid(1);//Eliminamos #
-        QString twitchUsername = QInputDialog::getText(this, tr("Twitch Account"),
-                                             tr("Account:"), QLineEdit::Normal,
-                                             twitchChannel, &ok);
-        if(!ok)
-        {
-            checkTwitchConnection();
-            return;
-        }
-        twitchChannel = '#' + twitchUsername.toLower();
-        TwitchHandler::setChannel(twitchChannel);
-
-        //Step 3: Vote tag
-        QString twitchPickTag = QInputDialog::getText(this, tr("Pick Tag"),
-                                             tr("Tag:"), QLineEdit::Normal,
-                                             TwitchHandler::getPickTag(), &ok);
-        if(!ok)
-        {
-            checkTwitchConnection();
-            return;
-        }
-        TwitchHandler::setPickTag(twitchPickTag);
-        checkTwitchConnection();
-    }
-    else if(msgBox.clickedButton() == button2)
-    {
-    }
-}
-
-
-void MainWindow::deleteTwitchTester()
-{
-    if(twitchTester != nullptr)
-    {
-        twitchTester->deleteLater();
-        twitchTester = nullptr;
-    }
-}
-
-
-void MainWindow::twitchTesterConnectionOk(bool ok, bool setup)
-{
-    ui->configCheckVotes->setEnabled(ok);
-    ui->configLabelVotesStatus->setEnabled(true);
-    ui->configLabelVotesStatus->setPixmap(ok?ThemeHandler::winFile():ThemeHandler::loseFile());
-    if(ok)
-    {
-        if(setup)   premiumHandler->checkTwitchSent();
-    }
-    else
-    {
-        ui->configCheckVotes->setChecked(false);
-        updateTwitchChatVotes(false);
-    }
-
-    if(setup)
-    {
-        TwitchHandler::setWellConfigured(ok);
-        deleteTwitchTester();
-    }
-}
-
-
-void MainWindow::checkTwitchConnection()
-{
-    ui->configCheckVotes->setEnabled(false);
-    ui->configLabelVotesStatus->setEnabled(false);
-    ui->configLabelVotesStatus->setPixmap(ThemeHandler::winFile());
-
-    deleteTwitchTester();
-    twitchTester = new TwitchHandler(this);
-    connect(twitchTester, SIGNAL(connectionOk(bool)),
-            this, SLOT(twitchTesterConnectionOk(bool)));
-    connect(twitchTester, SIGNAL(showMessageProgressBar(QString,int)),
-            this, SLOT(showMessageProgressBar(QString,int)));
-    connect(twitchTester, SIGNAL(pDebug(QString,DebugLevel,QString)),
-            this, SLOT(pDebug(QString,DebugLevel,QString)));
-}
-
-
 void MainWindow::readSettings()
 {
     //New Config Step 1 - Cargar valores
@@ -2007,7 +1867,6 @@ void MainWindow::readSettings()
                   showSecrets, showWildSecrets, showDraftScoresOverlay, showDraftMechanicsOverlay, draftLearningMode,
                   draftShowDrops, showMyWR, downloadLB, wantedMechanics);
 
-    if(TwitchHandler::loadSettings())   twitchTesterConnectionOk(TwitchHandler::isWellConfigured(), false);
 
     this->setAttribute(Qt::WA_TranslucentBackground, transparency!=Framed);
     this->showWindowFrame(transparency == Framed);
@@ -2197,7 +2056,6 @@ void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, 
 
     //Twitch
     ui->configCheckVotes->setChecked(twitchChatVotes);
-    updateTwitchChatVotes(twitchChatVotes);
 }
 
 
@@ -2371,51 +2229,6 @@ void MainWindow::changeEvent(QEvent * event)
             if(draftHandler != nullptr)    draftHandler->deMinimizeScoreWindow();
         }
     }
-}
-
-
-void MainWindow::dragEnterEvent(QDragEnterEvent *e)
-{
-    if (e->mimeData()->hasUrls())
-    {
-        e->acceptProposedAction();
-    }
-}
-
-void MainWindow::dropEvent(QDropEvent *e)
-{
-    for(const QUrl &url: (const QList<QUrl>)e->mimeData()->urls())
-    {
-        QString fileName = url.toLocalFile();
-        pDebug("Dropped " + fileName);
-
-        if(fileName.endsWith(".track-o-bot"))
-        {
-            if(askImportAccount())
-            {
-                trackobotUploader->importAccount(fileName);
-            }
-            break;
-        }
-    }
-}
-
-
-bool MainWindow::askImportAccount()
-{
-    QString text =  "Do you want to use this new track-o-bot account"
-                    "<br>as your default account?";
-
-    QMessageBox msgBox(this);
-    msgBox.setText(text);
-    msgBox.setWindowTitle("Import track-o-bot account?");
-    msgBox.setTextFormat(Qt::RichText);
-    msgBox.setIcon(QMessageBox::Question);
-    msgBox.setStandardButtons(QMessageBox::Yes|QMessageBox::No);
-    msgBox.exec();
-
-    if(msgBox.result() == QMessageBox::Yes) return true;
-    else                                    return false;
 }
 
 
@@ -3401,8 +3214,6 @@ void MainWindow::updateTabIcons()
     if(enemyWindow == nullptr)                          moveTabTo(ui->tabEnemy, ui->tabWidget);
     if(deckWindow == nullptr)                           moveTabTo(ui->tabDeck, ui->tabWidget);
     if(enemyDeckWindow == nullptr)                      moveTabTo(ui->tabEnemyDeck, ui->tabWidget);
-    if(graveyardWindow == nullptr && patreonVersion)    moveTabTo(ui->tabGraveyard, ui->tabWidget);
-    if(planWindow == nullptr && patreonVersion)         moveTabTo(ui->tabPlan, ui->tabWidget);
     moveTabTo(ui->tabConfig, ui->tabWidget);
     ui->tabWidget->show();
 
@@ -3879,13 +3690,6 @@ void MainWindow::spreadDraftAvg(QString draftAvg)
 }
 
 
-void MainWindow::updateTwitchChatVotes(bool checked)
-{
-    TwitchHandler::setActive(checked);
-    if(draftHandler != nullptr)    draftHandler->updateTwitchChatVotes();
-}
-
-
 void MainWindow::completeConfigComboTheme()
 {
     ui->configComboTheme->addItem("Random");
@@ -3913,44 +3717,6 @@ void MainWindow::completeConfigComboAvg()
 
     connect(ui->configComboDraftAvg, SIGNAL(activated(QString)),
             this, SLOT(spreadDraftAvg(QString)));
-}
-
-
-void MainWindow::setPremium(bool premium)
-{
-    this->patreonVersion = premium;
-
-    //New Config Step 5 - Mostrar opciones premium
-    ui->configBoxDraftMechanics->setHidden(!patreonVersion);
-    ui->configCheckMechanicsOverlay->setHidden(!patreonVersion);
-    ui->configCheckShowDrops->setHidden(!patreonVersion);
-    ui->configLabelPopular->setHidden(!patreonVersion);
-    ui->configLabelPopularValue->setHidden(!patreonVersion);
-    ui->configSliderPopular->setHidden(!patreonVersion);
-    ui->configCheckRngList->setHidden(!patreonVersion);
-    ui->configCheckWildSecrets->setHidden(!patreonVersion);
-    ui->configLabelDraftAvg->setHidden(!patreonVersion);
-    ui->configComboDraftAvg->setHidden(!patreonVersion);
-    ui->configCheckWR->setHidden(!patreonVersion);
-    ui->configBoxGames->setHidden(!patreonVersion);
-    ui->configCheckLB->setHidden(!patreonVersion);
-
-    ui->configBoxDraftIcons->setHidden(!patreonVersion);
-    ui->iconDrop2->setHidden(!patreonVersion);
-    ui->iconDrop3->setHidden(!patreonVersion);
-    ui->iconDrop4->setHidden(!patreonVersion);
-    ui->iconDraw->setHidden(!patreonVersion);
-    ui->iconPing->setHidden(!patreonVersion);
-    ui->iconDamage->setHidden(!patreonVersion);
-    ui->iconDestroy->setHidden(!patreonVersion);
-    ui->iconAoe->setHidden(!patreonVersion);
-    ui->iconReach->setHidden(!patreonVersion);
-    ui->iconTaunt->setHidden(!patreonVersion);
-    ui->iconSurvival->setHidden(!patreonVersion);
-
-    updateTabIcons();
-    resizeChecks();//Recoloca botones -X y reajusta tabBar size
-    calculateMinimumWidth();//Recalcula minimumWidth de mainWindow
 }
 
 
@@ -4046,8 +3812,6 @@ void MainWindow::completeConfigTab()
     ui->configLabelVotesStatus->setPixmap(ThemeHandler::loseFile());
     ui->configCheckVotes->setEnabled(false);
     ui->configLabelVotesStatus->setEnabled(false);
-    connect(ui->configCheckVotes, SIGNAL(clicked(bool)), this, SLOT(updateTwitchChatVotes(bool)));
-    connect(ui->configButtonVotesConfig, SIGNAL(clicked()), this, SLOT(configureTwitchDialogs()));
 
     completeHighResConfigTab();
 }
@@ -4423,55 +4187,6 @@ void MainWindow::loadTheme(QString theme, bool initTheme)
     {
         if(initTheme)   spreadTheme();
         else            showMessageProgressBar("Theme " + theme + " invalid");
-    }
-}
-
-
-void MainWindow::showPremiumDialog()
-{
-    QMessageBox msgBox(this);
-    msgBox.setText("Becoming a patron (3€/month) will let you activate the premium version of Arena Tracker, "
-                   "which implements some extra features: (replays, planning, graveyard, popular lists, "
-                   "synergies, HSReplay winrate scores and draft mechanics/drops overview). "
-                   "<a href='https://github.com/supertriodo/Arena-Tracker/blob/master/Readme/More.md'>Learn more...</a>"
-                   "<br><br>If you are already a patron use the \"Unlock premium\" button and "
-                   "type the e-mail address that appears in your patron profile. "
-                   "Your version will be upgraded in less than 24 hours. This is not an automated process so it might take some hours."
-                   "<br><br>Got any question? <a href='mailto:arenatracker@gmail.com'>Contact link.</a>"
-                   "<br><br>Thanks for your support!");
-    msgBox.setWindowTitle(tr("Premium"));
-    msgBox.setTextFormat(Qt::RichText);
-    msgBox.setIcon(QMessageBox::Information);
-    QPushButton *button1 = msgBox.addButton("Become a patron", QMessageBox::ActionRole);
-    QPushButton *button2 = msgBox.addButton("Unlock premium", QMessageBox::ActionRole);
-    QPushButton *button3 = msgBox.addButton("Cancel", QMessageBox::ActionRole);
-
-    msgBox.exec();
-
-    if(msgBox.clickedButton() == button1)
-    {
-        QDesktopServices::openUrl(QUrl(
-            "https://www.patreon.com/triodo"
-            ));
-    }
-    else if(msgBox.clickedButton() == button2)
-    {
-        bool ok;
-        QString email = QInputDialog::getText(this, tr("Unlock premium"),
-                                                tr("Patron e-mail:"), QLineEdit::Normal,
-                                                "", &ok);
-        if(ok)
-        {
-            if(!trackobotUploader->isConnected())
-            {
-                trackobotUploader->createFakeAccount();
-            }
-            premiumHandler->unlockPremium(email);
-            showMessageProgressBar("Premium request sent");
-        }
-    }
-    else if(msgBox.clickedButton() == button3)
-    {
     }
 }
 

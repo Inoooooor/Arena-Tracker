@@ -158,7 +158,6 @@ public:
     void setDownloadLB(bool value);
 signals:
     void arenaRecordChanged(int wins, int losses, bool lastWon);     //After each game of the current arena run
-    void showPremiumDialog();
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="ArenaHandler");
 
 public slots:

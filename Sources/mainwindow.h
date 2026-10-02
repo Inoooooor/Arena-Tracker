@@ -9,8 +9,6 @@
 #include "deckhandler.h"
 #include "arenahandler.h"
 #include "drafthandler.h"
-#include "trackobotuploader.h"
-#include "premiumhandler.h"
 #include "Widgets/cardwindow.h"
 #include "Widgets/mascotwindow.h"
 #include <QMainWindow>
@@ -43,6 +41,7 @@ class Extended;
 class DetachWindow;
 
 //TODO: the Patreon page, once it exists
+#define MASCOT_SUPPORT_WINS 5   //The support ask comes on the rewards screen of runs with at least these wins
 #define MASCOT_SUPPORT_URL "https://www.patreon.com/"
 
 class MainWindow : public QMainWindow
@@ -60,7 +59,6 @@ public:
 //Variables
 private:
     Ui::Extended *ui;
-    bool patreonVersion;
     QString progressBarText;   //Full text; the bar shows it shrunk or elided to its width
     LogLoader *logLoader;
     GameWatcher *gameWatcher;
@@ -70,8 +68,6 @@ private:
     ArenaHandler *arenaHandler;
     DraftHandler * draftHandler;
     CardWindow *cardWindow;
-    TrackobotUploader *trackobotUploader;
-    PremiumHandler *premiumHandler;
     QMap<QString, QJsonObject> cardsJson;
     QPoint dragPosition;
     QFile* atLogFile;
@@ -86,7 +82,8 @@ private:
     bool mascotInGame = false;
     bool splashOpen = false, initDone = false;  //The mascot shows after both
     bool mascotNoRun = false;                   //The last run ended (rewards screen) and no new draft yet
-    bool mascotRetired = false;                 //The run ends by a retire (until its rewards screen)
+    bool mascotRetired = false;
+    bool mascotRewardsRetired = false;          //The run of the rewards screen being read ended by a retire                 //The run ends by a retire (until its rewards screen)
     QString mascotLastStatus;                   //The draft status behind the current status line
     QHash<QString, qint64> mascotStatusShownAt; //When each draft status was last shown (anti flip-flop)
     int mascotSecretsSeen = 0;                  //Enemy secrets since the app started
@@ -100,7 +97,6 @@ private:
     QNetworkAccessManager *networkManager;
     QStringList allCardsDownloadList;
     int allCardsDownloadTotal = 0;
-    TwitchHandler *twitchTester;
     //Gestionan si es necesario bajar todas las cartas usadas en arena debido a que el directorio de cartas se haya borrado
     //o haya una nueva version de tier list (rotacion sets)
     //Si es necesario tambien se reconstruira el string de sets activos en arena "arenaSets" que se usa para saber que secretos mostrar
@@ -127,8 +123,6 @@ private:
     void createDeckHandler();
     void createDraftHandler();
     void createVersionChecker();
-    void createTrackobotUploader();
-    void createPremiumHandler();
     void readSettings();
     void writeSettings();
     void completeUI();
@@ -182,7 +176,6 @@ private:
     void showProgressBar(bool animated=true);
     void setProgressBarText(const QString &text);
     void fitProgressBarText();
-    bool askImportAccount();
     void checkFirstRunNewVersion();
     void startProgressBarMini(int maximum);
     void hideProgressBarMini();
@@ -203,8 +196,6 @@ private:
     void downloadSynergiesJson(int version);
     void updateTabIcons();
     void initHSRHeroesWinrate();
-    void deleteTwitchTester();
-    void checkTwitchConnection();
     void checkArenaCards();
     void downloadAllArenaCodes(const QStringList &codeList);
     void initWRCards();
@@ -231,8 +222,6 @@ protected:
     void changeEvent(QEvent *event) Q_DECL_OVERRIDE;
     void leaveEvent(QEvent *e) Q_DECL_OVERRIDE;
     void enterEvent(QEnterEvent *e) Q_DECL_OVERRIDE;
-    void dragEnterEvent(QDragEnterEvent *e) Q_DECL_OVERRIDE;
-    void dropEvent(QDropEvent *e) Q_DECL_OVERRIDE;
 
 //Signals
 signals:
@@ -288,6 +277,7 @@ private slots:
     void mascotStartGame();
     void mascotEndGame(bool playerWon, bool playerUnknown);
     void mascotEnemySecret();
+    void mascotRewards(int wins);
     void mascotDraftFinished(int knownCards, float avgFire, float avgHA);
     void mascotGreeting();
     void mascotRedraftScreen(int screen);
@@ -317,16 +307,11 @@ private slots:
     void allCardsDownloaded();
     void init();
     void loadTheme(QString theme, bool initTheme=false);
-    void showPremiumDialog();
     void createDetachWindow(int index, const QPoint &dropPoint);
     void createDetachWindow(QWidget *paneWidget, const QPoint& dropPoint = QPoint());
     void closedDetachWindow(DetachWindow *detachWindow, QWidget *paneWidget);
     void calculateMinimumWidth();
     void changingTabUpdateDraftSize();
-    void setPremium(bool premium);
-    void twitchTesterConnectionOk(bool ok, bool setup = true);
-    void updateTwitchChatVotes(bool checked);
-    void configureTwitchDialogs();
     void openUserGuide();
     void spreadDraftMethod();
     void spreadDraftAvg(QString draftAvg);

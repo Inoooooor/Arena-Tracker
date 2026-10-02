@@ -65,8 +65,6 @@ void ArenaHandler::completeButtons()
 {
     ui->arenaDeleteButton->setHidden(true);
 
-    connect(ui->donateButton, SIGNAL(clicked()),
-            this, SIGNAL(showPremiumDialog()));
     connect(ui->arenaNewButton, SIGNAL(clicked()),
             this, SLOT(arenaNewEmpty()));
     connect(ui->arenaDeleteButton, SIGNAL(clicked()),

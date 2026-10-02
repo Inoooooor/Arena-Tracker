@@ -5,7 +5,7 @@
 
 
 DraftMechanicsWindow::DraftMechanicsWindow(QWidget *parent, QRect rect, QSize sizeCard, int screenIndex,
-                                           bool patreonVersion, int classOrder) :
+                                           int classOrder) :
     QMainWindow(parent, OVERLAY_WINDOW_FLAGS)
 {
     setAttribute(Qt::WA_MacAlwaysShowToolWindow);
@@ -20,7 +20,6 @@ DraftMechanicsWindow::DraftMechanicsWindow(QWidget *parent, QRect rect, QSize si
 #endif
 
     this->showDrops = true;
-    this->patreonVersion = patreonVersion;
     scoreWidth = static_cast<int>(sizeCard.width()*0.7);
 
     QRect rectScreen;
@@ -119,19 +118,6 @@ DraftMechanicsWindow::DraftMechanicsWindow(QWidget *parent, QRect rect, QSize si
     scoresLayout->addWidget(scoreButtonHA);
     scoresLayout->addWidget(scoreButtonHSR);
 
-    //Patreon - Desactivado para mostrar reenter message para no premiums
-    // if(!patreonVersion)
-    // {
-    //     QPushButton *patreonButton = new QPushButton(centralWidget);
-    //     patreonButton->setFlat(true);
-    //     patreonButton->setIcon(QIcon(":/Images/becomePatreon.png"));
-    //     patreonButton->setIconSize(QSize(217, 51));
-    //     patreonButton->setToolTip("Unlock Synergies and draft mechanics becoming a patron (3€)");
-    //     scoresLayout->addWidget(patreonButton);
-
-    //     connect(patreonButton, SIGNAL(clicked()),
-    //             this, SIGNAL(showPremiumDialog()));
-    // }
 
     //Mechanics & drops
     mechanicsLayout = new QGridLayout();
@@ -395,56 +381,9 @@ void DraftMechanicsWindow::showHelp(bool reenter)
 
 void DraftMechanicsWindow::hideHelp()
 {
-    if(!patreonVersion || hiddenBeforeReenter)
-    {
-        this->hiddenBeforeReenter = false;
-        this->hide();
-        return;
-    }
-
-    showingHelp = false;
-    centralWidget()->setStyleSheet(".QWidget{border-image: url(" +
-                                   ThemeHandler::bgDraftMechanicsFile() +
-                                   ") 0 0 0 0 stretch stretch;border-width: 0px;}");
-    setDraftMethodAvgScore(this->draftMethodAvgScore);
-    lavaButton->show();
-    helpMark->show();
-
-    cardTypeCounters[V_MINION]->show();
-    cardTypeCounters[V_SPELL]->show();
-    cardTypeCounters[V_WEAPON]->show();
-    manaCounter->show();
-
-    if(showDrops)
-    {
-        mechanicCounters[V_DISCOVER_DRAW]->moveLayout(mechanicsLayout, 0, 3);
-
-        mechanicCounters[V_REACH]->hide();
-        mechanicCounters[V_TAUNT_ALL]->hide();
-        mechanicCounters[V_SURVIVABILITY]->hide();
-
-        dropCounters[V_DROP2]->show();
-        dropCounters[V_DROP3]->show();
-        dropCounters[V_DROP4]->show();
-    }
-    else
-    {
-        mechanicCounters[V_DISCOVER_DRAW]->moveLayout(mechanicsLayout, 1, 3);
-
-        dropCounters[V_DROP2]->hide();
-        dropCounters[V_DROP3]->hide();
-        dropCounters[V_DROP4]->hide();
-
-        mechanicCounters[V_REACH]->show();
-        mechanicCounters[V_TAUNT_ALL]->show();
-        mechanicCounters[V_SURVIVABILITY]->show();
-    }
-
-    mechanicCounters[V_DISCOVER_DRAW]->show();
-    mechanicCounters[V_PING]->show();
-    mechanicCounters[V_DAMAGE]->show();
-    mechanicCounters[V_DESTROY]->show();
-    mechanicCounters[V_AOE]->show();
+    //Its help was for the premium mechanics, never shown: the window just hides
+    this->hiddenBeforeReenter = false;
+    this->hide();
 }
 
 
