@@ -313,7 +313,6 @@ private slots:
     void spreadDraftAvg(QString draftAvg);
     void newGameResult(GameResult gameResult, LoadingScreenState loadingScreen);
     void updateShowMyWR(bool checked);
-    void updateDownloadLB(bool checked);
     void updateDrop2(bool checked);
     void updateDrop3(bool checked);
     void updateDrop4(bool checked);

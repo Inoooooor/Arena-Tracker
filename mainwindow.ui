@@ -234,16 +234,6 @@ draft mechanics becoming a patron (3€).</string>
            </layout>
           </item>
           <item>
-           <widget class="EnemyRanking" name="enemyRankingLabel">
-            <property name="lineWidth">
-             <number>0</number>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item>
            <widget class="MoveTreeWidget" name="arenaStatsTreeWidget">
             <column>
              <property name="text">
@@ -2530,11 +2520,6 @@ on a new score under each card.</string>
    <class>MoveTreeWidget</class>
    <extends>QTreeWidget</extends>
    <header>Sources/Widgets/movetreewidget.h</header>
-  </customwidget>
-  <customwidget>
-   <class>EnemyRanking</class>
-   <extends>QLabel</extends>
-   <header>Sources/Widgets/enemyranking.h</header>
   </customwidget>
  </customwidgets>
  <resources>

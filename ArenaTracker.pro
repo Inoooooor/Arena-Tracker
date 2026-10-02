@@ -35,7 +35,6 @@ SOURCES += Sources/main.cpp\
     Sources/Synergies/mechaniccounter.cpp \
     Sources/Synergies/racecounter.cpp \
     Sources/Synergies/schoolcounter.cpp \
-    Sources/Widgets/enemyranking.cpp \
     Sources/mainwindow.cpp \
     Sources/logloader.cpp \
     Sources/logworker.cpp \
@@ -86,7 +85,6 @@ HEADERS  += Sources/mainwindow.h \
     Sources/Synergies/mechaniccounter.h \
     Sources/Synergies/racecounter.h \
     Sources/Synergies/schoolcounter.h \
-    Sources/Widgets/enemyranking.h \
     Sources/logloader.h \
     Sources/logworker.h \
     Sources/gamewatcher.h \

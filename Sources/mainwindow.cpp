@@ -617,16 +617,6 @@ void MainWindow::checkArenaVersionJson(const QJsonObject &jsonObject)
         allCardsDownloadNeeded = true;
         settings.setValue("arenaVersion", version);
 
-        //SeasonId
-        int oldSeasonId = settings.value("seasonId", 0).toInt();
-        int newSeasonId = jsonObject.value("seasonId").toInt();
-        if(oldSeasonId != newSeasonId)
-        {
-            pDebug("CheckArenaVersion: New SeasonId S" + QString::number(newSeasonId) + ", reset leaderboard.json");
-            settings.setValue("seasonId", newSeasonId);
-            arenaHandler->changeSeasonId(newSeasonId);
-        }
-
         //TrustHA
         bool trustHA = jsonObject.value("trustHA").toBool(false);
         Utility::setTrustHA(trustHA);
@@ -643,7 +633,6 @@ void MainWindow::checkArenaVersionJson(const QJsonObject &jsonObject)
 
     arenaSetsLoaded = true;
     checkArenaCards();
-    if(arenaHandler != nullptr) arenaHandler->processPlayerWinrates();
 }
 
 
@@ -731,13 +720,10 @@ void MainWindow::createDraftHandler()
 
 void MainWindow::createArenaHandler()
 {
-    arenaHandler = new ArenaHandler(this, deckHandler, ui);
+    arenaHandler = new ArenaHandler(this);
     connect(arenaHandler, SIGNAL(pDebug(QString,DebugLevel,QString)),
             this, SLOT(pDebug(QString,DebugLevel,QString)));
-
-    //La primera carga se hace al llamar
-    //ArenaHandler::setPremium(bool premium)
-//    arenaHandler->loadStatsJsonFile();
+    arenaHandler->loadStatsJsonFile();
 }
 
 
@@ -858,10 +844,6 @@ void MainWindow::createGameWatcher()
     //Rewards input disabled with track-o-bot stats
 //    connect(gameWatcher, SIGNAL(inRewards()),
 //            arenaHandler, SLOT(showRewards()));
-    connect(gameWatcher, SIGNAL(enemyName(QString)),
-            arenaHandler, SLOT(showEnemyRanking(QString)));
-    connect(gameWatcher, SIGNAL(endGame()),
-            arenaHandler, SLOT(hideEnemyRanking()));
 
     connect(gameWatcher, SIGNAL(newDeckCard(QString)),
             deckHandler, SLOT(newDeckCardAsset(QString)));
@@ -939,7 +921,7 @@ void MainWindow::createLogLoader()
 
 void MainWindow::newGameResult(GameResult gameResult, LoadingScreenState loadingScreen)
 {
-    arenaHandler->newGameResult(gameResult, loadingScreen, 0, 0);
+    arenaHandler->newGameResult(gameResult, loadingScreen);
 }
 
 
@@ -1950,7 +1932,6 @@ void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, 
 
     //Games
     if(downloadLB)                  ui->configCheckLB->setChecked(true);
-    updateDownloadLB(downloadLB);
 
     //Deck
     if(cardHeight<ui->configSliderCardSize->minimum() || cardHeight>ui->configSliderCardSize->maximum())  cardHeight = 35;
@@ -2224,7 +2205,6 @@ void MainWindow::spreadMouseInApp()
     QWidget *currentTab = ui->tabWidget->currentWidget();
 
     if(currentTab == ui->tabDeck)           deckHandler->setMouseInApp(mouseInApp);
-    else if(currentTab == ui->tabArena)     arenaHandler->setMouseInApp(mouseInApp);
     else if(currentTab == ui->tabDraft)     draftHandler->setMouseInApp(mouseInApp);
     else                                    updateOtherTabsTransparency();
 
@@ -2893,7 +2873,6 @@ void MainWindow::spreadTransparency(Transparency newTransparency)
     deckHandler->setTransparency(
                 (this->deckWindow != nullptr && kindOfTransparent)?
                     Transparent:transparency);
-    arenaHandler->setTransparency(transparency);
     draftHandler->setTransparency(transparency);
     updateOtherTabsTransparency();
 
@@ -3118,7 +3097,6 @@ void MainWindow::spreadTheme()
 {
     updateMainUITheme();
     updateTabIcons();
-    arenaHandler->setTheme();
     deckHandler->setTheme();
     draftHandler->setTheme();
     deckHandler->redrawAllCards();
@@ -3536,12 +3514,6 @@ void MainWindow::updateShowMyWR(bool checked)
 }
 
 
-void MainWindow::updateDownloadLB(bool checked)
-{
-    arenaHandler->setDownloadLB(checked);
-}
-
-
 void MainWindow::updateDrop2(bool checked)
 {
     setWantedMechanic(M_DROP2, checked);
@@ -3616,7 +3588,6 @@ void MainWindow::spreadDraftAvg(QString draftAvg)
 {
     DraftMethod dm = draftMethodFromString(draftAvg);
     draftHandler->setDraftMethodAvgScore(dm);
-    arenaHandler->setDraftMethodAvgScore(dm);
 }
 
 
@@ -3659,7 +3630,6 @@ void MainWindow::completeConfigTab()
     //Games
     ui->configBoxGames->hide();
     ui->configCheckLB->hide();
-    connect(ui->configCheckLB, SIGNAL(clicked(bool)), this, SLOT(updateDownloadLB(bool)));
 
     //Deck
     ui->configCheckAutoSize->hide();//Disable autoSize
