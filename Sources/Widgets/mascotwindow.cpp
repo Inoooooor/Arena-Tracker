@@ -491,11 +491,88 @@ void MascotWindow::leaveEvent(QEvent *event)
 }
 
 
+//A pixel icon from rows of '#', in the mascot's pixel style; drawn 2x for retina screens, no smoothing
+static QIcon pixelIcon(const QStringList &rows, const QColor &color)
+{
+    const int size = rows.size();
+    QImage image(size*2, size*2, QImage::Format_ARGB32);
+    image.fill(Qt::transparent);
+    for(int y=0; y<size; y++)
+    {
+        for(int x=0; x<rows[y].size(); x++)
+        {
+            if(rows[y][x] != '#')   continue;
+            for(int dy=0; dy<2; dy++)   for(int dx=0; dx<2; dx++)   image.setPixelColor(x*2 + dx, y*2 + dy, color);
+        }
+    }
+    QPixmap pixmap = QPixmap::fromImage(image);
+    pixmap.setDevicePixelRatio(2);
+    return QIcon(pixmap);
+}
+
+
 //Next to the character, so the menu doesn't cover it
 void MascotWindow::contextMenuEvent(QContextMenuEvent *event)
 {
+    //Discord's Clyde and Patreon's mark, in their brand colors
+    static const QIcon discordIcon = pixelIcon({
+        "................",
+        "................",
+        "...###....###...",
+        "..############..",
+        ".##############.",
+        ".##############.",
+        "####..####..####",
+        "####..####..####",
+        "####..####..####",
+        "################",
+        ".##############.",
+        ".###........###.",
+        "..#..........#..",
+        "................",
+        "................",
+        "................"}, QColor(0x58, 0x65, 0xF2));
+    static const QIcon patreonIcon = pixelIcon({
+        "................",
+        "................",
+        ".###.....####...",
+        ".###...########.",
+        ".###..#########.",
+        ".###.##########.",
+        ".###.###########",
+        ".###.###########",
+        ".###.###########",
+        ".###.##########.",
+        ".###..#########.",
+        ".###...#######..",
+        ".###.....###....",
+        ".###............",
+        "................",
+        "................"}, QColor(0xFF, 0x42, 0x4D));
+
+    //Qt hides icons in macOS menus unless asked
     QMenu menu(this);
-    menu.addAction("Quit", this, &MascotWindow::quitRequested);
+    menu.addAction(discordIcon, "Join Discord", this, &MascotWindow::discordRequested)->setIconVisibleInMenu(true);
+    menu.addAction(patreonIcon, "Support on Patreon", this, &MascotWindow::supportRequested)->setIconVisibleInMenu(true);
+    //An empty icon keeps the other items' text in line with the iconed ones
+    static const QIcon noIcon = pixelIcon(QStringList(16, QString(16, '.')), Qt::transparent);
+    menu.addAction(noIcon, "Report a problem", this, &MascotWindow::reportRequested)->setIconVisibleInMenu(true);
+
+    //The native separator is barely visible on the dark menu: a line in the menu's text color, faded, for both themes
+    QWidget *line = new QWidget(&menu);
+    line->setFixedHeight(9);
+    QColor lineColor = menu.palette().color(QPalette::WindowText);
+    lineColor.setAlpha(70);
+    QFrame *rule = new QFrame(line);
+    rule->setStyleSheet(QStringLiteral("background: %1;").arg(lineColor.name(QColor::HexArgb)));
+    QHBoxLayout *lineLayout = new QHBoxLayout(line);
+    lineLayout->setContentsMargins(10, 4, 10, 4);
+    lineLayout->addWidget(rule);
+    QWidgetAction *separator = new QWidgetAction(&menu);
+    separator->setDefaultWidget(line);
+    separator->setEnabled(false);
+    menu.addAction(separator);
+    menu.addAction(noIcon, "Quit", this, &MascotWindow::quitRequested)->setIconVisibleInMenu(true);
 
     QPoint pos = mapToGlobal(QPoint(spriteRect.right() + 1, spriteRect.top() + spriteRect.height()/3));
     QScreen *screen = QGuiApplication::screenAt(pos);

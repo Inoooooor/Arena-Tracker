@@ -50,6 +50,9 @@ public:
 
 signals:
     void quitRequested();
+    void discordRequested();
+    void supportRequested();
+    void reportRequested();     //Report a problem: the log and the Discord
     void said(const QString &text);     //For the log
     void cardEntered(QString code, QRect rectCard, int maxTop, int maxBottom);
     void cardLeave();

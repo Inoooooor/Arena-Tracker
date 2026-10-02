@@ -1132,6 +1132,22 @@ void MainWindow::createMascotWindow()
     mascotWindow = new MascotWindow();
     connect(mascotWindow, SIGNAL(quitRequested()),
             this, SLOT(closeApp()));
+    connect(mascotWindow, &MascotWindow::discordRequested, this, []() {
+        QDesktopServices::openUrl(QUrl(MASCOT_DISCORD_URL));
+    });
+    connect(mascotWindow, &MascotWindow::supportRequested, this, []() {
+        QDesktopServices::openUrl(QUrl(MASCOT_SUPPORT_URL));
+    });
+    //The log goes with the report: shown in Finder, ready to drop into the Discord
+    connect(mascotWindow, &MascotWindow::reportRequested, this, []() {
+        const QString logPath = Utility::dataPath() + "/ArenaTrackerLog.txt";
+#ifdef Q_OS_MAC
+        QProcess::startDetached("open", {"-R", logPath});
+#else
+        QDesktopServices::openUrl(QUrl::fromLocalFile(Utility::dataPath()));
+#endif
+        QDesktopServices::openUrl(QUrl(MASCOT_DISCORD_URL));
+    });
     connect(mascotWindow, SIGNAL(cardEntered(QString,QRect,int,int)),
             cardWindow, SLOT(loadCard(QString,QRect,int,int)));
     connect(mascotWindow, SIGNAL(cardLeave()),
