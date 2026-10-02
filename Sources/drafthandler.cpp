@@ -2328,6 +2328,8 @@ void DraftHandler::readCardNames(const cv::Mat &screenCapture)
         QImage image(crop.data, crop.cols, crop.rows, static_cast<qsizetype>(crop.step), QImage::Format_RGB32);
         const QStringList lines = MacOcr::recognizeLines(image.copy(), Utility::getLocalLang());
         QString code = legendaryPick ? matchCardName(lines, legendaryNameMap, true) : matchCardName(lines, cardsNameMap);
+        //The first trio after a group's pick still finds the deck empty (the group counts on this trio): normal cards
+        if(code.isEmpty() && legendaryPick)     code = matchCardName(lines, cardsNameMap);
         if(code.isEmpty())
         {
             //Log each different unmatched reading once, to find out why a banner isn't recognized
