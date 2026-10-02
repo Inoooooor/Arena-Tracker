@@ -203,6 +203,8 @@ private:
     QFutureWatcher<int> futureRedraftCounter;
     QFutureWatcher<int> futureRewardsWins;
     int rewardsWinsTries = 0;
+    QFutureWatcher<int> futureReadyUpWins;
+    int readyUpWinsTries = 0;
     //macOS: the cards picked in the redraft review screen are found by reading their names
     QTimer *redraftReviewTimer;
     QFutureWatcher<RedraftScreenRead> futureRedraftReviewCodes;
@@ -336,6 +338,7 @@ private:
     void showDraftNotice(const QString &text);
     void beginRedraftReview();
     void emitDraftFinished();
+    void updatePickRatingPool();
     bool isPickShown();
     void createRedraftRemoveList();
     void createDraftStatus();
@@ -382,6 +385,7 @@ public:
     bool isDrafting();
     bool isRedrafting();
     void readRewardsWins();
+    void readReadyUpWins();
     bool isEmptyDeck();
     void deMinimizeScoreWindow();
     QStringList getAllHeroCodes();
@@ -407,6 +411,7 @@ signals:
     void draftStatusChanged(QString text);
     void redraftScreenChanged(int screen);      //RedraftScreen
     void rewardsWinsRead(int wins);             //The number on the rewards chest, -1 when it couldn't be read
+    void readyUpWinsRead(int wins);             //The wins on the Ready Up medal
     void draftFinished(int knownCards, float avgFire, float avgHA);   //A new deck (not a redraft), for the mascot
     void heroesScored(int classOrder0, int classOrder1, int classOrder2);
     void cardsScored();     //getPickScores() has the new pick
@@ -452,6 +457,8 @@ public slots:
 
 private slots:
     void tryReadRewardsWins();
+    void tryReadReadyUpWins();
+    void finishReadReadyUpWins();
     void finishReadRewardsWins();
     void captureDraft();
     void finishFindScreenRects();

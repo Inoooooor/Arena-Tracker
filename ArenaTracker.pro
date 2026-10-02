@@ -50,6 +50,7 @@ SOURCES += Sources/main.cpp\
     Sources/Widgets/resizebutton.cpp \
     Sources/Widgets/draftscorewindow.cpp \
     Sources/Widgets/splashwindow.cpp \
+    Sources/Utils/pickrating.cpp \
     Sources/Widgets/mascotwindow.cpp \
     Sources/Widgets/scoreplate.cpp \
     Sources/Widgets/scorebutton.cpp \
@@ -99,6 +100,7 @@ HEADERS  += Sources/mainwindow.h \
     Sources/Widgets/resizebutton.h \
     Sources/Widgets/draftscorewindow.h \
     Sources/Widgets/splashwindow.h \
+    Sources/Utils/pickrating.h \
     Sources/Widgets/mascotwindow.h \
     Sources/Widgets/scoreplate.h \
     Sources/Widgets/scorebutton.h \

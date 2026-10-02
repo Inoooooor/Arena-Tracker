@@ -10,6 +10,7 @@
 #include "themehandler.h"
 #include "Utils/hdimages.h"
 #include "Utils/hdicons.h"
+#include "Utils/pickrating.h"
 #include <QtConcurrent/QtConcurrent>
 #include <QtWidgets>
 
@@ -1155,6 +1156,7 @@ void MainWindow::createMascotWindow()
     connect(gameWatcher, SIGNAL(inRewards()),
             this, SLOT(mascotRunComplete()));
     connect(draftHandler, &DraftHandler::rewardsWinsRead, this, &MainWindow::mascotRewards);
+    connect(draftHandler, &DraftHandler::readyUpWinsRead, this, &MainWindow::mascotReadyUpWins);
     connect(draftHandler, SIGNAL(heroesScored(int,int,int)),
             this, SLOT(mascotHeroes(int,int,int)));
     connect(draftHandler, SIGNAL(cardsScored()),
@@ -1454,6 +1456,25 @@ void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
     }
     mascotWindow->setMood(mood);
     mascotWindow->say(line, 8000);
+
+    //After a win, back on the Ready Up screen, its medal tells the real wins: the support ask comes on a good run,
+    //after the win line
+    if(lastWon && !mascotSupportAsked)
+        QTimer::singleShot(6000, this, [this]() { if(!mascotInGame)    draftHandler->readReadyUpWins(); });
+}
+
+
+//The support ask, once per run, right after a win that takes the run to MASCOT_SUPPORT_WINS or more
+void MainWindow::mascotReadyUpWins(int wins)
+{
+    if(!mascotLive || mascotInGame || mascotSupportAsked || wins < MASCOT_SUPPORT_WINS)  return;
+    mascotSupportAsked = true;
+    mascotSaysStatus = false;
+    mascotWindow->setMood(MascotWindow::Smile);
+    mascotWindow->say(QStringLiteral("%1 wins and counting! Enjoying them? Support my development. Genius runs on popcorn.").arg(wins),
+                      15000, "Support", []() {
+        QDesktopServices::openUrl(QUrl(MASCOT_SUPPORT_URL));
+    });
 }
 
 
@@ -1468,7 +1489,7 @@ void MainWindow::mascotRunComplete()
 }
 
 
-//The final wins (-1: the chest couldn't be read, the tracker's record is used), and for a good run the support ask
+//The final wins (-1: the chest couldn't be read, the tracker's record is used)
 void MainWindow::mascotRewards(int wins)
 {
     if(!mascotLive)     return;
@@ -1512,18 +1533,6 @@ void MainWindow::mascotRewards(int wins)
     }
     mascotWindow->setMood(mood);
     mascotWindow->say(line, 10000);
-
-    //A good run is the moment to ask, once per run
-    if(wins >= MASCOT_SUPPORT_WINS && !mascotSupportAsked)
-    {
-        mascotSupportAsked = true;
-        QTimer::singleShot(10500, this, [this]() {
-            mascotWindow->setMood(MascotWindow::Smile);
-            mascotWindow->say("Enjoying the wins? Support my development. Genius runs on popcorn.", 15000, "Support", []() {
-                QDesktopServices::openUrl(QUrl(MASCOT_SUPPORT_URL));
-            });
-        });
-    }
 }
 
 
@@ -1601,14 +1610,20 @@ void MainWindow::mascotCards()
 {
     const PickScores pick = draftHandler->getPickScores();
     const bool byFire = pick.showFire && std::max({pick.fire[0], pick.fire[1], pick.fire[2]}) > 0;
-    const float *scores = byFire ? pick.fire : pick.ha;
 
+    //Ordered by the rating of both sources (Firestone trusted by its games, HearthArena); the line quotes Firestone
+    float ratings[3];
+    for(int i=0; i<3; i++)
+    {
+        ratings[i] = PickRating::rating({pick.showFire ? pick.fire[i] : 0, pick.fireGames[i], pick.showHA ? pick.ha[i] : 0});
+    }
     int order[3] = {0, 1, 2};
-    std::sort(order, order+3, [scores](int a, int b) { return scores[a] > scores[b]; });
+    std::sort(order, order+3, [&ratings](int a, int b) { return ratings[a] > ratings[b]; });
     const int bestIndex = order[0];
+    const bool anyScore = std::max({pick.fire[0], pick.fire[1], pick.fire[2], pick.ha[0], pick.ha[1], pick.ha[2]}) > 0;
 
     QString line;
-    if(scores[bestIndex] <= 0)  line = "No scores for these. Trust your gut, you've got this.";
+    if(!anyScore || !PickRating::isReady())  line = "No scores for these. Trust your gut, you've got this.";
     else
     {
         QString best = MascotWindow::colored(pick.names[bestIndex], mascotRarityColor(pick.codes[bestIndex]));
@@ -1618,10 +1633,10 @@ void MainWindow::mascotCards()
             best += "'s group";
             second += "'s group";
         }
-        const QString score = byFire ? QString::number(scores[bestIndex], 'f', 1) + "% winrate" :
-                                       QString::number(qRound(scores[bestIndex])) + " on HearthArena";
-        const float lead = scores[bestIndex] - scores[order[1]];
-        const float big = byFire ? 2 : 12, small = byFire ? 0.7f : 5;
+        const QString score = (byFire && pick.fire[bestIndex] > 0) ? QString::number(pick.fire[bestIndex], 'f', 1) + "% winrate" :
+                                                                     QString::number(qRound(pick.ha[bestIndex])) + " on HearthArena";
+        const float lead = ratings[bestIndex] - ratings[order[1]];
+        const float big = 0.6f, small = 0.25f;
         QStringList lines;
         if(lead >= big)
         {
@@ -1645,6 +1660,11 @@ void MainWindow::mascotCards()
         line = lines[QRandomGenerator::global()->bounded(lines.count())];
         if(byFire && pick.fireGames[bestIndex] >= 0 && pick.fireGames[bestIndex] < 200)
             line += QStringLiteral(" Only %1 games though, grain of salt.").arg(pick.fireGames[bestIndex]);
+        //Not the best Firestone winrate: HearthArena made the difference
+        int bestFire = 0;
+        for(int i=1; i<3; i++)  if(pick.fire[i] > pick.fire[bestFire])    bestFire = i;
+        if(byFire && pick.showHA && bestFire != bestIndex && pick.ha[bestIndex] > pick.ha[bestFire])
+            line += mascotPick({" HearthArena rates it way higher, and so do I.", " Winrates are close, HearthArena breaks the tie."});
     }
 
     mascotSaysAdvice = true;

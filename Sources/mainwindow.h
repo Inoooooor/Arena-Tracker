@@ -41,7 +41,7 @@ class Extended;
 class DetachWindow;
 
 //TODO: the Patreon page, once it exists
-#define MASCOT_SUPPORT_WINS 5   //The support ask comes on the rewards screen of runs with at least these wins
+#define MASCOT_SUPPORT_WINS 5   //The support ask comes after a win, on the Ready Up screen, from these wins on
 #define MASCOT_SUPPORT_URL "https://www.patreon.com/"
 
 class MainWindow : public QMainWindow
@@ -278,6 +278,7 @@ private slots:
     void mascotEndGame(bool playerWon, bool playerUnknown);
     void mascotEnemySecret();
     void mascotRewards(int wins);
+    void mascotReadyUpWins(int wins);
     void mascotDraftFinished(int knownCards, float avgFire, float avgHA);
     void mascotGreeting();
     void mascotRedraftScreen(int screen);

@@ -2,6 +2,7 @@
 #include "../themehandler.h"
 #include "../utility.h"
 #include "scoreplate.h"
+#include "../Utils/pickrating.h"
 #include <QtWidgets>
 
 //The old look under the cards (card check, synergy lists, mechanic icons) is only shown with the old interface:
@@ -978,12 +979,16 @@ void DraftScoreWindow::warningOkClick(HoverLabel *hoverLabel)
 }
 
 
-//The hand follows Firestone when it has data, HearthArena otherwise
+//The hand follows the rating of both sources (PickRating)
 void DraftScoreWindow::updatePlates()
 {
-    const float bestFire = std::max(std::max(fireScores[0], fireScores[1]), fireScores[2]);
-    const float bestHA = std::max(std::max(haScores[0], haScores[1]), haScores[2]);
-    const bool handByFire = showLF && bestFire > 0;
+    float ratings[3];
+    for(int i=0; i<3; i++)
+    {
+        ratings[i] = PickRating::rating({showLF ? fireScores[i] : 0, fireGames[i], showHA ? haScores[i] : 0});
+    }
+    const float bestRating = std::max({ratings[0], ratings[1], ratings[2]});
+    const bool anyScore = (fireScores[0] + fireScores[1] + fireScores[2] + haScores[0] + haScores[1] + haScores[2]) > 0;
     QList<ScorePlate::Content> contents;
     for(int i=0; i<3; i++)
     {
@@ -993,8 +998,7 @@ void DraftScoreWindow::updatePlates()
         content.fireGames = fireGames[i];
         content.showHA = showHA;
         content.haScore = haScores[i];
-        if(handByFire)                  content.hand = ScorePlate::handFor(fireScores[i], bestFire, CLOSE_FIRE_WINRATE);
-        else if(showHA && bestHA > 0)   content.hand = ScorePlate::handFor(haScores[i], bestHA, CLOSE_HA_SCORE);
+        if(anyScore && PickRating::isReady())   content.hand = ScorePlate::handFor(ratings[i], bestRating, CLOSE_RATING);
         contents << content;
     }
     platesWindow->setContents(contents);

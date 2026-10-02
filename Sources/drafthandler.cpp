@@ -1,4 +1,5 @@
 #include "drafthandler.h"
+#include "Utils/pickrating.h"
 #ifdef Q_OS_MAC
 #include <pthread/qos.h>
 #endif
@@ -102,6 +103,7 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     connect(redraftWatchTimer, SIGNAL(timeout()), this, SLOT(checkRedraftScreen()));
     connect(&futureRedraftCounter, SIGNAL(finished()), this, SLOT(finishCheckRedraftScreen()));
     connect(&futureRewardsWins, SIGNAL(finished()), this, SLOT(finishReadRewardsWins()));
+    connect(&futureReadyUpWins, SIGNAL(finished()), this, SLOT(finishReadReadyUpWins()));
 
     bundlePending = bundlePreviewVisible = bundlePreviewOpen = false;
     bundleMisses = bundleReads = 0;
@@ -1306,6 +1308,64 @@ void DraftHandler::stopRedraftWatch()
 static QImage grabHearthstoneWindow(int maxWidth);
 #endif
 
+#ifdef Q_OS_MAC
+//The big white number of the Hearthstone arena screens (the wins on the Ready Up medal, the rewards chest) inside
+//crop, 0 to 12, or -1
+static int readBigNumber(const QImage &rgb, const QRect &crop)
+{
+    //The white digits alone, black on white, three times in a row: Vision drops a lone digit (both recognizers,
+    //depending on the digit and its size) but reads "444" or "000"; the fast one reads all of them
+    QRect ink;
+    for(int y=0; y<crop.height(); y++)
+    {
+        for(int x=0; x<crop.width(); x++)
+        {
+            const QRgb p = rgb.pixel(crop.x() + x, crop.y() + y);
+            if(std::min({qRed(p), qGreen(p), qBlue(p)}) > 200)  ink |= QRect(crop.x() + x, crop.y() + y, 1, 1);
+        }
+    }
+    if(ink.width() < 3 || ink.height() < 8)     return -1;
+    const int gapPx = ink.height()/4;
+    QImage row(gapPx + 3*(ink.width() + gapPx), ink.height()*2, QImage::Format_RGB32);
+    row.fill(Qt::white);
+    for(int copy=0; copy<3; copy++)
+    {
+        const int left = gapPx + copy*(ink.width() + gapPx);
+        for(int y=0; y<ink.height(); y++)
+        {
+            for(int x=0; x<ink.width(); x++)
+            {
+                const QRgb p = rgb.pixel(ink.x() + x, ink.y() + y);
+                if(std::min({qRed(p), qGreen(p), qBlue(p)}) > 200)  row.setPixel(left + x, ink.height()/2 + y, qRgb(0, 0, 0));
+            }
+        }
+    }
+    QString number;
+    for(const MacOcr::TextLine &line: MacOcr::recognizeTextLines(row, "enUS", true))
+    {
+        for(QChar c: line.text)
+        {
+            //Letters the fast recognizer reads for these digits
+            if(c == 'o' || c == 'O' || c == 'D')                    c = '0';
+            else if(c == 'l' || c == 'I' || c == 'i' || c == '|')   c = '1';
+            else if(c == 'Z' || c == 'z')                           c = '2';
+            else if(c == 'S' || c == 's')                           c = '5';
+            else if(c == 'B')                                       c = '8';
+            if(c.isDigit())     number += c;
+        }
+    }
+    //The three copies must agree
+    if(number.isEmpty() || number.length() % 3 != 0)    return -1;
+    const QString third = number.left(number.length()/3);
+    if(number != third + third + third)     return -1;
+    number = third;
+    bool ok = false;
+    const int wins = number.toInt(&ok);
+    return (ok && wins >= 0 && wins <= 12) ? wins : -1;
+}
+#endif
+
+
 //The rewards screen of a run shows its final wins on the chest, also the games the tracker didn't see (closed).
 //Tried for a few seconds: the chest comes in with an animation.
 void DraftHandler::readRewardsWins()
@@ -1342,55 +1402,7 @@ void DraftHandler::tryReadRewardsWins()
                                  qRound(0.44*w), qRound(0.48*w)) & rgb.rect();
         if(crop.isEmpty())  return -1;
 
-        //The white digits alone, black on white, three times in a row: Vision drops a lone digit (both recognizers,
-        //depending on the digit and its size) but reads "444" or "000"; the fast one reads all of them
-        QRect ink;
-        for(int y=0; y<crop.height(); y++)
-        {
-            for(int x=0; x<crop.width(); x++)
-            {
-                const QRgb p = rgb.pixel(crop.x() + x, crop.y() + y);
-                if(std::min({qRed(p), qGreen(p), qBlue(p)}) > 200)  ink |= QRect(crop.x() + x, crop.y() + y, 1, 1);
-            }
-        }
-        if(ink.width() < 3 || ink.height() < 8)     return -1;
-        const int gapPx = ink.height()/4;
-        QImage row(gapPx + 3*(ink.width() + gapPx), ink.height()*2, QImage::Format_RGB32);
-        row.fill(Qt::white);
-        for(int copy=0; copy<3; copy++)
-        {
-            const int left = gapPx + copy*(ink.width() + gapPx);
-            for(int y=0; y<ink.height(); y++)
-            {
-                for(int x=0; x<ink.width(); x++)
-                {
-                    const QRgb p = rgb.pixel(ink.x() + x, ink.y() + y);
-                    if(std::min({qRed(p), qGreen(p), qBlue(p)}) > 200)  row.setPixel(left + x, ink.height()/2 + y, qRgb(0, 0, 0));
-                }
-            }
-        }
-        QString number;
-        for(const MacOcr::TextLine &line: MacOcr::recognizeTextLines(row, "enUS", true))
-        {
-            for(QChar c: line.text)
-            {
-                //Letters the fast recognizer reads for these digits
-                if(c == 'o' || c == 'O' || c == 'D')                    c = '0';
-                else if(c == 'l' || c == 'I' || c == 'i' || c == '|')   c = '1';
-                else if(c == 'Z' || c == 'z')                           c = '2';
-                else if(c == 'S' || c == 's')                           c = '5';
-                else if(c == 'B')                                       c = '8';
-                if(c.isDigit())     number += c;
-            }
-        }
-        //The three copies must agree
-        if(number.isEmpty() || number.length() % 3 != 0)    return -1;
-        const QString third = number.left(number.length()/3);
-        if(number != third + third + third)     return -1;
-        number = third;
-        bool ok = false;
-        const int wins = number.toInt(&ok);
-        return (ok && wins >= 0 && wins <= 12) ? wins : -1;
+        return readBigNumber(rgb, crop);
     }));
 #else
     emit rewardsWinsRead(-1);
@@ -1412,6 +1424,71 @@ void DraftHandler::finishReadRewardsWins()
         emit pDebug("Rewards chest not read.");
         emit rewardsWinsRead(-1);
     }
+}
+
+
+//After a won game, the wins on the Ready Up medal (the real ones, also the games the tracker didn't see): tried every
+//2 s for a minute, the time to come back from the game
+void DraftHandler::readReadyUpWins()
+{
+    readyUpWinsTries = 0;
+    tryReadReadyUpWins();
+}
+
+
+void DraftHandler::tryReadReadyUpWins()
+{
+#ifdef Q_OS_MAC
+    if(Utility::getLocalLang() != "enUS" || futureReadyUpWins.isRunning())  return;
+    readyUpWinsTries++;
+    const QImage image = grabHearthstoneWindow(1400);
+
+    futureReadyUpWins.setFuture(QtConcurrent::run([image]() {
+        if(image.isNull())  return -1;
+        //"Wins:" and "Losses:" are the anchors: the medal is under "Wins:", in their distance (measured on 2026 clients)
+        //The fast recognizer mixes up i and l ("Wlns:"): compared letters only, those as one
+        auto key = [](const QString &text) {
+            QString letters;
+            for(QChar c: text.toUpper())
+            {
+                if(c == 'L' || c == '1' || c == '|')    c = 'I';
+                if(c.isLetter())    letters += c;
+            }
+            return letters;
+        };
+        QRectF winsLabel, lossesLabel;
+        bool readyUp = false;
+        for(const MacOcr::TextLine &line: MacOcr::recognizeTextLines(image, "enUS", true))
+        {
+            const QString text = key(line.text);
+            if(text == key("Wins"))             winsLabel = line.rect;
+            else if(text == key("Losses"))      lossesLabel = line.rect;
+            else if(text == key("Ready Up"))    readyUp = true;
+        }
+        if(!readyUp || winsLabel.isNull() || lossesLabel.isNull())   return -1;
+        const qreal gap = lossesLabel.center().x() - winsLabel.center().x();
+        if(gap <= 0 || qAbs(lossesLabel.center().y() - winsLabel.center().y()) > gap*0.05)    return -1;
+
+        const QImage rgb = image.convertToFormat(QImage::Format_RGB32);
+        const qreal r = 0.08*gap;
+        const QPointF medal(winsLabel.center().x(), winsLabel.center().y() + 0.145*gap);
+        const QRect crop = QRect(qRound(medal.x() - r), qRound(medal.y() - 0.8*r), qRound(2*r), qRound(1.6*r)) & rgb.rect();
+        return crop.isEmpty() ? -1 : readBigNumber(rgb, crop);
+    }));
+#endif
+}
+
+
+void DraftHandler::finishReadReadyUpWins()
+{
+    const int wins = futureReadyUpWins.result();
+    if(wins >= 0)
+    {
+        emit pDebug("Ready Up medal: " + QString::number(wins) + " wins.");
+        emit readyUpWinsRead(wins);
+    }
+    else if(readyUpWinsTries < 30)  QTimer::singleShot(2000, this, SLOT(tryReadReadyUpWins()));
+    else                            emit pDebug("Ready Up medal not read.");
 }
 
 
@@ -3128,6 +3205,23 @@ void DraftHandler::showHAScores(QString ogCodes[], QString hsrCodes[],QString ca
 }
 
 
+//The class's arena cards with both scores, the reference of the pick ratings (the hands and the mascot's advice)
+void DraftHandler::updatePickRatingPool()
+{
+    QList<PickRating::Card> pool;
+    for(auto it=hearthArenaTiers.constBegin(); it!=hearthArenaTiers.constEnd(); it++)
+    {
+        const QString &code = it.key();
+        PickRating::Card card;
+        card.haScore = it.value();
+        card.fireWinrate = (fireWRMap == nullptr) ? 0 : fireWRMap[this->arenaHero].value(code);
+        card.fireGames = (fireSamplesMap == nullptr) ? 0 : fireSamplesMap[this->arenaHero].value(code);
+        pool << card;
+    }
+    PickRating::setPool(pool);
+}
+
+
 int DraftHandler::getHAScore(const QString &code)
 {
     return hearthArenaTiers[getHACode(code)];
@@ -3317,6 +3411,7 @@ void DraftHandler::showNewCards(DraftCard bestCards[])
     for(int i=0; i<3; i++)  if(Utility::getRarityFromCode(ogCodes[i]) != LEGENDARY)     legendaryGroups = false;
     pickScores = PickScores();
     if(draftScoreWindow != nullptr)     draftScoreWindow->setLegendaryGroups(legendaryGroups);
+    updatePickRatingPool();     //Before the scores: the plates' hands use the ratings
     showHAScores(ogCodes, hsrCodes, cardNames);
     showHSRScores(hsrCodes, cardNames);
     showFireScores(hsrCodes, cardNames);
