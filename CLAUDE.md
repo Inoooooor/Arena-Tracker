@@ -41,7 +41,7 @@ Debug toggles (compile-time) are the `DEBUG_*` defines in `Sources/utility.h`.
 3. `GameWatcher` parses lines with regexes (`processPower`, `processZone`, `processArena`, ...) and emits high-level signals (`newArena`, `startGame`, `playerCardDraw`, `enemySecretPlayed`, `playerMinionZonePlayAdd`, ...).
 4. Feature handlers consume those signals: `DeckHandler`, `EnemyHandHandler`, `EnemyDeckHandler`, `SecretsHandler`, `PlanHandler` (board replay), `ArenaHandler` (run results/winrates), `GraveyardHandler`, `DrawCardHandler`, `RngCardHandler`, `PopularCardsHandler`.
 
-**Drafting:** `DraftHandler` (largest file) screen-captures the draft, locates card slots via template images in `Extra/*Template*.png`, and identifies cards by OpenCV histogram comparison against downloaded card images. On macOS it first reads each card's name banner with Apple Vision (`Sources/Utils/macocr.mm`, `DraftHandler::readCardNames`) and fuzzy-matches it against `cardsNameMap`; a matched name overrides the histogram (needed for animated golden cards). It scores picks from several sources (`DraftMethod`/`ScoreSource` enums: HearthArena tier list, Firestone, HSReplay via `WinratesDownloader`) and owns `SynergyHandler`, which uses the counters in `Sources/Synergies/` driven by per-card synergy tags.
+**Drafting:** `DraftHandler` (largest file) screen-captures the draft, locates card slots via template images in `Extra/*Template*.png`, and identifies cards by OpenCV histogram comparison against downloaded card images. On macOS it first reads each card's name banner with Apple Vision (`Sources/Utils/macocr.mm`, `DraftHandler::readCardNames`) and fuzzy-matches it against `cardsNameMap`; a matched name overrides the histogram (needed for animated golden cards). It scores picks from two sources (`DraftMethod`/`ScoreSource` enums: HearthArena tier list and Firestone winrates via `WinratesDownloader`) and owns `SynergyHandler`, which uses the counters in `Sources/Synergies/` driven by per-card synergy tags.
 
 **Premium gating:** `PremiumHandler` emits `setPremium(bool)` to most handlers; premium status is tied to the Track-o-Bot account (`TrackobotUploader`) checked against `Premium/premium.json`.
 
@@ -56,7 +56,7 @@ The installed app downloads data directly from this repo's `master` branch via `
 - `Version/version.json` — latest version + download URLs; `versionFree` lists versions allowed without premium.
 - `Arena/arenaVersion.json` — current arena card sets, `trustHA`, reset counters.
 - `Synergies/synergies.json` (card ID → list of synergy/mechanic tags; tags must be ones the `Synergies/` counters recognize) + `synergiesVersion.json`.
-- `HearthArena/hearthArena.json` + `haVersion.json`, `LightForge/`, `CardsJson/`, `Themes/`, `Extra/`, `Images/`, `HearthstoneCards/`, `HearthstoneSignatureCards/`, `Premium/premium.json`.
+- `HearthArena/hearthArena.json` + `haVersion.json`, `LightForge/`, `CardsJson/`, `Extra/`, `Images/`, `HearthstoneCards/`, `HearthstoneSignatureCards/`, `Premium/premium.json`.
 
 Clients only re-download a JSON when its companion `*Version.json` number increases — bump the version number whenever the data file changes.
 

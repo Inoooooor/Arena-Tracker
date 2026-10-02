@@ -20,13 +20,11 @@
 #define DIVIDE_TABS_V 500
 #define BIG_BUTTONS_H 48
 #define SMALL_BUTTONS_H 19
-#define DEFAULT_THEME "Random"
-#define HSR_CARDS_URL "https://api.hearthstonejson.com/v1/latest/all/cards.json"
+#define HSJSON_CARDS_URL "https://api.hearthstonejson.com/v1/latest/all/cards.json"
 #define HEARTHARENA_TIERLIST_URL "https://www.heartharena.com/tierlist"
 //#define HEARTHARENA_TIERLIST_URL "https://www.heartharena.com/tierlist/preview" //Problematico, mejor evitar
 #define EXTRA_URL AT_REPO_RAW_URL "/Extra"
 #define IMAGES_URL AT_REPO_RAW_URL "/Images"
-#define THEMES_URL AT_REPO_RAW_URL "/Themes"
 #define HA_URL AT_REPO_RAW_URL "/HearthArena"
 #define ARENA_URL AT_REPO_RAW_URL "/Arena"
 #define SYNERGIES_URL AT_REPO_RAW_URL "/Synergies"
@@ -150,8 +148,8 @@ private:
     void createDataDir();
     void calculateCardWindowMinimumWidth(DetachWindow *detachWindow, bool hasBorders);
     void initConfigTab(int tooltipScale, int cardHeight, bool autoSize, bool showClassColor, bool showSpellColor,
-                       bool showManaLimits, bool showTotalAttack, bool showRngList, bool twitchChatVotes, QString theme,
-                       bool draftMethodHA, bool draftMethodLF, bool draftMethodHSR, QString draftAvg,
+                       bool showManaLimits, bool showTotalAttack, bool showRngList, bool twitchChatVotes,
+                       bool draftMethodHA, bool draftMethodLF, QString draftAvg,
                        int popularCardsShown, bool showSecrets, bool showWildSecrets,
                        bool showDraftScoresOverlay, bool showDraftMechanicsOverlay, bool draftLearningMode, bool draftShowDrops,
                        bool showMyWR, bool downloadLB, bool wantedMechanics[]);
@@ -172,7 +170,7 @@ private:
     void createLinuxShortcut();
     void createDebugPack();
     void showWindowFrame(bool showFrame=true);
-    void spreadDraftMethod(bool draftMethodHA, bool draftMethodLF, bool draftMethodHSR);
+    void spreadDraftMethod(bool draftMethodHA, bool draftMethodLF);
     DraftMethod draftMethodFromString(QString draftAvg);
     void showProgressBar(bool animated=true);
     void setProgressBarText(const QString &text);
@@ -182,13 +180,10 @@ private:
     void hideProgressBarMini();
     void advanceProgressBarMini(int remaining);
     void updateProgressAllCardsDownload(QString code);
-    void completeConfigComboTheme();
     void completeConfigComboAvg();
-    void initConfigTheme(QString theme);
+    void initConfigTheme();
     void downloadExtraFile(QString nameFile);
     void downloadExtraFiles();
-    void downloadThemes();
-    void downloadTheme(QString theme, int version);
     void downloadHearthArenaVersion();
     void downloadHearthArenaJson(int version);
     void downloadArenaVersion();
@@ -196,7 +191,7 @@ private:
     void downloadSynergiesVersion();
     void downloadSynergiesJson(int version);
     void updateTabIcons();
-    void initHSRHeroesWinrate();
+    void initHeroesWinrate();
     void checkArenaCards();
     void downloadAllArenaCodes(const QStringList &codeList);
     void initWRCards();
@@ -308,7 +303,6 @@ private slots:
     void missingOnWeb(QString code);
     void allCardsDownloaded();
     void init();
-    void loadTheme(QString theme, bool initTheme=false);
     void createDetachWindow(int index, const QPoint &dropPoint);
     void createDetachWindow(QWidget *paneWidget, const QPoint& dropPoint = QPoint());
     void closedDetachWindow(DetachWindow *detachWindow, QWidget *paneWidget);
@@ -333,11 +327,6 @@ private slots:
     void updateAoe(bool checked);
     void newDeckCardDraft(QString code);
     void leaveArena();
-    void readyHSRPickratesMap(QMap<QString, float> *hsrPickratesMap);
-    void readyHSRWRMap(QMap<QString, float> *hsrWRMap);
-    void readyHSRSamplesMap(QMap<QString, int> *hsrSamplesMap);
-    void readyHSRPlayedWRMap(QMap<QString, float> *hsrPlayedWRMap);
-    void readyHSRBundlesMap(QMap<QString, QStringList> *hsrBundlesMap);
     void readyFireWRMap(QMap<QString, float> *fireWRMap);
     void readyFireSamplesMap(QMap<QString, int> *fireSamplesMap);
 };

@@ -42,7 +42,6 @@ MainWindow::MainWindow(QWidget *parent) :
     downloadHearthArenaVersion();
     downloadSynergiesVersion();
     downloadExtraFiles();
-    downloadThemes();
 
     HDImages::create(this);
     HDIcons::prefetch();
@@ -369,13 +368,13 @@ void MainWindow::replyFinished(QNetworkReply *reply)
         //Cards json
         else if(endUrl == "cards.json")
         {
-            //Old redirection - HSR
+            //Old redirection
             if(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 302)
             {
                 checkCardsJsonVersion(reply->rawHeader("Location"));
             }
-            //Cards json - HSR (Debug)
-            else if(fullUrl == HSR_CARDS_URL)
+            //Cards json - HearthstoneJSON (Debug)
+            else if(fullUrl == HSJSON_CARDS_URL)
             {
                 qDebug() << "DEBUG CARDS: Json Cards --> Download Success.";
                 QSettings settings("Arena Tracker", "Arena Tracker");
@@ -445,37 +444,6 @@ void MainWindow::replyFinished(QNetworkReply *reply)
             QByteArray jsonData = reply->readAll();
             Utility::dumpOnFile(jsonData, Utility::extraPath() + "/synergies.json");
         }
-        //Themes json
-        else if(endUrl == "Themes.json")
-        {
-            QJsonObject jsonObject = QJsonDocument::fromJson(reply->readAll()).object();
-            for(const QString &key: (const QStringList)jsonObject.keys())
-            {
-                downloadTheme(key, jsonObject.value(key).toInt());
-            }
-        }
-        //Theme zip
-        else if(fullUrl.contains(THEMES_URL) && endUrl.endsWith(".zip"))
-        {
-            pDebug("Themes: " + endUrl + " --> Download Success.");
-            QByteArray data = reply->readAll();
-            Utility::dumpOnFile(data, Utility::themesPath() + "/" + endUrl);
-            Utility::unZip(Utility::themesPath() + "/" + endUrl, Utility::themesPath());
-            QFile zipFile(Utility::themesPath() + "/" + endUrl);
-            zipFile.remove();
-
-            QString theme = endUrl.left(endUrl.length()-4);
-            if(ui->configComboTheme->findText(theme) == -1)
-            {
-                ui->configComboTheme->addItem(theme);
-            }
-            if(ThemeHandler::themeLoaded() == theme)
-            {
-                QString currentTheme = ui->configComboTheme->currentText();
-                if(currentTheme != "Random")    ui->configComboTheme->setCurrentText(theme);
-                loadTheme(theme);
-            }
-        }
         //Extra files
         else
         {
@@ -490,7 +458,7 @@ void MainWindow::replyFinished(QNetworkReply *reply)
 }
 
 
-//Old redirection - HSR
+//Old redirection
 void MainWindow::checkCardsJsonVersion(QString cardsJsonVersion)
 {
     QSettings settings("Arena Tracker", "Arena Tracker");
@@ -542,31 +510,12 @@ void MainWindow::initCardsJson()
 }
 
 
-void MainWindow::initHSRHeroesWinrate()
+void MainWindow::initHeroesWinrate()
 {
     winratesDownloader->initHeroesWinrate();
 }
 
 
-void MainWindow::readyHSRPickratesMap(QMap<QString, float> *hsrPickratesMap)
-{
-}
-void MainWindow::readyHSRWRMap(QMap<QString, float> *hsrWRMap)
-{
-    draftHandler->setCardsIncludedWinratesMap(hsrWRMap);
-}
-void MainWindow::readyHSRSamplesMap(QMap<QString, int> *hsrSamplesMap)
-{
-    draftHandler->setCardsIncludedDecksMap(hsrSamplesMap);
-}
-void MainWindow::readyHSRPlayedWRMap(QMap<QString, float> *hsrPlayedWRMap)
-{
-    draftHandler->setCardsPlayedWinratesMap(hsrPlayedWRMap);
-}
-void MainWindow::readyHSRBundlesMap(QMap<QString, QStringList> *hsrBundlesMap)
-{
-    Utility::setBundlesMap(hsrBundlesMap);
-}
 void MainWindow::readyFireWRMap(QMap<QString, float> *fireWRMap)
 {
     draftHandler->setFireWRMap(fireWRMap);
@@ -755,8 +704,8 @@ void MainWindow::createDraftHandler()
 
     connect(draftHandler, SIGNAL(draftEnded(QString)),
             arenaHandler, SLOT(newArena(QString)));
-    connect(draftHandler, SIGNAL(scoreAvg(int,float,float,QString)),
-            arenaHandler, SLOT(setCurrentAvgScore(int,float,float,QString)));
+    connect(draftHandler, SIGNAL(scoreAvg(int,float,QString)),
+            arenaHandler, SLOT(setCurrentAvgScore(int,float,QString)));
 
     //Connect en logLoader
 //    connect(draftHandler, SIGNAL(draftEnded()),
@@ -770,7 +719,7 @@ void MainWindow::createDraftHandler()
     connect(ui->minimizeButton, SIGNAL(clicked()),
             draftHandler, SLOT(minimizeScoreWindow()));
 
-    initHSRHeroesWinrate();
+    initHeroesWinrate();
     if(cardsJsonLoaded) draftHandler->buildHeroCodesList();
 
     QSettings settings("Arena Tracker", "Arena Tracker");
@@ -864,16 +813,6 @@ void MainWindow::createCardDownloader()
 void MainWindow::createWinratesDownloader()
 {
     winratesDownloader = new WinratesDownloader(this);
-    connect(winratesDownloader, SIGNAL(readyHSRPickratesMap(QMap<QString,float>*)),
-            this, SLOT(readyHSRPickratesMap(QMap<QString,float>*)));
-    connect(winratesDownloader, SIGNAL(readyHSRWRMap(QMap<QString,float>*)),
-            this, SLOT(readyHSRWRMap(QMap<QString,float>*)));
-    connect(winratesDownloader, SIGNAL(readyHSRSamplesMap(QMap<QString,int>*)),
-            this, SLOT(readyHSRSamplesMap(QMap<QString,int>*)));
-    connect(winratesDownloader, SIGNAL(readyHSRPlayedWRMap(QMap<QString,float>*)),
-            this, SLOT(readyHSRPlayedWRMap(QMap<QString,float>*)));
-    connect(winratesDownloader, SIGNAL(readyHSRBundlesMap(QMap<QString,QStringList>*)),
-            this, SLOT(readyHSRBundlesMap(QMap<QString,QStringList>*)));
     connect(winratesDownloader, SIGNAL(readyFireWRMap(QMap<QString,float>*)),
             this, SLOT(readyFireWRMap(QMap<QString,float>*)));
     connect(winratesDownloader, SIGNAL(readyFireSamplesMap(QMap<QString,int>*)),
@@ -1000,7 +939,7 @@ void MainWindow::createLogLoader()
 
 void MainWindow::newGameResult(GameResult gameResult, LoadingScreenState loadingScreen)
 {
-    arenaHandler->newGameResult(gameResult, loadingScreen, 0, 0, 0);
+    arenaHandler->newGameResult(gameResult, loadingScreen, 0, 0);
 }
 
 
@@ -1789,10 +1728,11 @@ void MainWindow::restoreFromDock(Qt::ApplicationState state)
 }
 
 
-void MainWindow::initConfigTheme(QString theme)
+//The built-in look of the old windows: theme downloads are gone
+void MainWindow::initConfigTheme()
 {
-    ui->configComboTheme->setCurrentText(theme);
-    loadTheme(theme, true);
+    ThemeHandler::defaultEmptyValues();
+    spreadTheme();
 }
 
 
@@ -1869,7 +1809,6 @@ void MainWindow::readSettings()
     size = settings.value("size", QSize(255, 600)).toSize();
 
     this->transparency = static_cast<Transparency>(settings.value("transparent", AutoTransparent).toInt());
-    QString theme = settings.value("theme", DEFAULT_THEME).toString();
     int cardHeight = settings.value("cardHeight", 35).toInt();
     this->drawDisappear = settings.value("drawDisappear", 5).toInt();
     int popularCardsShown = settings.value("popularCardsShown", 5).toInt();
@@ -1877,10 +1816,9 @@ void MainWindow::readSettings()
     bool showDraftMechanicsOverlay = settings.value("showDraftMechanicsOverlay", true).toBool();
     bool draftLearningMode = settings.value("draftLearningMode", false).toBool();
     bool draftShowDrops = settings.value("draftShowDrops", true).toBool();
-    QString draftAvg = settings.value("draftAvg", "HSReplay").toString();
+    QString draftAvg = settings.value("draftAvg", "FireStone").toString();
     bool draftMethodHA = settings.value("draftMethodHA", true).toBool();
     bool draftMethodLF = settings.value("draftMethodFire", true).toBool();
-    bool draftMethodHSR = settings.value("draftMethodHSR", true).toBool();
     int tooltipScale = settings.value("tooltipScale", 10).toInt();
     bool autoSize = false;//settings.value("autoSize", false).toBool();//Disable autoSize
     bool showClassColor = settings.value("showClassColor", true).toBool();
@@ -1901,7 +1839,7 @@ void MainWindow::readSettings()
     }
 
     initConfigTab(tooltipScale, cardHeight, autoSize, showClassColor, showSpellColor, showManaLimits, showTotalAttack, showRngList,
-                  twitchChatVotes, theme, draftMethodHA, draftMethodLF, draftMethodHSR, draftAvg, popularCardsShown,
+                  twitchChatVotes, draftMethodHA, draftMethodLF, draftAvg, popularCardsShown,
                   showSecrets, showWildSecrets, showDraftScoresOverlay, showDraftMechanicsOverlay, draftLearningMode,
                   draftShowDrops, showMyWR, downloadLB, wantedMechanics);
 
@@ -1933,8 +1871,6 @@ void MainWindow::writeSettings()
     settings.setValue("pos", pos());
     settings.setValue("size", size());
     settings.setValue("transparent", static_cast<int>(this->transparency));
-    QString theme = ui->configComboTheme->currentText();
-    if(!theme.isEmpty())    settings.setValue("theme", theme);
     settings.setValue("cardHeight", ui->configSliderCardSize->value());
     settings.setValue("drawDisappear", this->drawDisappear);
     settings.setValue("popularCardsShown", ui->configSliderPopular->value());
@@ -1946,7 +1882,6 @@ void MainWindow::writeSettings()
     if(!draftAvg.isEmpty()) settings.setValue("draftAvg", draftAvg);
     settings.setValue("draftMethodHA", ui->configCheckHA->isChecked());
     settings.setValue("draftMethodFire", ui->configCheckLF->isChecked());
-    settings.setValue("draftMethodHSR", ui->configCheckHSR->isChecked());
     settings.setValue("tooltipScale", ui->configSliderTooltipSize->value());
     settings.setValue("autoSize", ui->configCheckAutoSize->isChecked());
     settings.setValue("showClassColor", ui->configCheckClassColor->isChecked());
@@ -1982,7 +1917,7 @@ void MainWindow::writeSettings()
 
 void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, bool showClassColor, bool showSpellColor,
                                bool showManaLimits, bool showTotalAttack, bool showRngList,
-                               bool twitchChatVotes, QString theme, bool draftMethodHA, bool draftMethodLF, bool draftMethodHSR,
+                               bool twitchChatVotes, bool draftMethodHA, bool draftMethodLF,
                                QString draftAvg,
                                int popularCardsShown, bool showSecrets, bool showWildSecrets, bool showDraftScoresOverlay,
                                bool showDraftMechanicsOverlay, bool draftLearningMode, bool draftShowDrops, bool showMyWR,
@@ -2011,7 +1946,7 @@ void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, 
 //            break;
     }
 
-    initConfigTheme(theme);
+    initConfigTheme();
 
     //Games
     if(downloadLB)                  ui->configCheckLB->setChecked(true);
@@ -2083,11 +2018,7 @@ void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, 
 
     ui->configCheckHA->setChecked(draftMethodHA);
     ui->configCheckLF->setChecked(draftMethodLF);
-    //HSReplay data is not loaded (Cloudflare)
-    Q_UNUSED(draftMethodHSR);
-    ui->configCheckHSR->setChecked(false);
-    ui->configCheckHSR->hide();
-    spreadDraftMethod(draftMethodHA, draftMethodLF, false);
+    spreadDraftMethod(draftMethodHA, draftMethodLF);
 
     initConfigAvgScore(draftAvg);
     initWantedMechanics(wantedMechanics);
@@ -2607,7 +2538,6 @@ void MainWindow::createDataDir()
     if(REMOVE_EXTRA_AND_HISTOGRAMS_ON_VERSION_UPDATE)  removeExtraAndHistograms();//Redownload Extra en esta version y recrea histogramas
     if(Utility::createDir(Utility::hscardsPath()))  allCardsDownloadNeeded = true;
     Utility::createDir(Utility::extraPath());
-    Utility::createDir(Utility::themesPath());
     Utility::createDir(Utility::histogramsPath());
     Utility::createDir(Utility::arenaStatsPath());
 }
@@ -2724,8 +2654,8 @@ void MainWindow::downloadCardsJsonVersion()
 
 void MainWindow::testDownloadCardsJson()
 {
-    networkManager->get(QNetworkRequest(QUrl(HSR_CARDS_URL)));
-    qDebug() << "DEBUG CARDS: Json Cards --> Download from:" << QString(HSR_CARDS_URL);
+    networkManager->get(QNetworkRequest(QUrl(HSJSON_CARDS_URL)));
+    qDebug() << "DEBUG CARDS: Json Cards --> Download from:" << QString(HSJSON_CARDS_URL);
 }
 
 
@@ -2753,41 +2683,6 @@ void MainWindow::downloadCardsJson(int version)
         Utility::setCardsJsonUpToDate(true);
         checkArenaCards();
         initWRCards();
-    }
-}
-
-
-void MainWindow::downloadThemes()
-{
-    networkManager->get(QNetworkRequest(QUrl(THEMES_URL + QString("/Themes.json"))));
-}
-
-
-void MainWindow::downloadTheme(QString theme, int version)
-{
-    bool needDownload = false;
-    QSettings settings("Arena Tracker", "Arena Tracker");
-    int storedVersion = settings.value(theme + "Theme", 0).toInt();
-
-    QFileInfo dirInfo(Utility::themesPath() + "/" + theme);
-    if(!dirInfo.exists())           needDownload = true;
-    if(version != storedVersion)    needDownload = true;
-
-    pDebug("Themes: " + theme + ": Local(" + QString::number(storedVersion) + ") - "
-                        "Web(" + QString::number(version) + ")" + (!needDownload?" up-to-date":""));
-
-    if(needDownload)
-    {
-        if(dirInfo.exists())
-        {
-            QDir dir(Utility::themesPath() + "/" + theme);
-            dir.removeRecursively();
-            pDebug("Themes: " + Utility::themesPath() + "/" + theme + " removed.");
-        }
-
-        settings.setValue(theme + "Theme", version);
-        networkManager->get(QNetworkRequest(QUrl(QString(THEMES_URL) + "/" + theme + ".zip")));
-        pDebug("Themes: " + theme + ".zip --> Download from: " + THEMES_URL);
     }
 }
 
@@ -3119,7 +3014,6 @@ void MainWindow::updateOtherTabsTransparency()
         ui->configCheckLB->setStyleSheet(checkCSS);
         ui->configCheckHA->setStyleSheet(checkCSS);
         ui->configCheckLF->setStyleSheet(checkCSS);
-        ui->configCheckHSR->setStyleSheet(checkCSS);
         ui->iconDrop2->setStyleSheet(checkCSS);
         ui->iconDrop3->setStyleSheet(checkCSS);
         ui->iconDrop4->setStyleSheet(checkCSS);
@@ -3184,7 +3078,6 @@ void MainWindow::updateOtherTabsTransparency()
         ui->configCheckLB->setStyleSheet("");
         ui->configCheckHA->setStyleSheet("");
         ui->configCheckLF->setStyleSheet("");
-        ui->configCheckHSR->setStyleSheet("");
         ui->iconDrop2->setStyleSheet("");
         ui->iconDrop3->setStyleSheet("");
         ui->iconDrop4->setStyleSheet("");
@@ -3701,20 +3594,19 @@ void MainWindow::setWantedMechanic(uint mechanicIcon, bool value)
 
 void MainWindow::spreadDraftMethod()
 {
-    spreadDraftMethod(ui->configCheckHA->isChecked(), ui->configCheckLF->isChecked(), ui->configCheckHSR->isChecked());
+    spreadDraftMethod(ui->configCheckHA->isChecked(), ui->configCheckLF->isChecked());
 }
 
 
-void MainWindow::spreadDraftMethod(bool draftMethodHA, bool draftMethodLF, bool draftMethodHSR)
+void MainWindow::spreadDraftMethod(bool draftMethodHA, bool draftMethodLF)
 {
-    draftHandler->setDraftMethod(draftMethodHA, draftMethodLF, draftMethodHSR);
+    draftHandler->setDraftMethod(draftMethodHA, draftMethodLF);
 }
 
 
 DraftMethod MainWindow::draftMethodFromString(QString draftAvg)
 {
-    if(draftAvg == "HSReplay")          return HSReplay;
-    else if(draftAvg == "HearthArena")  return HearthArena;
+    if(draftAvg == "HearthArena")       return HearthArena;
     else if(draftAvg == "FireStone")    return FireStone;
     return None;
 }
@@ -3728,27 +3620,9 @@ void MainWindow::spreadDraftAvg(QString draftAvg)
 }
 
 
-void MainWindow::completeConfigComboTheme()
-{
-    ui->configComboTheme->addItem("Random");
-
-    QDir themesDir(Utility::themesPath());
-    for(const QFileInfo &themeFI : (const QFileInfoList)themesDir.entryInfoList(QDir::Dirs|QDir::NoDotAndDotDot))
-    {
-        ui->configComboTheme->addItem(themeFI.fileName());
-    }
-
-    ui->configComboTheme->setEditable(false);
-
-    connect(ui->configComboTheme, SIGNAL(activated(QString)),
-            this, SLOT(loadTheme(QString)));
-}
-
-
 void MainWindow::completeConfigComboAvg()
 {
     ui->configComboDraftAvg->addItem("FireStone");
-    ui->configComboDraftAvg->addItem("HSReplay");
     ui->configComboDraftAvg->addItem("HearthArena");
 
     ui->configComboDraftAvg->setEditable(false);
@@ -3781,8 +3655,6 @@ void MainWindow::completeConfigTab()
     connect(ui->configRadioAuto, SIGNAL(clicked()), this, SLOT(transparentAuto()));
     connect(ui->configRadioOpaque, SIGNAL(clicked()), this, SLOT(transparentNever()));
     connect(ui->configRadioFramed, SIGNAL(clicked()), this, SLOT(transparentFramed()));
-
-    completeConfigComboTheme();
 
     //Games
     ui->configBoxGames->hide();
@@ -3831,7 +3703,6 @@ void MainWindow::completeConfigTab()
     connect(ui->configCheckWR, SIGNAL(clicked(bool)), this, SLOT(updateShowMyWR(bool)));
     connect(ui->configCheckHA, SIGNAL(clicked(bool)), this, SLOT(spreadDraftMethod()));
     connect(ui->configCheckLF, SIGNAL(clicked(bool)), this, SLOT(spreadDraftMethod()));
-    connect(ui->configCheckHSR, SIGNAL(clicked(bool)), this, SLOT(spreadDraftMethod()));
     connect(ui->iconDrop2, SIGNAL(clicked(bool)), this, SLOT(updateDrop2(bool)));
     connect(ui->iconDrop3, SIGNAL(clicked(bool)), this, SLOT(updateDrop3(bool)));
     connect(ui->iconDrop4, SIGNAL(clicked(bool)), this, SLOT(updateDrop4(bool)));
@@ -4208,27 +4079,6 @@ void MainWindow::allCardsDownloaded()
 }
 
 
-void MainWindow::loadTheme(QString theme, bool initTheme)
-{
-    if(theme == "Random")
-    {
-        QStringList themeList = Utility::getThemeList();
-        theme = themeList[QRandomGenerator::global()->bounded(themeList.count())];
-    }
-
-    if(ThemeHandler::loadTheme(theme))
-    {
-        spreadTheme();
-        if(!initTheme)  showMessageProgressBar("Theme " + theme + " loaded");
-    }
-    else
-    {
-        if(initTheme)   spreadTheme();
-        else            showMessageProgressBar("Theme " + theme + " invalid");
-    }
-}
-
-
 void MainWindow::downloadHearthArenaTierlistOriginal()
 {
     networkManager->get(QNetworkRequest(QUrl(HEARTHARENA_TIERLIST_URL)));
@@ -4435,14 +4285,14 @@ void MainWindow::HAnames2codes(bool infoOnly)
 }
 
 
-//Verifica HATL codes son los correctos (los que aparecen en HS), mirando que esten en HSR winrates.
+//Verifica HATL codes son los correctos (los que aparecen en HS), mirando que esten en los winrates de Firestone.
 void MainWindow::checkHearthArenaTLCodes(bool infoOnly)
 {
     QStringList arenaCodes = Utility::getAllArenaCodes();
 
     //Buscamos reemplazos
     QMap<QString, QString> swapCodes;
-    //ha-->hsr
+    //ha-->fire
     if(Utility::getTrustHA())
     {
         for(const QString &code: qAsConst(arenaCodes))
@@ -4450,11 +4300,11 @@ void MainWindow::checkHearthArenaTLCodes(bool infoOnly)
             QList<CardClass> heroClassList = Utility::getClassFromCode(code);
             CardClass heroClass = heroClassList.first();
             if(heroClass == NEUTRAL)    heroClass = MAGE;
-            QString hsrCode = draftHandler->getHSRFireCode(code, true, heroClass);
-            if(hsrCode != code)
+            QString fireCode = draftHandler->getFireCode(code, heroClass);
+            if(fireCode != code)
             {
-                swapCodes.insert('"'+code+'"', '"'+hsrCode+'"');
-                qDebug()<<"HATL wrong code:"<<code<<"-->"<<hsrCode;
+                swapCodes.insert('"'+code+'"', '"'+fireCode+'"');
+                qDebug()<<"HATL wrong code:"<<code<<"-->"<<fireCode;
             }
         }
     }
@@ -4610,7 +4460,6 @@ void MainWindow::testDelay()
 
 
     // testDraft();
-    // Utility::mergeHSRwithFireCards();
     // Utility::checkMissingGoldenCards();
 
     // testArenaGames();

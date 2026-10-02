@@ -5,7 +5,7 @@
 #include <QLabel>
 #include "../utility.h"
 
-#define MIN_HSR_DECKS 2000
+#define MIN_SAMPLE_DECKS 2000
 
 class ScoreButton : public QLabel
 {
@@ -61,7 +61,6 @@ public:
 
 signals:
     void spreadHoverScore(bool value);
-    void showHSRwebPicks();
     void showFirewebPicks();
 };
 

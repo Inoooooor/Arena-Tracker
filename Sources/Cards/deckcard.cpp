@@ -20,10 +20,10 @@ DeckCard::DeckCard(QString code, bool outsider)
     createdByCode = "";
     id = 0;
     scoreHA = 0;
-    scoreHSR = scoreFire = 0;
-    includedDecks = samplesFire = 0;
+    scoreFire = 0;
+    samplesFire = 0;
     showScores = false;
-    showHA = showHSR = showFire = true;
+    showHA = showFire = true;
     redraftingReview = false;
     classOrder = -1;
     this->outsider = outsider;
@@ -54,7 +54,6 @@ float DeckCard::getScore(DraftMethod draftMethod) const
     switch(draftMethod)
     {
         case HearthArena:   return scoreHA;
-        case HSReplay:      return scoreHSR;
         case FireStone:     return scoreFire;
         default:            return 0;
     }
@@ -75,21 +74,18 @@ void DeckCard::setShowScores(bool showScores)
 }
 
 
-void DeckCard::setEachShowScores(bool showHA, bool showHSR, bool showFire, bool redraw)
+void DeckCard::setEachShowScores(bool showHA, bool showFire, bool redraw)
 {
     this->showHA = showHA;
-    this->showHSR = showHSR;
     this->showFire = showFire;
     if(redraw && showScores)    draw();
 }
 
 
-void DeckCard::setScores(int haTier, float hsrWR, float fireWR, int classOrder, int includedDecks, int samplesFire)
+void DeckCard::setScores(int haTier, float fireWR, int classOrder, int samplesFire)
 {
     this->scoreHA = haTier;
-    this->scoreHSR = hsrWR;
     this->scoreFire = fireWR;
-    this->includedDecks = includedDecks;
     this->samplesFire = samplesFire;
     this->classOrder = classOrder;
     this->showScores = true;
@@ -427,7 +423,7 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
         painter.setRenderHint(QPainter::TextAntialiasing);
 
         //Scores
-        if(showScores && (showHA || showHSR || showFire))
+        if(showScores && (showHA || showFire))
         {
             int height = logicalSize(canvas).height()*1.3;
             int width = logicalSize(canvas).width();
@@ -444,15 +440,6 @@ QPixmap DeckCard::draw(int total, bool drawRarity, QColor nameColor, QString man
                 {
                     painter.drawPixmap(width - offsetLegendary - (numScores*offsetScore), 0,
                                        ScoreButton::scorePixmap(Score_HearthArena, scoreHA, false, height, classOrder));
-                }
-            }
-            if(showHSR)
-            {
-                numScores++;
-                if(scoreHSR!=0)
-                {
-                    painter.drawPixmap(width - offsetLegendary - (numScores*offsetScore), 0,
-                                       ScoreButton::scorePixmap(Score_HSReplay, scoreHSR, false, height, classOrder, includedDecks));
                 }
             }
             if(showFire)

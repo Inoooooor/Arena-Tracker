@@ -26,7 +26,7 @@ public:
 //Variables
 private:
     LavaButton *lavaButton;
-    ScoreButton *scoreButtonFire, *scoreButtonHA, *scoreButtonHSR;
+    ScoreButton *scoreButtonFire, *scoreButtonHA;
     HoverLabel *helpMark;
     DraftItemCounter **cardTypeCounters, **mechanicCounters;
     DraftItemCounter *manaCounter;
@@ -48,7 +48,7 @@ private:
 public:
     void setDraftMethodAvgScore(DraftMethod draftMethodAvgScore);
     void setShowDrops(bool value);
-    void setScores(int deckScoreHA, float deckScoreFire, float deckScoreHSR);
+    void setScores(int deckScoreHA, float deckScoreFire);
     void updateCounters(QMultiMap<QString, QString> &spellMap, QMultiMap<QString, QString> &minionMap, QMultiMap<QString, QString> &weaponMap,
                         QMultiMap<QString, QString> &drop2Map, QMultiMap<QString, QString> &drop3Map, QMultiMap<QString, QString> &drop4Map,
                         QMultiMap<QString, QString> &aoeMap, QMultiMap<QString, QString> &tauntMap,

@@ -45,11 +45,11 @@ private:
     bool topManaLimit, bottomManaLimit;
     bool outsider;
     //Usados para pintar los score
-    bool showScores, showHA, showHSR, showFire;
+    bool showScores, showHA, showFire;
     bool redraftingReview;
     int scoreHA;
-    float scoreHSR, scoreFire;
-    int includedDecks, samplesFire;
+    float scoreFire;
+    int samplesFire;
     int classOrder;
 
 //Metodos
@@ -80,10 +80,10 @@ public:
     bool isOutsider();
     void setCreatedByCode(QString code);
     QString getCreatedByCode();
-    void setEachShowScores(bool showHA, bool showHSR, bool showFire, bool redraw);
+    void setEachShowScores(bool showHA, bool showFire, bool redraw);
     void hideScores();
     void setShowScores(bool showScores);
-    void setScores(int haTier, float hsrWR, float fireWR, int classOrder, int includedDecks, int samplesFire);
+    void setScores(int haTier, float fireWR, int classOrder, int samplesFire);
     float getScore(DraftMethod draftMethod) const;
     void setRedraftingReview(bool show=true);
     bool operator<(const DeckCard &other) const;

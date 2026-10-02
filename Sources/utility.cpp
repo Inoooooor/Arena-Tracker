@@ -21,7 +21,6 @@ QStringList Utility::noDiacriticLetters;
 bool Utility::trustHA;
 bool Utility::cardsJsonUpToDate = false;
 QStringList Utility::arenaSets;
-QMap<QString, QStringList> * Utility::bundlesMap = nullptr;
 
 Utility::Utility()
 {
@@ -105,23 +104,6 @@ CardClass Utility::classLogNumber2classEnum(const QString &hero)
     else if(hero == QString("10"))  return DEMONHUNTER;
     else if(hero == QString("11"))  return DEATHKNIGHT;
     else                            return INVALID_CLASS;
-}
-
-
-CardClass Utility::hsrHero2classEnum(const int hero)
-{
-    if(hero == 2)       return DRUID;
-    else if(hero == 3)  return HUNTER;
-    else if(hero == 4)  return MAGE;
-    else if(hero == 5)  return PALADIN;
-    else if(hero == 6)  return PRIEST;
-    else if(hero == 7)  return ROGUE;
-    else if(hero == 8)  return SHAMAN;
-    else if(hero == 9)  return WARLOCK;
-    else if(hero == 10) return WARRIOR;
-    else if(hero == 14) return DEMONHUNTER;
-    else if(hero == 1)  return DEATHKNIGHT;
-    else                return INVALID_CLASS;
 }
 
 
@@ -684,7 +666,7 @@ QStringList Utility::getAllArenaCodes()
 {
     return getAllArenaCodes(Utility::trustHA);
 }
-QStringList Utility::getAllArenaCodes(bool trustHA, bool includeBundles)
+QStringList Utility::getAllArenaCodes(bool trustHA)
 {
     QStringList codeList;
 
@@ -703,20 +685,6 @@ QStringList Utility::getAllArenaCodes(bool trustHA, bool includeBundles)
         {
             if(Utility::needCodesSpecific(set)) codeList.append(Utility::getSetCodesSpecific(set));
             else                                codeList.append(Utility::getSetCodes(set, true, true));
-        }
-    }
-
-    //Bundle codes
-    if(includeBundles && bundlesMap != nullptr)
-    {
-        for(int i=0; i<NUM_HEROS; i++)
-        {
-            const auto &legendaryList = bundlesMap[i].keys();
-            for(const QString &legendary: legendaryList)
-            {
-                const auto &codesSub = bundlesMap[i][legendary];
-                codeList << legendary << codesSub;
-            }
         }
     }
 
@@ -763,18 +731,6 @@ void Utility::setTrustHA(bool trustHA)
 void Utility::setArenaSets(QStringList arenaSets)
 {
     Utility::arenaSets = arenaSets;
-}
-
-
-void Utility::setBundlesMap(QMap<QString, QStringList> bundlesMap[])
-{
-    Utility::bundlesMap = bundlesMap;
-}
-
-
-QMap<QString, QStringList> * Utility::getBundlesMap()
-{
-    return Utility::bundlesMap;
 }
 
 
@@ -832,12 +788,6 @@ QString Utility::hscardsPath()
 QString Utility::extraPath()
 {
     return dataPath() + "/Extra";
-}
-
-
-QString Utility::themesPath()
-{
-    return dataPath() + "/Themes";
 }
 
 
@@ -1607,78 +1557,12 @@ void Utility::checkMissingGoldenCards()
 }
 
 
-QStringList Utility::getThemeList()
-{
-    return {"Purple",
-             "Aquamarine",
-             "Blue",
-             "Brown",
-             "Gold",
-             "Green",
-             "Red",
-             "Tan" };
-}
-
-
 void Utility::timeStamp(const QString &tag)
 {
     static qint64 start;
     qint64 end = QDateTime::currentMSecsSinceEpoch();
     qDebug()<<tag<<end-start;
     start = end;
-}
-
-
-void Utility::mergeHSRwithFireCards()
-{
-    QFile hsrJsonFile("/home/triodo/Documentos/ArenaTracker/CardsJson/cards.json");
-    hsrJsonFile.open(QIODevice::ReadOnly);
-    QByteArray hsrData = hsrJsonFile.readAll();
-    hsrJsonFile.close();
-
-    QFile backup("/home/triodo/Documentos/ArenaTracker/CardsJson/cardsOld.json");
-    backup.open(QIODevice::WriteOnly | QIODevice::Text);
-    backup.write(hsrData);
-    backup.close();
-
-    QFile fireJsonFile("/home/triodo/Documentos/ArenaTracker/CardsJson/cards_enUS.gz.json");
-    fireJsonFile.open(QIODevice::ReadOnly);
-    QByteArray fireData = fireJsonFile.readAll();
-    fireJsonFile.close();
-
-    QMap<QString, QJsonObject> fireMap;
-    const QJsonArray fireArray = QJsonDocument::fromJson(fireData).array();
-    for(const QJsonValue &fireCard: fireArray)
-    {
-        QJsonObject fireObject = fireCard.toObject();
-        fireMap[fireObject.value("id").toString()] = fireObject;
-    }
-
-    QJsonArray hsrArray = QJsonDocument::fromJson(hsrData).array();
-    qDebug()<<"Before HSR cards:" << hsrArray.count();
-    for(qsizetype i = 0; i < hsrArray.count(); i++)
-    {
-        QJsonObject hsrObject = hsrArray[i].toObject();
-        QString id = hsrObject.value("id").toString();
-        QJsonValue races = fireMap[id].value("races");
-        if(!races.isUndefined())
-        {
-            hsrObject["races"] = races;
-            hsrArray.replace(i, hsrObject);
-            qDebug()<<"Replace item" << i << "id =" << id << "with races =" << races;
-        }
-        else
-        {
-            qDebug()<<"Item" << i << "id =" << id << "no races";
-        }
-    }
-    qDebug()<<"After HSR cards:" << hsrArray.count();
-
-    QJsonDocument jsonDoc;
-    jsonDoc.setArray(hsrArray);
-    hsrJsonFile.open(QIODevice::WriteOnly | QIODevice::Text);
-    hsrJsonFile.write(jsonDoc.toJson());
-    hsrJsonFile.close();
 }
 
 

@@ -43,7 +43,6 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     this->ui = ui;
     this->deckHandler = deckHandler;
     this->deckRatingHA = 0;
-    this->deckRatingHSR = 0;
     this->deckRatingFire = 0;
     this->numCaptured = 0;
     this->extendedCapture = false;
@@ -62,15 +61,11 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     this->mouseInApp = false;
     this->draftMethodHA = false;
     this->draftMethodFire = true;
-    this->draftMethodHSR = false;
-    this->draftMethodAvgScore = HSReplay;
+    this->draftMethodAvgScore = FireStone;
     this->multiclassArena = false;
     this->learningMode = false;
     this->showDrops = true;
     this->showMyWR = true;
-    this->cardsIncludedWinratesMap = nullptr;
-    this->cardsIncludedDecksMap = nullptr;
-    this->cardsPlayedWinratesMap = nullptr;
     this->fireWRMap = nullptr;
     this->fireSamplesMap = nullptr;
     this->screenIndex = -1;
@@ -154,18 +149,10 @@ void DraftHandler::createScoreItems()
     scoreButtonHA->setToolTip("HearthArena deck average");
     scoreButtonHA->hide();
 
-    scoreButtonHSR = new ScoreButton(ui->tabDraft, Score_HSReplay, -1);
-    scoreButtonHSR->setFixedHeight(width);
-    scoreButtonHSR->setFixedWidth(width);
-    scoreButtonHSR->setScore(0, 0);
-    scoreButtonHSR->setToolTip("HSReplay winrate deck average");
-    scoreButtonHSR->hide();
-
     QHBoxLayout *scoresLayout = new QHBoxLayout();
     scoresLayout->addWidget(lavaButton);
     scoresLayout->addWidget(scoreButtonLF);
     scoresLayout->addWidget(scoreButtonHA);
-    scoresLayout->addWidget(scoreButtonHSR);
 
     ui->draftVerticalLayout->addLayout(scoresLayout);
     ui->draftVerticalLayout->addSpacing(10);
@@ -397,9 +384,6 @@ void DraftHandler::completeUI()
     labelHAscore[0] = ui->labelHAscore1;
     labelHAscore[1] = ui->labelHAscore2;
     labelHAscore[2] = ui->labelHAscore3;
-    labelHSRscore[0] = ui->labelHSRscore1;
-    labelHSRscore[1] = ui->labelHSRscore2;
-    labelHSRscore[2] = ui->labelHSRscore3;
 
     for(int i=0; i<3; i++)
     {
@@ -895,7 +879,6 @@ void DraftHandler::resetTab(bool alreadyDrafting)
     {
         clearScore(labelLFscore[i], FireStone);
         clearScore(labelHAscore[i], HearthArena);
-        clearScore(labelHSRscore[i], HSReplay);
         draftCards[i].setCode("");
         draftCards[i].draw(comboBoxCard[i]);
         comboBoxCard[i]->setCurrentIndex(0);
@@ -917,7 +900,6 @@ void DraftHandler::resetTab(bool alreadyDrafting)
         lavaButton->setHidden(true);
         scoreButtonHA->setEnabled(false);
         scoreButtonLF->setEnabled(false);
-        scoreButtonHSR->setEnabled(false);
         lavaButton->setEnabled(false);
         updateDeckScore();//Basicamente para updateLabelDeckScore
         updateScoresVisibility();
@@ -950,7 +932,6 @@ void DraftHandler::clearLists(bool keepCounters)
     {
         synergyHandler->clearCounters();
         deckRatingHA = 0;
-        deckRatingHSR = 0;
         deckRatingFire = 0;
     }
 
@@ -1075,14 +1056,11 @@ void DraftHandler::setDeckScores()
     {
         QString code = deckCard.getCode();
         if(code.isEmpty())    continue;
-        QString hsrCode = getHSRCode(code);
         QString fireCode = getFireCode(code);
         int scoreHA = getHAScore(code);
-        float scoreHSR = (cardsIncludedWinratesMap == nullptr) ? 0 : cardsIncludedWinratesMap[this->arenaHero][hsrCode];
-        int includedDecks = (cardsIncludedDecksMap == nullptr) ? 0 : cardsIncludedDecksMap[this->arenaHero][hsrCode];
         float scoreFire = (fireWRMap == nullptr) ? 0 : fireWRMap[this->arenaHero][fireCode];
         int samplesFire = (fireSamplesMap == nullptr) ? 0 : fireSamplesMap[this->arenaHero][fireCode];
-        deckCard.setScores(scoreHA, scoreHSR, scoreFire, arenaHero, includedDecks, samplesFire);
+        deckCard.setScores(scoreHA, scoreFire, arenaHero, samplesFire);
     }
 
     setDraftMethodDeck();
@@ -1101,7 +1079,7 @@ void DraftHandler::hideDeckScores()
 }
 
 
-//One section sorted by Firestone and one by HearthArena, each shown if it has data. HSReplay is used only if neither has.
+//One section sorted by Firestone and one by HearthArena, each shown if it has data
 void DraftHandler::updateRedraftRemoveList()
 {
     clearRedraftRemoveList();
@@ -1113,7 +1091,7 @@ void DraftHandler::updateRedraftRemoveList()
 
     bool hasFire = fillRedraftRemoveSection(0, FireStone);
     bool hasHA = fillRedraftRemoveSection(1, HearthArena);
-    if(!hasFire && !hasHA && !fillRedraftRemoveSection(0, HSReplay))
+    if(!hasFire && !hasHA)
     {
         hideRedraftTab();
         return;
@@ -1137,8 +1115,7 @@ QList<RedraftSuggestion> DraftHandler::getRedraftRemoveSuggestions()
         suggestion.source = label.section('(', 1).chopped(1);
         for(DeckCard &deckCard: redraftRemoveCards[section])
         {
-            DraftMethod draftMethod = (suggestion.source == "HearthArena")?HearthArena:
-                                      (suggestion.source == "Firestone")?FireStone:HSReplay;
+            DraftMethod draftMethod = (suggestion.source == "HearthArena")?HearthArena:FireStone;
             float score = deckCard.getScore(draftMethod);
             QString scoreText = (draftMethod == HearthArena)?QString::number(qRound(score)):
                                                              QString::number(score, 'f', 1) + "%";
@@ -1192,13 +1169,10 @@ bool DraftHandler::fillRedraftRemoveSection(int section, DraftMethod draftMethod
     {
         deckCard.listItem = new QListWidgetItem(redraftRemoveListWidget[section]);
         deckCard.resetManaLimits();
-        deckCard.setEachShowScores(draftMethod==HearthArena, draftMethod==HSReplay, draftMethod==FireStone, false);
+        deckCard.setEachShowScores(draftMethod==HearthArena, draftMethod==FireStone, false);
     }
 
-    QString sourceName;
-    if(draftMethod == FireStone)            sourceName = "Firestone";
-    else if(draftMethod == HearthArena)     sourceName = "HearthArena";
-    else                                    sourceName = "HSReplay";
+    QString sourceName = (draftMethod == FireStone) ? "Firestone" : "HearthArena";
     redraftRemoveLabel[section]->setText("Remove (" + sourceName + ")");
     redraftRemoveListWidget[section]->setFixedHeight(removeCards.count() * DeckCard::getCardHeight());
     redraftRemoveLabel[section]->show();
@@ -1254,7 +1228,6 @@ void DraftHandler::beginDraft(QString hero, QList<DeckCard> deckCardList, bool s
     else                this->arenaHeroMulticlassPower = INVALID_CLASS;
     this->drafting = true;
     this->justPickedCard = "";
-    scoreButtonHSR->setClassOrder(arenaHero);
 
     for(int i=0; i<3; i++)  prevCodes[i] = "";
 
@@ -1702,7 +1675,6 @@ void DraftHandler::initSynergyCounters(QList<DeckCard> &deckCardList)
     {
         scoreButtonHA->setEnabled(true);
         scoreButtonLF->setEnabled(true);
-        scoreButtonHSR->setEnabled(true);
         lavaButton->setEnabled(true);
     }
 
@@ -1727,7 +1699,6 @@ void DraftHandler::initSynergyCounters(QList<DeckCard> &deckCardList)
 
             deckRatingHA += getHAScore(code);
             deckRatingFire += (fireWRMap == nullptr) ? 0 : fireWRMap[this->arenaHero][code];
-            deckRatingHSR += (cardsIncludedWinratesMap == nullptr) ? 0 : cardsIncludedWinratesMap[this->arenaHero][code];
         }
     }
 
@@ -1775,11 +1746,10 @@ void DraftHandler::endDraft(bool createNewArena)
     if(createNewArena)
     {
         int deckScoreHA = (numCards==0)?0:round(deckRatingHA/static_cast<double>(numCards));
-        float deckScoreHSR = (numCards==0)?0:round(deckRatingHSR/numCards * 10)/10.0;
         float deckScoreFire = (numCards==0)?0:round(deckRatingFire/numCards * 10)/10.0;
-        showMessageDeckScore(deckScoreFire, deckScoreHA, deckScoreHSR);
+        showMessageDeckScore(deckScoreFire, deckScoreHA);
 
-        if(numCards==30)    emit scoreAvg(deckScoreHA, deckScoreHSR, deckScoreFire, heroLog);
+        if(numCards==30)    emit scoreAvg(deckScoreHA, deckScoreFire, heroLog);
     }
 
     clearLists(false);
@@ -2967,7 +2937,6 @@ void DraftHandler::pickCard(QString code)
         {
             scoreButtonHA->setEnabled(true);
             scoreButtonLF->setEnabled(true);
-            scoreButtonHSR->setEnabled(true);
             lavaButton->setEnabled(true);
         }
 
@@ -3001,8 +2970,7 @@ void DraftHandler::pickCard(QString code)
         int numCards = CardTypeCounter::draftedCardsCount();
         lavaButton->setValue(totalMana, numDD, numCards);
         updateDeckScore(getHAScore(code),
-                        (fireWRMap == nullptr) ? 0 : fireWRMap[this->arenaHero][code],
-                        (cardsIncludedWinratesMap == nullptr) ? 0 : cardsIncludedWinratesMap[this->arenaHero][code]);
+                        (fireWRMap == nullptr) ? 0 : fireWRMap[this->arenaHero][code]);
         if(draftMechanicsWindow != nullptr)
         {
             draftMechanicsWindow->updateCounters(spellMap, minionMap, weaponMap,
@@ -3020,7 +2988,6 @@ void DraftHandler::pickCard(QString code)
     {
         clearScore(labelLFscore[i], FireStone);
         clearScore(labelHAscore[i], HearthArena);
-        clearScore(labelHSRscore[i], HSReplay);
         prevCodes[i] = draftCards[i].getCode();
         draftCards[i].setCode("");
         draftCards[i].draw(comboBoxCard[i]);
@@ -3057,7 +3024,6 @@ void DraftHandler::refreshCapturedCards()
     {
         clearScore(labelLFscore[i], FireStone);
         clearScore(labelHAscore[i], HearthArena);
-        clearScore(labelHSRscore[i], HSReplay);
         prevCodes[i] = "";
         draftCards[i].setCode("");
         draftCards[i].draw(comboBoxCard[i]);
@@ -3089,7 +3055,6 @@ void DraftHandler::refreshDraft()
     {
         clearScore(labelLFscore[i], FireStone);
         clearScore(labelHAscore[i], HearthArena);
-        clearScore(labelHSRscore[i], HSReplay);
         prevCodes[i] = "";
         draftCards[i].setCode("");
         draftCards[i].draw(comboBoxCard[i]);
@@ -3108,7 +3073,6 @@ void DraftHandler::refreshDraft()
 
     synergyHandler->clearCounters();
     deckRatingHA = 0;
-    deckRatingHSR = 0;
     deckRatingFire = 0;
     screenIndex = -1;
     screenScale = QPointF(1,1);
@@ -3182,74 +3146,12 @@ bool DraftHandler::isEmptyDeck()
 }
 
 
-QStringList DraftHandler::getBundleCodes(const QString &code)
-{
-    QMap<QString, QStringList> * bundlesMap = Utility::getBundlesMap();
-
-    //Bug Fix: HSR bundles map is never created when HSReplay download fails and there is no
-    //local HSRbundles.json (fresh install). It crashed on the first draft pick. No bundles then.
-    if(bundlesMap == nullptr || arenaHero < 0 || arenaHero >= NUM_HEROS)    return QStringList();
-
-    if(multiclassArena)
-    {
-        if(bundlesMap[arenaHero].contains(code))
-        {
-            return bundlesMap[arenaHero][code];
-        }
-
-        for(int i=0; i<NUM_HEROS; i++)
-        {
-            if(i!=arenaHero)
-            {
-                if(bundlesMap[i].contains(code))
-                {
-                    return bundlesMap[i][code];
-                }
-            }
-        }
-    }
-    else
-    {
-        if(bundlesMap[arenaHero].contains(code))
-        {
-            return bundlesMap[arenaHero][code];
-        }
-    }
-    return QStringList();
-}
-
-
-void DraftHandler::showHAScores(QString ogCodes[], QString hsrCodes[],QString cardNames[])
+void DraftHandler::showHAScores(QString ogCodes[], QString cardNames[])
 {
     int rating[3] = {0,0,0};
-
-    for(int i=0; i<3; i++)
-    {
-        rating[i] = getHAScore(ogCodes[i]);
-
-        //Bundle
-        if(isEmptyDeck())
-        {
-            const auto &codesSub = getBundleCodes(hsrCodes[i]);
-            if(!codesSub.isEmpty())
-            {
-                int numScores = 0;
-                if(rating[i] != 0)  numScores++;
-
-                for(const QString &codeSub: codesSub)
-                {
-                    QString code = getHACode(codeSub);
-                    int score = getHAScore(code);
-                    rating[i] += score;
-                    if(score != 0)  numScores++;
-                }
-                rating[i] = round(rating[i] / (float)std::max(1, numScores));
-            }
-        }
-    }
+    for(int i=0; i<3; i++)  rating[i] = getHAScore(ogCodes[i]);
 
     showNewRatings(cardNames[0], cardNames[1], cardNames[2],
-                   rating[0], rating[1], rating[2],
                    rating[0], rating[1], rating[2],
                    HearthArena);
 }
@@ -3303,18 +3205,14 @@ QString DraftHandler::getHACode(QString code)
 }
 
 
-QString DraftHandler::getHSRCode(QString code)
-{
-    return getHSRFireCode(code, true, this->arenaHero);
-}
 QString DraftHandler::getFireCode(QString code)
 {
-    return getHSRFireCode(code, false, this->arenaHero);
+    return getFireCode(code, this->arenaHero);
 }
-QString DraftHandler::getHSRFireCode(QString code, bool HSR, CardClass heroClass)
+//The code Firestone has stats for: CORE_ and other reprints of the card share its name
+QString DraftHandler::getFireCode(QString code, CardClass heroClass)
 {
-    // auto &wrMap = HSR?cardsPlayedWinratesMap:fireWRMap;
-    auto &samplesMap = HSR?cardsIncludedDecksMap:fireSamplesMap;
+    auto &samplesMap = fireSamplesMap;
     //Stats not downloaded yet, e.g. a redraft continued right at startup
     if(samplesMap == nullptr)   return code;
     if(!samplesMap[heroClass].contains(code) || (samplesMap[heroClass][code] == 0))
@@ -3343,7 +3241,7 @@ QString DraftHandler::getHSRFireCode(QString code, bool HSR, CardClass heroClass
             if(samplesMap[heroClass].contains(altCode) && samplesMap[heroClass][altCode]>maxIncluded)
             {
                 emit pDebug(QStringLiteral("%1 - %2 - not found on %3 data. Swap to %4 - %5")
-                                .arg(code, name, HSR?"HSR":"Fire", altCode, name));
+                                .arg(code, name, "Fire", altCode, name));
 
                 maxIncluded = samplesMap[heroClass][altCode];
                 code = altCode;
@@ -3354,58 +3252,7 @@ QString DraftHandler::getHSRFireCode(QString code, bool HSR, CardClass heroClass
 }
 
 
-void DraftHandler::showHSRScores(QString hsrCodes[], QString cardNames[])
-{
-    float ratingPlayed[3] = {0,0,0};
-    float ratingIncluded[3] = {0,0,0};
-    int includedDecks[3] = {0,0,0};
-
-    if(cardsPlayedWinratesMap != nullptr && cardsIncludedWinratesMap != nullptr && cardsIncludedDecksMap != nullptr)
-    {
-        for(int i=0; i<3; i++)
-        {
-            const QString &code = hsrCodes[i];
-            ratingIncluded[i] = cardsIncludedWinratesMap[this->arenaHero][code];
-            ratingPlayed[i] = cardsPlayedWinratesMap[this->arenaHero][code];
-            includedDecks[i] = cardsIncludedDecksMap[this->arenaHero][code];
-
-            //Bundle
-            if(isEmptyDeck())
-            {
-                const auto &codesSub = getBundleCodes(code);
-                if(!codesSub.isEmpty())
-                {
-                    int numScores = 0;
-                    if(ratingIncluded[i] != 0)  numScores++;
-                    includedDecks[i] = std::min(includedDecks[i], MIN_HSR_DECKS);
-
-                    for(const QString &codeSub: codesSub)
-                    {
-                        QString code = getHSRCode(codeSub);
-                        float score = cardsIncludedWinratesMap[this->arenaHero][code];
-                        if(score != 0)  numScores++;
-                        ratingIncluded[i] += score;
-                        ratingPlayed[i] += cardsPlayedWinratesMap[this->arenaHero][code];
-                        includedDecks[i] += std::min(cardsIncludedDecksMap[this->arenaHero][code], MIN_HSR_DECKS);
-                    }
-                    int bundleCount = codesSub.count()+1;
-                    ratingIncluded[i] = ratingIncluded[i] / std::max(1, numScores);
-                    ratingPlayed[i] = ratingPlayed[i] / std::max(1, numScores);
-                    includedDecks[i] = round(includedDecks[i] / (float)std::max(1, bundleCount));
-                }
-            }
-        }
-    }
-
-    showNewRatings(cardNames[0], cardNames[1], cardNames[2],
-                   ratingIncluded[0], ratingIncluded[1], ratingIncluded[2],
-                   ratingPlayed[0], ratingPlayed[1], ratingPlayed[2],
-                   HSReplay,
-                   includedDecks[0], includedDecks[1], includedDecks[2]);
-}
-
-
-void DraftHandler::showFireScores(QString hsrCodes[], QString cardNames[])
+void DraftHandler::showFireScores(QString ogCodes[], QString cardNames[])
 {
     float wrFire[3] = {0,0,0};
     int samplesFire[3] = {0,0,0};
@@ -3414,7 +3261,7 @@ void DraftHandler::showFireScores(QString hsrCodes[], QString cardNames[])
     {
         for(int i=0; i<3; i++)
         {
-            QString code = getFireCode(hsrCodes[i]);
+            QString code = getFireCode(ogCodes[i]);
             wrFire[i] = fireWRMap[this->arenaHero][code];
             samplesFire[i] = fireSamplesMap[this->arenaHero][code];
 
@@ -3425,7 +3272,6 @@ void DraftHandler::showFireScores(QString hsrCodes[], QString cardNames[])
     }
 
     showNewRatings(cardNames[0], cardNames[1], cardNames[2],
-                   wrFire[0], wrFire[1], wrFire[2],
                    wrFire[0], wrFire[1], wrFire[2],
                    FireStone,
                    samplesFire[0], samplesFire[1], samplesFire[2]);
@@ -3442,17 +3288,14 @@ void DraftHandler::showNewCards(DraftCard bestCards[])
     {
         clearScore(labelLFscore[i], FireStone);
         clearScore(labelHAscore[i], HearthArena);
-        clearScore(labelHSRscore[i], HSReplay);
         draftCards[i] = bestCards[i];
     }
 
     QString ogCodes[3];
-    QString hsrCodes[3];
     QString cardNames[3];
     for(int i=0; i<3; i++)
     {
         ogCodes[i] = bestCards[i].getCode();
-        hsrCodes[i] = getHSRCode(ogCodes[i]);
         cardNames[i] = Utility::cardLocalNameFromCode(ogCodes[i]);
     }
 
@@ -3462,9 +3305,8 @@ void DraftHandler::showNewCards(DraftCard bestCards[])
     pickScores = PickScores();
     if(draftScoreWindow != nullptr)     draftScoreWindow->setLegendaryGroups(legendaryGroups);
     updatePickRatingPool();     //Before the scores: the plates' hands use the ratings
-    showHAScores(ogCodes, hsrCodes, cardNames);
-    showHSRScores(hsrCodes, cardNames);
-    showFireScores(hsrCodes, cardNames);
+    showHAScores(ogCodes, cardNames);
+    showFireScores(ogCodes, cardNames);
     pickScores.showFire = draftMethodFire;
     pickScores.showHA = draftMethodHA;
     pickScores.legendaryGroup = legendaryGroups;
@@ -3473,73 +3315,12 @@ void DraftHandler::showNewCards(DraftCard bestCards[])
 
 
 
-    //Legendary bundles
-    if(isEmptyDeck())
-    {
-        showBundles(hsrCodes);
-    }
-    //Normal synergies
-    else
-    {
-        showSynergies();
-    }
+    showSynergies();
 }
 
 
 void DraftHandler::showSynergies()
 {
-}
-
-
-void DraftHandler::showBundles(QString hsrCodes[])
-{
-    if(draftScoreWindow != nullptr)
-    {
-        QMap<MechanicIcons, int> mechanicIcons;
-        QList<SynergyCard> * synergyCardLists = draftScoreWindow->getSynergyCardLists();
-
-        for(int i=0; i<3; i++)
-        {
-            QMap<QString, QMap<QString, int>> synergyTagMap;
-            const QString &hsrCode = hsrCodes[i];
-            const auto &codesSub = getBundleCodes(hsrCode);
-            if(!codesSub.isEmpty())
-            {
-                emit checkCardImage(hsrCode, false);
-                synergyTagMap[" Legendary"][hsrCode] = 1;
-
-                for(const QString &codeSub: codesSub)
-                {
-                    if(synergyTagMap["Bundle"].contains(codeSub))
-                    {
-                        synergyTagMap["Bundle"][codeSub]++;
-                    }
-                    else
-                    {
-                        emit checkCardImage(codeSub, false);
-                        synergyTagMap["Bundle"][codeSub] = 1;
-                    }
-                }
-            }
-            draftScoreWindow->setSynergies(i, synergyTagMap, mechanicIcons, MechanicBorderGrey);
-
-            for(SynergyCard &synergyCard: synergyCardLists[i])
-            {
-                QString code = synergyCard.getCode();
-                if(code.isEmpty())    continue;
-                int scoreHA = getHAScore(code);
-                QString hsrCode = getHSRCode(code);
-                float scoreHSR = (cardsIncludedWinratesMap == nullptr) ? 0 : cardsIncludedWinratesMap[this->arenaHero][hsrCode];
-                int includedDecks = (cardsIncludedDecksMap == nullptr) ? 0 : cardsIncludedDecksMap[this->arenaHero][hsrCode];
-                QString fireCode = getFireCode(code);
-                float scoreFire = (fireWRMap == nullptr) ? 0 : fireWRMap[this->arenaHero][fireCode];
-                int samplesFire = (fireSamplesMap == nullptr) ? 0 : fireSamplesMap[this->arenaHero][fireCode];
-                synergyCard.setScores(scoreHA, scoreHSR, scoreFire, arenaHero, includedDecks, samplesFire);
-            }
-        }
-
-        draftScoreWindow->setDraftMethod(draftMethodHA, draftMethodFire, draftMethodHSR, true);
-    }
 }
 
 
@@ -3563,34 +3344,26 @@ void DraftHandler::redrawDownloadedCardImage(QString code)
 }
 
 
-void DraftHandler::updateDeckScore(float cardRatingHA, float cardRatingFire, float cardRatingHSR)
+void DraftHandler::updateDeckScore(float cardRatingHA, float cardRatingFire)
 {
 
     int numCards = CardTypeCounter::draftedCardsCount();
     deckRatingHA += static_cast<int>(cardRatingHA);
     deckRatingFire += cardRatingFire;
-    deckRatingHSR += cardRatingHSR;
     int deckScoreHA = (numCards==0)?0:round(deckRatingHA/static_cast<double>(numCards));
     float deckScoreFire = (numCards==0)?0:round(deckRatingFire/numCards * 10)/10.0;
-    float deckScoreHSR = (numCards==0)?0:round(deckRatingHSR/numCards * 10)/10.0;
-    updateLabelDeckScore(deckScoreFire, deckScoreHA, deckScoreHSR, numCards);
+    updateLabelDeckScore(deckScoreFire, deckScoreHA, numCards);
     scoreButtonLF->setScore(deckScoreFire, deckScoreFire);
     scoreButtonHA->setScore(deckScoreHA, deckScoreHA);
-    scoreButtonHSR->setScore(deckScoreHSR, deckScoreHSR);
 
-    if(draftMechanicsWindow != nullptr)    draftMechanicsWindow->setScores(deckScoreHA, deckScoreFire, deckScoreHSR);
+    if(draftMechanicsWindow != nullptr)    draftMechanicsWindow->setScores(deckScoreHA, deckScoreFire);
 }
 
 
-QString DraftHandler::getDeckAvgString(float deckScoreFire, int deckScoreHA, float deckScoreHSR)
+QString DraftHandler::getDeckAvgString(float deckScoreFire, int deckScoreHA)
 {
     QString scoreText = "";
     if(draftMethodFire)   scoreText += "Fire: " + QString::number(static_cast<double>(deckScoreFire)) + '%';
-    if(draftMethodHSR)
-    {
-        if(!scoreText.isEmpty())    scoreText += " -- ";
-        scoreText += "HSR: " + QString::number(static_cast<double>(deckScoreHSR)) + '%';
-    }
     if(draftMethodHA)
     {
         if(!scoreText.isEmpty())    scoreText += " -- ";
@@ -3600,30 +3373,28 @@ QString DraftHandler::getDeckAvgString(float deckScoreFire, int deckScoreHA, flo
 }
 
 
-void DraftHandler::updateLabelDeckScore(float deckScoreFire, int deckScoreHA, float deckScoreHSR, int numCards)
+void DraftHandler::updateLabelDeckScore(float deckScoreFire, int deckScoreHA, int numCards)
 {
-    QString scoreText = getDeckAvgString(deckScoreFire, deckScoreHA, deckScoreHSR);
+    QString scoreText = getDeckAvgString(deckScoreFire, deckScoreHA);
     scoreText += " (" + QString::number(numCards) + "/30)";
     ui->labelDeckScore->setText(scoreText);
 }
 
 
-void DraftHandler::showMessageDeckScore(float deckScoreFire, int deckScoreHA, float deckScoreHSR)
+void DraftHandler::showMessageDeckScore(float deckScoreFire, int deckScoreHA)
 {
-    QString scoreText = getDeckAvgString(deckScoreFire, deckScoreHA, deckScoreHSR);
+    QString scoreText = getDeckAvgString(deckScoreFire, deckScoreHA);
     if(!scoreText.isEmpty())    emit showMessageProgressBar(scoreText, 10000);
 }
 
 
 void DraftHandler::showNewRatings(const QString &cardName1, const QString &cardName2, const QString &cardName3,
                                     float rating1, float rating2, float rating3,
-                                    float tierScore1, float tierScore2, float tierScore3,
                                     DraftMethod draftMethod,
                                     int includedDecks1, int includedDecks2, int includedDecks3)
 {
     QString cardNames[3] = {cardName1, cardName2, cardName3};
     float ratings[3] = {rating1,rating2,rating3};
-    float tierScore[3] = {tierScore1, tierScore2, tierScore3};
     float maxRating = std::max(std::max(rating1,rating2),rating3);
     int includedDecks[3] = {includedDecks1, includedDecks2, includedDecks3};
 
@@ -3651,17 +3422,6 @@ void DraftHandler::showNewRatings(const QString &cardName1, const QString &cardN
             labelLFscore[i]->setText(text);
             labelLFscore[i]->setToolTip(cardNames[i] + " - FireStone");
             if(FLOATEQ(maxRating, ratings[i]))  highlightScore(labelLFscore[i], draftMethod);
-        }
-        else if(draftMethod == HSReplay)
-        {
-            QString text = QString::number(static_cast<double>(ratings[i])) + "% -- " +
-                    QString::number(static_cast<double>(tierScore[i])) + "%";
-            if(includedDecks[i] < 1000) text += " -- " + QString::number(includedDecks[i]) + " played";
-            else                        text += " -- " + QString::number(round(includedDecks[i]/100.0)/10.0) + "K played";
-
-            labelHSRscore[i]->setText(text);
-            labelHSRscore[i]->setToolTip(cardNames[i] + " - HSReplay");
-            if(FLOATEQ(maxRating, ratings[i]))  highlightScore(labelHSRscore[i], draftMethod);
         }
         else if(draftMethod == HearthArena)
         {
@@ -4692,15 +4452,13 @@ void DraftHandler::createDraftWindows()
                 this, SIGNAL(overlayCardEntered(QString,QRect,int,int)));
         connect(draftScoreWindow, SIGNAL(cardLeave()),
                 this, SIGNAL(overlayCardLeave()));
-        connect(draftScoreWindow, SIGNAL(showHSRwebPicks()),
-                this, SLOT(showHSRwebPicks()));
         connect(draftScoreWindow, SIGNAL(showFirewebPicks()),
                 this, SLOT(showFirewebPicks()));
         connect(draftScoreWindow, SIGNAL(pDebug(QString,DebugLevel,QString)),
                 this, SIGNAL(pDebug(QString,DebugLevel,QString)));
 
         draftScoreWindow->setLearningMode(this->learningMode);
-        draftScoreWindow->setDraftMethod(this->draftMethodHA, this->draftMethodFire, this->draftMethodHSR, false);
+        draftScoreWindow->setDraftMethod(this->draftMethodHA, this->draftMethodFire, false);
 
         draftMechanicsWindow = new DraftMechanicsWindow(mainWindow, draftRect, sizeCard, screenIndex,
                                                         arenaHero);
@@ -4750,17 +4508,6 @@ void DraftHandler::createDraftWindows()
 }
 
 
-void DraftHandler::showHSRwebPicks()
-{
-    QString url = "https://hsreplay.net/arena/cards/#playerClass=";
-    url += Utility::classEnum2classUName(this->arenaHero);
-    url += "&view=advanced&text=";
-    url += draftCards[0].getName() + ',' + draftCards[1].getName() + ',' + draftCards[2].getName();
-
-    QDesktopServices::openUrl(QUrl(url));
-}
-
-
 void DraftHandler::showFirewebPicks()
 {
     QString url = "https://www.firestoneapp.com/arena/cards?arenaCardSearch=";
@@ -4797,7 +4544,6 @@ void DraftHandler::highlightScore(QLabel *label, DraftMethod draftMethod)
     QString backgroundImage = "";
     if(draftMethod == FireStone)            backgroundImage = ":/Images/bgScoreLF.png";
     else if(draftMethod == HearthArena)     backgroundImage = ":/Images/bgScoreHA.png";
-    else if(draftMethod == HSReplay)        backgroundImage = ":/Images/bgScoreHSR.png";
     label->setStyleSheet("QLabel {background-color: transparent; color: " +
                          QString((!mouseInApp && transparency == Transparent)?"white":ThemeHandler::fgColor()) + ";"
                          "background-image: url(" + backgroundImage + "); background-repeat: no-repeat; background-position: center; }");
@@ -4831,15 +4577,11 @@ void DraftHandler::setTheme()
     ui->labelHAscore1->setFont(font);
     ui->labelHAscore2->setFont(font);
     ui->labelHAscore3->setFont(font);
-    ui->labelHSRscore1->setFont(font);
-    ui->labelHSRscore2->setFont(font);
-    ui->labelHSRscore3->setFont(font);
 
     for(int i=0; i<3; i++)
     {
         if(labelLFscore[i]->styleSheet().contains("background-image"))      highlightScore(labelLFscore[i], FireStone);
         if(labelHAscore[i]->styleSheet().contains("background-image"))      highlightScore(labelHAscore[i], HearthArena);
-        if(labelHSRscore[i]->styleSheet().contains("background-image"))     highlightScore(labelHSRscore[i], HSReplay);
     }
 
     //Change Arena draft icon
@@ -4874,9 +4616,6 @@ void DraftHandler::setTransparency(Transparency value)
     clearScore(ui->labelHAscore1, HearthArena, false);
     clearScore(ui->labelHAscore2, HearthArena, false);
     clearScore(ui->labelHAscore3, HearthArena, false);
-    clearScore(ui->labelHSRscore1, HSReplay, false);
-    clearScore(ui->labelHSRscore2, HSReplay, false);
-    clearScore(ui->labelHSRscore3, HSReplay, false);
 
     //Update race counters
     synergyHandler->setTransparency(transparency, mouseInApp);
@@ -4968,11 +4707,10 @@ void DraftHandler::setDraftMethodAvgScore(DraftMethod draftMethodAvgScore)
 }
 
 
-void DraftHandler::setDraftMethod(bool draftMethodHA, bool draftMethodFire, bool draftMethodHSR)
+void DraftHandler::setDraftMethod(bool draftMethodHA, bool draftMethodFire)
 {
     this->draftMethodHA = draftMethodHA;
     this->draftMethodFire = draftMethodFire;
-    this->draftMethodHSR = draftMethodHSR;
 
     if(redrafting)
     {
@@ -4983,7 +4721,7 @@ void DraftHandler::setDraftMethod(bool draftMethodHA, bool draftMethodFire, bool
 
     if(draftScoreWindow != nullptr)
     {
-        draftScoreWindow->setDraftMethod(draftMethodHA, draftMethodFire, draftMethodHSR, isEmptyDeck());
+        draftScoreWindow->setDraftMethod(draftMethodHA, draftMethodFire, isEmptyDeck());
     }
 
     updateDeckScore();//Basicamente para updateLabelDeckScore
@@ -4997,7 +4735,7 @@ void DraftHandler::setDraftMethodDeck()
 
     for(DeckCard &deckCard: *deckCardList)
     {
-        deckCard.setEachShowScores(draftMethodHA, draftMethodHSR, draftMethodFire, true);
+        deckCard.setEachShowScores(draftMethodHA, draftMethodFire, true);
     }
 }
 
@@ -5010,7 +4748,6 @@ void DraftHandler::updateScoresVisibility()
         {
             labelLFscore[i]->hide();
             labelHAscore[i]->hide();
-            labelHSRscore[i]->hide();
         }
     }
     else
@@ -5019,7 +4756,6 @@ void DraftHandler::updateScoresVisibility()
         {
             labelLFscore[i]->setVisible(draftMethodFire);
             labelHAscore[i]->setVisible(draftMethodHA);
-            labelHSRscore[i]->setVisible(draftMethodHSR);
         }
     }
 }
@@ -5035,7 +4771,6 @@ void DraftHandler::updateAvgScoresVisibility()
 {
     scoreButtonLF->hide();
     scoreButtonHA->hide();
-    scoreButtonHSR->hide();
 
 }
 
@@ -5137,18 +4872,6 @@ void DraftHandler::deMinimizeScoreWindow()
 }
 
 
-void DraftHandler::setCardsIncludedWinratesMap(QMap<QString, float> cardsIncludedWinratesMap[])
-{
-    this->cardsIncludedWinratesMap = cardsIncludedWinratesMap;
-}
-void DraftHandler::setCardsIncludedDecksMap(QMap<QString, int> cardsIncludedDecksMap[])
-{
-    this->cardsIncludedDecksMap = cardsIncludedDecksMap;
-}
-void DraftHandler::setCardsPlayedWinratesMap(QMap<QString, float> cardsPlayedWinratesMap[])
-{
-    this->cardsPlayedWinratesMap = cardsPlayedWinratesMap;
-}
 void DraftHandler::setFireWRMap(QMap<QString, float> fireWRMap[])
 {
     this->fireWRMap = fireWRMap;
@@ -5186,7 +4909,7 @@ void DraftHandler::initTierLists(const CardClass &heroClass)
 //Inicia hearthArenaTiers con todos sus codigos y sin bundles para revisarlos en MainWindow::checkHearthArenaTLCodes()
 void DraftHandler::initCheckHearthArena()
 {
-    QStringList haCodes = Utility::getAllArenaCodes(true, false);
+    QStringList haCodes = Utility::getAllArenaCodes(true);
     initLightForgeTiers(MAGE, true, haCodes, false);
     initHearthArenaTiers(MAGE, true);
 }
@@ -5197,14 +4920,6 @@ void DraftHandler::clearTierLists()
     hearthArenaTiers.clear();
     lightForgeTiers.clear();
     codesByClass.clear();
-}
-
-
-void DraftHandler::getCodeScores(const CardClass &heroClass, const QString &code, int &ha, float &hsr, float &fire)
-{
-    ha = getHAScore(code);
-    hsr = (cardsIncludedWinratesMap == nullptr) ? 0 : cardsIncludedWinratesMap[heroClass][code];
-    fire = (fireWRMap == nullptr) ? 0 : fireWRMap[heroClass][code];
 }
 
 

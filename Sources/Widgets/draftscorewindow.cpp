@@ -132,14 +132,6 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
         connect(scoresPushButton2[i], SIGNAL(spreadHoverScore(bool)),
                 this, SLOT(spreadHoverScore(bool)));
 
-        scoresPushButton3[i] = new ScoreButton(hiddenHolder, Score_HSReplay, classOrder);
-        scoresPushButton3[i]->setFixedHeight(scoreWidth);
-        scoresPushButton3[i]->setFixedWidth(scoreWidth);
-        scoresPushButton3[i]->hide();
-        connect(scoresPushButton3[i], SIGNAL(spreadHoverScore(bool)),
-                this, SLOT(spreadHoverScore(bool)));
-        connect(scoresPushButton3[i], SIGNAL(showHSRwebPicks()),
-                this, SIGNAL(showHSRwebPicks()));
 
 
         //Opacity effects
@@ -149,9 +141,6 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
         effect = new QGraphicsOpacityEffect(scoresPushButton2[i]);
         effect->setOpacity(0);
         scoresPushButton2[i]->setGraphicsEffect(effect);
-        effect = new QGraphicsOpacityEffect(scoresPushButton3[i]);
-        effect->setOpacity(0);
-        scoresPushButton3[i]->setGraphicsEffect(effect);
 
         //LAYOUTS scores
         plates[i] = new ScorePlate(centralWidget);     //Only keeps the room: the plates are in platesWindow
@@ -215,7 +204,7 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
     maxSynergyHeight2Row = rectScreen.y() + rectScreen.height() - this->y() - 2*MARGIN - 2.2*scoreWidth;
     maxSynergyHeight = maxSynergyHeight2Row;
     scores2Rows = true;
-    showLF = showHSR = showHA = false;
+    showLF = showHA = false;
     setCentralWidget(centralWidget);
     setAttribute(Qt::WA_TranslucentBackground, true);
     setWindowTitle("AT Scores");
@@ -239,7 +228,6 @@ void DraftScoreWindow::setLearningMode(bool value)
     {
         scoresPushButton[i]->setLearningMode(value);
         scoresPushButton2[i]->setLearningMode(value);
-        scoresPushButton3[i]->setLearningMode(value);
     }
 }
 
@@ -250,7 +238,6 @@ void DraftScoreWindow::spreadHoverScore(bool value)
     {
         scoresPushButton[i]->setHoverScore(value);
         scoresPushButton2[i]->setHoverScore(value);
-        scoresPushButton3[i]->setHoverScore(value);
     }
 }
 
@@ -289,11 +276,10 @@ void DraftScoreWindow::reorderMechanics()
 }
 
 
-void DraftScoreWindow::setDraftMethod(bool draftMethodHA, bool draftMethodLF, bool draftMethodHSR, bool updateSynergies)
+void DraftScoreWindow::setDraftMethod(bool draftMethodHA, bool draftMethodLF, bool updateSynergies)
 {
     showHA = draftMethodHA;
     showLF = draftMethodLF;
-    showHSR = draftMethodHSR;
     checkScoresSpace();
     if(platesShown) updatePlates();
 
@@ -301,7 +287,6 @@ void DraftScoreWindow::setDraftMethod(bool draftMethodHA, bool draftMethodLF, bo
     {
         scoresPushButton[i]->setVisible(showLF);
         scoresPushButton2[i]->setVisible(showHA);
-        scoresPushButton3[i]->setVisible(showHSR);
     }
 
     //Legendary bundles
@@ -311,7 +296,7 @@ void DraftScoreWindow::setDraftMethod(bool draftMethodHA, bool draftMethodLF, bo
         {
             for(SynergyCard &synergyCard: synergyCardLists[i])
             {
-                synergyCard.setEachShowScores(draftMethodHA, draftMethodHSR, draftMethodLF, false);
+                synergyCard.setEachShowScores(draftMethodHA, draftMethodLF, false);
                 synergyCard.draw();
             }
         }
@@ -364,11 +349,6 @@ void DraftScoreWindow::setScores(float rating1, float rating2, float rating3,
         {
             scoresPushButton[i]->setScore(ratings[i], bestRating, includedDecks[i]);
             if(!onWarnMode[i])  Utility::fadeInWidget(scoresPushButton[i]);
-        }
-        else if(draftMethod == HSReplay)
-        {
-            scoresPushButton3[i]->setScore(ratings[i], bestRating, includedDecks[i]);
-            if(!onWarnMode[i])  Utility::fadeInWidget(scoresPushButton3[i]);
         }
         else if(draftMethod == HearthArena)
         {
@@ -680,7 +660,6 @@ void DraftScoreWindow::showScores(int i)
 {
     scoresPushButton[i]->setVisible(showLF);
     scoresPushButton2[i]->setVisible(showHA);
-    scoresPushButton3[i]->setVisible(showHSR);
 }
 
 
@@ -694,12 +673,9 @@ void DraftScoreWindow::hideScores(bool quick)
             eff->setOpacity(0);
             eff = static_cast<QGraphicsOpacityEffect *>(scoresPushButton2[i]->graphicsEffect());
             eff->setOpacity(0);
-            eff = static_cast<QGraphicsOpacityEffect *>(scoresPushButton3[i]->graphicsEffect());
-            eff->setOpacity(0);
 
             scoresPushButton[i]->hide();
             scoresPushButton2[i]->hide();
-            scoresPushButton3[i]->hide();
         }
         clearMechanics();
     }
@@ -709,7 +685,6 @@ void DraftScoreWindow::hideScores(bool quick)
         {
             QPropertyAnimation *animation = Utility::fadeOutWidget(scoresPushButton[i]);
             Utility::fadeOutWidget(scoresPushButton2[i]);
-            Utility::fadeOutWidget(scoresPushButton3[i]);
             Utility::fadeOutLayout(gridLayoutMechanics[i]);
 
             if(i==0)
@@ -972,7 +947,6 @@ void DraftScoreWindow::warningOkClick(HoverLabel *hoverLabel)
     hideWarning(index);
     Utility::fadeInWidget(scoresPushButton[index], true);
     Utility::fadeInWidget(scoresPushButton2[index], true);
-    Utility::fadeInWidget(scoresPushButton3[index], true);
     showScores(index);
     synergiesListWidget[index]->show();
     Utility::fadeInLayout(gridLayoutMechanics[index]);

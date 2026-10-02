@@ -106,17 +106,10 @@ DraftMechanicsWindow::DraftMechanicsWindow(QWidget *parent, QRect rect, QSize si
     scoreButtonHA->setScore(0, 0);
     scoreButtonHA->setToolTip("HearthArena deck average");
 
-    scoreButtonHSR = new ScoreButton(centralWidget, Score_HSReplay, classOrder);
-    scoreButtonHSR->setFixedHeight(scoreWidth);
-    scoreButtonHSR->setFixedWidth(scoreWidth);
-    scoreButtonHSR->setScore(0, 0);
-    scoreButtonHSR->setToolTip("HSReplay winrate deck average");
-
     QHBoxLayout *scoresLayout = new QHBoxLayout();
     scoresLayout->addWidget(lavaButton);
     scoresLayout->addWidget(scoreButtonFire);
     scoresLayout->addWidget(scoreButtonHA);
-    scoresLayout->addWidget(scoreButtonHSR);
 
 
     //Mechanics & drops
@@ -224,7 +217,6 @@ DraftMechanicsWindow::~DraftMechanicsWindow()
     delete lavaButton;
     delete scoreButtonHA;
     delete scoreButtonFire;
-    delete scoreButtonHSR;
     delete helpMark;
 }
 
@@ -289,7 +281,6 @@ void DraftMechanicsWindow::setDraftMethodAvgScore(DraftMethod draftMethodAvgScor
 
     scoreButtonFire->hide();
     scoreButtonHA->hide();
-    scoreButtonHSR->hide();
 
     switch(draftMethodAvgScore)
     {
@@ -298,9 +289,6 @@ void DraftMechanicsWindow::setDraftMethodAvgScore(DraftMethod draftMethodAvgScor
         break;
         case HearthArena:
             scoreButtonHA->show();
-        break;
-        case HSReplay:
-            scoreButtonHSR->show();
         break;
         default:
         break;
@@ -316,11 +304,10 @@ void DraftMechanicsWindow::setShowDrops(bool value)
 }
 
 
-void DraftMechanicsWindow::setScores(int deckScoreHA, float deckScoreFire, float deckScoreHSR)
+void DraftMechanicsWindow::setScores(int deckScoreHA, float deckScoreFire)
 {
     scoreButtonFire->setScore(deckScoreFire, deckScoreFire);
     scoreButtonHA->setScore(deckScoreHA, deckScoreHA);
-    scoreButtonHSR->setScore(deckScoreHSR, deckScoreHSR);
 }
 
 
@@ -355,7 +342,6 @@ void DraftMechanicsWindow::showHelp(bool reenter)
     }
     scoreButtonFire->hide();
     scoreButtonHA->hide();
-    scoreButtonHSR->hide();
     lavaButton->hide();
 
     cardTypeCounters[V_MINION]->hide();

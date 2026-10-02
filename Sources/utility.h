@@ -41,8 +41,8 @@ enum DebugLevel { Normal, Warning, Error };
 enum Transparency { Transparent, AutoTransparent, Opaque, Framed };
 enum LoadingScreenState { menu, arena, ranked, adventure, tavernBrawl, friendly, gameMode, unknown };
 enum LogComponent { logLoadingScreen, logArena, logPower, logZone, logAsset, logInvalid };
-enum DraftMethod { HearthArena, FireStone, HSReplay, None };
-enum ScoreSource { Score_HearthArena, Score_Fire, Score_Heroes, Score_HSReplay, Score_Heroes_Player, Score_None };
+enum DraftMethod { HearthArena, FireStone, None };
+enum ScoreSource { Score_HearthArena, Score_Fire, Score_Heroes, Score_Heroes_Player, Score_None };
 enum MechanicBorderColor { MechanicBorderRed, MechanicBorderGrey, MechanicBorderGreen };
 
 
@@ -122,7 +122,6 @@ private:
     static bool trustHA;
     static bool cardsJsonUpToDate;
     static QStringList arenaSets;
-    static QMap<QString, QStringList> *bundlesMap;
 
 
 //Metodos
@@ -136,7 +135,6 @@ public:
     static QString classEnum2classLogNumber(CardClass cardClass);
     static QString classEnum2classUName(CardClass cardClass);
     static CardClass classLogNumber2classEnum(const QString &hero);
-    static CardClass hsrHero2classEnum(const int hero);
     static QString classLogNumber2classUName(const QString &hero);
     static QString classLogNumber2classUL_ULName(const QString &hero);
     static QString classLogNumber2classULName(const QString &hero);
@@ -189,7 +187,6 @@ public:
     static QString getCodeFromCardAttribute(const QString &attribute, QJsonValue value);
     static void drawShadowText(QPainter &painter, const QFont &font, const QString &text, int x, int y, bool alignCenter, bool isCardText=true);
     static void drawTagText(QPainter &painter, const QFont &font, const QString &text, int x, int y, int xBorder, int yBorder, float scale=1, bool alignCenter=false);
-    static QString themesPath();
     static QString histogramsPath();
     static QString arenaStatsPath();
     static int classLogNumber2classOrder(const QString &heroLog);
@@ -201,15 +198,13 @@ public:
     static QStringList getWildCodes();
     static QStringList getStandardCodes();
     static QStringList getAllArenaCodes();
-    static QStringList getAllArenaCodes(bool trustHA, bool includeBundles=true);
+    static QStringList getAllArenaCodes(bool trustHA);
     static QJsonObject loadHearthArena();
     static bool getTrustHA();
     static void setTrustHA(bool trustHA);
     static bool isCardsJsonUpToDate();
     static void setCardsJsonUpToDate(bool upToDate);
     static void setArenaSets(QStringList arenaSets);
-    static void setBundlesMap(QMap<QString, QStringList> bundlesMap[]);
-    static QMap<QString, QStringList> * getBundlesMap();
     static int cvTypeFromFile(int fileType);
     static int cvTypeToFile(int type);
     static bool createDir(const QString &pathDir);
@@ -223,12 +218,10 @@ public:
     static void fadeInLayout(QLayout *layout);
     static void timeStamp(const QString &tag);
     static int className2classOrder(const QString &className);
-    static QStringList getThemeList();
     static bool needCodesSpecific(const QString &set);
     static QStringList getSetCodesSpecific(const QString &set);
     static bool codeEqConstant(const QString &code, const QString &codeConstant);
     static QString otherCodeConstant(const QString &code);
-    static void mergeHSRwithFireCards();
     static void shrinkText(QFont &font, const QString &text, int startFontSize, int maxLong);
     static void buildDbfIdMap(QMap<int, QString> *map);
     static int getCorrectedCardMana(const QString &code, int cost);

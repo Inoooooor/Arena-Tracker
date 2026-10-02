@@ -50,7 +50,7 @@ private:
     static QString loseFile_, winFile_;
     static QString haBestFile_, haCloseFile_, haOpenFile_, haTextFile_;
     static QString lfBestFile_, lfCloseFile_, lfOpenFile_, lfTextFile_;
-    static QString hsrBestFile_, hsrCloseFile_, hsrOpenFile_, hsrTextFile_, youTextFile_;
+    static QString youTextFile_;
     static QString speedLavaFile_, speedCloseFile_, speedOpenFile_;
     static QString speedDWTextFile_, speedTwitchTextFile_;
     static QString handCardFile_, handCardBYFile_, handCardBYFile2_, handCardBYUnknownFile_;
@@ -62,18 +62,12 @@ private:
     static QString checkCardOkFile_, goldenMechanicFile_, greenMechanicFile_, redMechanicFile_;
     static QString bgDraftMechanicsFile_, bgDraftMechanicsHelpFile_, bgDraftMechanicsHelpDropsFile_, bgDraftMechanicsReenterFile_, fgDraftMechanicsColor_;
     static bool manaLimitBehind_;
-    static QString themeLoaded_;
 
 
 //Metodos
 private:
-    static void loadThemeValues(const QString &themePath, QByteArray &jsonData);
-    static QString loadThemeFile(const QString &themePath, QJsonObject &jsonObject, const QString &key);
-    static QString loadThemeCF(const QString &themePath, QJsonObject &jsonObject, const QString &key);    
-    static QString loadThemeFont(const QString &themePath, QJsonObject &jsonObject, const QString &key);
 
 public:
-    static bool loadTheme(QString theme);
     static void defaultEmptyValues();
     static QString bgApp();
     static QString borderApp(bool transparent);
@@ -144,10 +138,6 @@ public:
     static QString lfCloseFile();
     static QString lfOpenFile();
     static QString lfTextFile();
-    static QString hsrBestFile();
-    static QString hsrCloseFile();
-    static QString hsrOpenFile();
-    static QString hsrTextFile();
     static QString youTextFile();
     static QString speedLavaFile();
     static QString speedCloseFile();
@@ -186,7 +176,6 @@ public:
     static QString bgTotalAttackFile();
     static QString bgLeaderboardFile();
     static bool manaLimitBehind();
-    static QString themeLoaded();
     static QString minionsCounterFile();
     static QString spellsCounterFile();
     static QString weaponsCounterFile();

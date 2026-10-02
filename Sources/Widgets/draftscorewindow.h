@@ -51,14 +51,13 @@ private:
     bool platesShown = false;
     ScoreButton *scoresPushButton[3];
     ScoreButton *scoresPushButton2[3];
-    ScoreButton *scoresPushButton3[3];
     MoveListWidget *synergiesListWidget[3];
     QList<SynergyCard> synergyCardLists[3];
     SynergyMotion synergyMotions[3];
     int scoreWidth;
     int maxSynergyHeight, maxSynergyHeight1Row, maxSynergyHeight2Row;
     bool scores2Rows;
-    bool showHA, showLF, showHSR;
+    bool showHA, showLF;
     bool wantedMechanics[M_NUM_MECHANICS];
     SynergyCard *warningCard[3];
     HoverLabel *warningCardLabel[3];
@@ -95,7 +94,7 @@ public:
     void hideScores(bool quick=false);
     void setLegendaryGroups(bool legendaryGroups);     //The first pick: the plates sit differently
     void setLearningMode(bool value);
-    void setDraftMethod(bool draftMethodHA, bool draftMethodLF, bool draftMethodHSR, bool updateSynergies);
+    void setDraftMethod(bool draftMethodHA, bool draftMethodLF, bool updateSynergies);
     void redrawSynergyCards();
     void setSynergies(int posCard, QMap<QString, QMap<QString, int> > &synergyTagMap, QMap<MechanicIcons, int> &mechanicIcons,
                       const MechanicBorderColor dropBorderColor);
@@ -108,7 +107,6 @@ public:
 signals:
     void cardEntered(QString code, QRect rectCard, int maxTop, int maxBottom);
     void cardLeave();
-    void showHSRwebPicks();
     void showFirewebPicks();
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="DraftScoreWindow");
 

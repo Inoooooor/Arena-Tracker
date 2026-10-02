@@ -128,7 +128,7 @@ private:
     DeckHandler *deckHandler;
     SynergyHandler *synergyHandler;
     LavaButton *lavaButton;
-    ScoreButton *scoreButtonLF, *scoreButtonHA, *scoreButtonHSR;
+    ScoreButton *scoreButtonLF, *scoreButtonHA;
     QPointer<QWidget> redraftTab;   //Owned by the tab widget while shown, so it may be deleted before us
     //Deck cards suggested for removal after a redraft, worst first: one section by Firestone, one by HearthArena
     QLabel *redraftRemoveLabel[REDRAFT_REMOVE_SECTIONS];
@@ -152,7 +152,7 @@ private:
     bool cardDetected[3];
     CardClass arenaHero, arenaHeroMulticlassPower;
     int deckRatingHA;
-    float deckRatingHSR, deckRatingFire;
+    float deckRatingFire;
     cv::Rect screenRects[5];
     cv::Rect manaRects[5];
     cv::Rect rarityRects[5];
@@ -171,20 +171,16 @@ private:
     bool showDraftScoresOverlay, showDraftMechanicsOverlay;
     bool learningMode, showDrops, showMyWR;
     QString justPickedCard; //Evita doble pick card en Arena.log
-    bool draftMethodHA, draftMethodFire, draftMethodHSR;
+    bool draftMethodHA, draftMethodFire;
     DraftMethod draftMethodAvgScore;
     QFutureWatcher<ScreenDetection> futureFindScreenRects;
     QElapsedTimer findScreenClock;         //From the start of findScreenRects to its result
     std::atomic<qint64> findScreenStartMs{0}, findScreenCaptureMs{0};
     QLabel *labelLFscore[3];
     QLabel *labelHAscore[3];
-    QLabel *labelHSRscore[3];
     QComboBox *comboBoxCard[3];
     bool extendedCapture;
     QStringList heroCodesList;
-    QMap<QString, float> *cardsIncludedWinratesMap;
-    QMap<QString, int> *cardsIncludedDecksMap;
-    QMap<QString, float> *cardsPlayedWinratesMap;
     QMap<QString, float> *fireWRMap;
     QMap<QString, int> *fireSamplesMap;
     bool multiclassArena;
@@ -247,7 +243,7 @@ private:
     void endDraft(bool createNewArena);
     bool getScreenCardsHist(cv::MatND screenCardsHist[], int length);
     void showNewCards(DraftCard bestCards[]);
-    void updateDeckScore(float cardRatingHA=0, float cardRatingFire=0, float cardRatingHSR=0);
+    void updateDeckScore(float cardRatingHA=0, float cardRatingFire=0);
     bool screenFound();
     ScreenDetection findScreenRects();
     bool findHeroRectsByOcr(ScreenDetection &screenDetection);
@@ -283,12 +279,12 @@ private:
     void clearAndDisconnectAllComboBox();
     void clearAndDisconnectComboBox(int index);
     void initSynergyCounters(QList<DeckCard> &deckCardList);
-    void updateLabelDeckScore(float deckScoreFire, int deckScoreHA, float deckScoreHSR, int numCards);
-    void showMessageDeckScore(float deckScoreFire, int deckScoreHA, float deckScoreHSR);
+    void updateLabelDeckScore(float deckScoreFire, int deckScoreHA, int numCards);
+    void showMessageDeckScore(float deckScoreFire, int deckScoreHA);
     void updateAvgScoresVisibility();
     void endHeroDraft();
     void showNewHeroes();
-    QString getDeckAvgString(float deckScoreFire, int deckScoreHA, float deckScoreHSR);
+    QString getDeckAvgString(float deckScoreFire, int deckScoreHA);
     bool buildDraftMechanicsWindow();
     bool loadTemplateSettings();
     bool saveTemplateSettings();
@@ -311,7 +307,6 @@ private:
     void showComboBoxesCards();
     void showComboBoxesCards(DraftCard bestCards[]);
     void showSynergies();
-    void showBundles(QString hsrCodes[]);
     void getBestNManaRarity(int &manaN, CardRarity &cardRarity, const cv::Mat &screenSmall, const QList<Mat> &manaTemplates, const QList<Mat> &rarityTemplates,
                             const cv::Rect &manaRectSmall, const cv::Rect &rarityRectSmall);
     double getL2Mat(const cv::Mat &matSample, const cv::Mat &matTemplate);
@@ -355,18 +350,15 @@ private:
     void startRedraftWatch();
     void stopRedraftWatch();
     bool areScreenPointsValid(std::vector<Point2f> screenPoints, int screenHeight);
-    void showHAScores(QString ogCodes[], QString hsrCodes[], QString cardNames[]);
-    void showHSRScores(QString hsrCodes[], QString cardNames[]);
-    void showFireScores(QString hsrCodes[], QString cardNames[]);
-    QString getHSRCode(QString code);
+    void showHAScores(QString ogCodes[], QString cardNames[]);
+    void showFireScores(QString ogCodes[], QString cardNames[]);
     QString getFireCode(QString code);
     void addLFCode(const QString &code, const CardClass &heroClass, const bool multiClassDraft, bool buildCodesByClass);
-    QStringList getBundleCodes(const QString &code);
     int getHAScore(const QString &code);
 
 public:
     QString getHACode(QString code);
-    QString getHSRFireCode(QString code, bool HSR, CardClass heroClass);
+    QString getFireCode(QString code, CardClass heroClass);
     void setDeckScores();
     QWidget *getRedraftTab();
     QList<RedraftSuggestion> getRedraftRemoveSuggestions();
@@ -383,7 +375,7 @@ public:
     void setShowDrops(bool value);
     void redrawAllCards();
     void updateTamCard();
-    void setDraftMethod(bool draftMethodHA, bool draftMethodFire, bool draftMethodHSR);
+    void setDraftMethod(bool draftMethodHA, bool draftMethodFire);
     void setTheme();
     void craftGoldenCopy(int cardIndex);
     bool isDrafting();
@@ -393,9 +385,6 @@ public:
     bool isEmptyDeck();
     void deMinimizeScoreWindow();
     QStringList getAllHeroCodes();
-    void setCardsIncludedWinratesMap(QMap<QString, float> cardsIncludedWinratesMap[]);
-    void setCardsIncludedDecksMap(QMap<QString, int> cardsIncludedDecksMap[]);
-    void setCardsPlayedWinratesMap(QMap<QString, float> cardsPlayedWinratesMap[]);
     void setFireWRMap(QMap<QString, float> fireWRMap[]);
     void setFireSamplesMap(QMap<QString, int> fireSamplesMap[]);
     void setDraftMethodAvgScore(DraftMethod draftMethodAvgScore);
@@ -406,7 +395,6 @@ public:
     void initTierLists(const CardClass &heroClass);
     void initCheckHearthArena();
     void clearTierLists();
-    void getCodeScores(const CardClass &heroClass, const QString &code, int &ha, float &hsr, float &fire);
     void setShowMyWR(bool value);
     void setWantedMechanic(uint mechanicIcon, bool value);
     void redrawDownloadedCardImage(QString code);
@@ -425,7 +413,7 @@ signals:
     void draftEnded(QString heroLog);
     void saveDraftDeck(QString heroLog);
     void deleteDraftDeck(QString heroLog);
-    void scoreAvg(int deckScoreHA, float deckScoreHSR, float deckScoreFire, QString heroLog);
+    void scoreAvg(int deckScoreHA, float deckScoreFire, QString heroLog);
     void overlayCardEntered(QString code, QRect rectCard, int maxTop, int maxBottom, bool alignReverse=true);
     void overlayCardLeave();
     void advanceProgressBar(int remaining, QString text);
@@ -449,7 +437,7 @@ public slots:
     void endDraftHideMechanicsWindow();
     void deleteDraftMechanicsWindow();
     void showNewRatings(const QString &cardName1, const QString &cardName2, const QString &cardName3, float rating1, float rating2, float rating3,
-                        float tierScore1, float tierScore2, float tierScore3, DraftMethod draftMethod,
+                        DraftMethod draftMethod,
                         int includedDecks1=-1, int includedDecks2=-1, int includedDecks3=-1);
     void pickCard(QString code);
     // void enterArena();//OLD
@@ -469,7 +457,6 @@ private slots:
     void startFindScreenRects();
     void comboBoxActivated();
     void refreshDraft();
-    void showHSRwebPicks();
     void showFirewebPicks();
     void newFindScreenLoop(bool skipScreenSettings=false);
     void comboBoxHighLight(int index);
