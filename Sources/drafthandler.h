@@ -204,8 +204,10 @@ private:
     QFutureWatcher<int> futureRedraftCounter;
     QFutureWatcher<int> futureRewardsWins;
     int rewardsWinsTries = 0;
+    int rewardsWinsWaits = 0;   //Tries put off while Hearthstone isn't on screen
     QFutureWatcher<int> futureReadyUpWins;
     int readyUpWinsTries = 0;
+    int readyUpWinsWaits = 0;
     //macOS: the cards picked in the redraft review screen are found by reading their names
     QTimer *redraftReviewTimer;
     QFutureWatcher<RedraftScreenRead> futureRedraftReviewCodes;

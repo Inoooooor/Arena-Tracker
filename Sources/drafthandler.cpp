@@ -1311,9 +1311,20 @@ void DraftHandler::stopRedraftWatch()
 
 #ifdef Q_OS_MAC
 static QImage grabHearthstoneWindow(int maxWidth);
+static bool isHearthstoneWindowSmall();
 #endif
 
 #ifdef Q_OS_MAC
+//Why a big number wasn't read, for the log
+enum BigNumberFail {NoWindow = -1, NoAnchor = -2, NoNumber = -3};
+static QString bigNumberFailText(int fail)
+{
+    if(fail == NoWindow)    return "no Hearthstone window";
+    if(fail == NoAnchor)    return "screen labels not found";
+    return "number not read";
+}
+
+
 //The big white number of the Hearthstone arena screens (the wins on the Ready Up medal, the rewards chest) inside
 //crop, 0 to 12, or -1
 static int readBigNumber(const QImage &rgb, const QRect &crop)
@@ -1376,6 +1387,7 @@ static int readBigNumber(const QImage &rgb, const QRect &crop)
 void DraftHandler::readRewardsWins()
 {
     rewardsWinsTries = 0;
+    rewardsWinsWaits = 0;
     tryReadRewardsWins();
 }
 
@@ -1389,25 +1401,32 @@ void DraftHandler::tryReadRewardsWins()
         return;
     }
     if(futureRewardsWins.isRunning())   return;
+    //Away from Hearthstone the tries wait for it, up to 10 minutes
+    if(isHearthstoneWindowSmall() && ++rewardsWinsWaits < 600)
+    {
+        QTimer::singleShot(1000, this, SLOT(tryReadRewardsWins()));
+        return;
+    }
     rewardsWinsTries++;
     const QImage image = grabHearthstoneWindow(1400);
 
     futureRewardsWins.setFuture(QtConcurrent::run([image]() {
-        if(image.isNull())  return -1;
+        if(image.isNull())  return int(NoWindow);
         //"Run Complete!" is the anchor: the number is under it, in its widths (measured on 2026 clients)
         QRectF label;
         for(const MacOcr::TextLine &line: MacOcr::recognizeTextLines(image, "enUS", true))
         {
             if(line.text.contains("Run Complete", Qt::CaseInsensitive))     label = line.rect;
         }
-        if(label.isNull())  return -1;
+        if(label.isNull())  return int(NoAnchor);
         const qreal w = label.width();
         const QImage rgb = image.convertToFormat(QImage::Format_RGB32);
         const QRect crop = QRect(qRound(label.center().x() - 0.22*w), qRound(label.center().y() + 0.97*w),
                                  qRound(0.44*w), qRound(0.48*w)) & rgb.rect();
-        if(crop.isEmpty())  return -1;
+        if(crop.isEmpty())  return int(NoAnchor);
 
-        return readBigNumber(rgb, crop);
+        const int wins = readBigNumber(rgb, crop);
+        return (wins < 0) ? int(NoNumber) : wins;
     }));
 #else
     emit rewardsWinsRead(-1);
@@ -1426,7 +1445,7 @@ void DraftHandler::finishReadRewardsWins()
     else if(rewardsWinsTries < 8)   QTimer::singleShot(1000, this, SLOT(tryReadRewardsWins()));
     else
     {
-        emit pDebug("Rewards chest not read.");
+        emit pDebug("Rewards chest not read: " + bigNumberFailText(wins) + ".");
         emit rewardsWinsRead(-1);
     }
 }
@@ -1437,6 +1456,7 @@ void DraftHandler::finishReadRewardsWins()
 void DraftHandler::readReadyUpWins()
 {
     readyUpWinsTries = 0;
+    readyUpWinsWaits = 0;
     tryReadReadyUpWins();
 }
 
@@ -1445,11 +1465,17 @@ void DraftHandler::tryReadReadyUpWins()
 {
 #ifdef Q_OS_MAC
     if(Utility::getLocalLang() != "enUS" || futureReadyUpWins.isRunning())  return;
+    //Away from Hearthstone (e.g. another app right after the game) the tries wait for it, up to 10 minutes
+    if(isHearthstoneWindowSmall() && ++readyUpWinsWaits < 300)
+    {
+        QTimer::singleShot(2000, this, SLOT(tryReadReadyUpWins()));
+        return;
+    }
     readyUpWinsTries++;
     const QImage image = grabHearthstoneWindow(1400);
 
     futureReadyUpWins.setFuture(QtConcurrent::run([image]() {
-        if(image.isNull())  return -1;
+        if(image.isNull())  return int(NoWindow);
         //"Wins:" and "Losses:" are the anchors: the medal is under "Wins:", in their distance (measured on 2026 clients)
         //The fast recognizer mixes up i and l ("Wlns:"): compared letters only, those as one
         auto key = [](const QString &text) {
@@ -1470,15 +1496,16 @@ void DraftHandler::tryReadReadyUpWins()
             else if(text == key("Losses"))      lossesLabel = line.rect;
             else if(text == key("Ready Up"))    readyUp = true;
         }
-        if(!readyUp || winsLabel.isNull() || lossesLabel.isNull())   return -1;
+        if(!readyUp || winsLabel.isNull() || lossesLabel.isNull())   return int(NoAnchor);
         const qreal gap = lossesLabel.center().x() - winsLabel.center().x();
-        if(gap <= 0 || qAbs(lossesLabel.center().y() - winsLabel.center().y()) > gap*0.05)    return -1;
+        if(gap <= 0 || qAbs(lossesLabel.center().y() - winsLabel.center().y()) > gap*0.05)    return int(NoAnchor);
 
         const QImage rgb = image.convertToFormat(QImage::Format_RGB32);
         const qreal r = 0.08*gap;
         const QPointF medal(winsLabel.center().x(), winsLabel.center().y() + 0.145*gap);
         const QRect crop = QRect(qRound(medal.x() - r), qRound(medal.y() - 0.8*r), qRound(2*r), qRound(1.6*r)) & rgb.rect();
-        return crop.isEmpty() ? -1 : readBigNumber(rgb, crop);
+        const int wins = crop.isEmpty() ? -1 : readBigNumber(rgb, crop);
+        return (wins < 0) ? int(NoNumber) : wins;
     }));
 #endif
 }
@@ -1493,7 +1520,7 @@ void DraftHandler::finishReadReadyUpWins()
         emit readyUpWinsRead(wins);
     }
     else if(readyUpWinsTries < 30)  QTimer::singleShot(2000, this, SLOT(tryReadReadyUpWins()));
-    else                            emit pDebug("Ready Up medal not read.");
+    else                            emit pDebug("Ready Up medal not read: " + bigNumberFailText(wins) + ".");
 }
 
 
@@ -2425,6 +2452,13 @@ static QImage grabHearthstoneWindow(int maxWidth)
     hideTrackerWindows(image, hsRect);
     if(image.width() > maxWidth)    image = image.scaledToWidth(maxWidth, Qt::SmoothTransformation);
     return image;
+}
+
+
+//Hearthstone is minimized, hidden or only a Stage Manager thumbnail: nothing on it can be read
+static bool isHearthstoneWindowSmall()
+{
+    return MacOcr::hearthstoneWindowRect().width() < 600;
 }
 #endif
 
