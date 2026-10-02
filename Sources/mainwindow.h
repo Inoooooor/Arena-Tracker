@@ -84,6 +84,7 @@ private:
     int mascotRedraftScreenShown = 0;           //RedraftScreen the mascot talks about
     bool mascotSupportAsked = false;            //Once per arena run
     bool mascotInGame = false;
+    bool splashOpen = false, initDone = false;  //The mascot shows after both
     bool mascotNoRun = false;                   //The last run ended (rewards screen) and no new draft yet
     bool mascotRetired = false;                 //The run ends by a retire (until its rewards screen)
     QString mascotLastStatus;                   //The draft status behind the current status line
@@ -98,6 +99,7 @@ private:
     int drawDisappear;
     QNetworkAccessManager *networkManager;
     QStringList allCardsDownloadList;
+    int allCardsDownloadTotal = 0;
     TwitchHandler *twitchTester;
     //Gestionan si es necesario bajar todas las cartas usadas en arena debido a que el directorio de cartas se haya borrado
     //o haya una nueva version de tier list (rotacion sets)
@@ -108,6 +110,8 @@ private:
 
 //Metodos
 public:
+    void setSplashOpen();
+    void splashClosed();
     LoadingScreenState getLoadingScreen();
 
 private:
@@ -232,6 +236,9 @@ protected:
 
 //Signals
 signals:
+    //The first run downloads every arena card image: the splash shows it, then closes when ready
+    void startupProgress(int done, int total);
+    void startupReady();
 
 
 //Slots

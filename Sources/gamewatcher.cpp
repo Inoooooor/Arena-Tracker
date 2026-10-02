@@ -66,6 +66,20 @@ void GameWatcher::startReadingDeck()
 }
 
 
+//The cards Hearthstone lists for the current deck, to correct the tracker's: the cards discarded in a redraft are
+//read by OCR on the discard screen, which can be wrong
+void GameWatcher::emitDeckSnapshot()
+{
+    if(deckSnapshotSync && !deckSnapshot.isEmpty())
+    {
+        emit pDebug("Deck snapshot: " + QString::number(deckSnapshot.count()) + " cards.", 0);
+        emit deckSnapshotRead(deckSnapshot);
+    }
+    deckSnapshotSync = false;
+    deckSnapshot.clear();
+}
+
+
 void GameWatcher::endReadingDeck()
 {
     if(arenaState != readingDeck)    return;
@@ -234,6 +248,11 @@ void GameWatcher::processArena(QString &line, qint64 numLine)
     {
         QString hero = match->captured(1);
         emit pDebug("Found Hero Draft Deck. Heroe: " + hero, numLine);
+        //The deck is read once per arena visit: later snapshots (after games, before a redraft) only correct it.
+        //The one right after OnRedraftBegin is the deck before the redraft picks: skipped.
+        deckSnapshot.clear();
+        deckSnapshotSync = (arenaState == deckRead) && !redraftBeginSeen;
+        redraftBeginSeen = false;
         startReadingDeck();
         emit heroDraftDeck(hero);
     }
@@ -242,18 +261,28 @@ void GameWatcher::processArena(QString &line, qint64 numLine)
     else if(line.contains("SetDraftMode - ACTIVE_DRAFT_DECK"))
     {
         emit pDebug("Found ACTIVE_DRAFT_DECK.", numLine);
+        emitDeckSnapshot();
         endReadingDeck();//completeArenaDeck with draft file
         emit activeDraftDeck(); //(connect)End draft/Show mechanics, debe estar detras de endReadingDeck
         //para primero completar el deck y luego mostrar la mechanics window del deck completo
     }
     //READ DECK CARD
     //[Arena] DraftManager.OnChoicesAndContents - Draft deck contains card FP1_012
-    else if((arenaState == readingDeck) && line.contains(QRegularExpression(
+    else if(line.contains(QRegularExpression(
             "DraftManager\\.OnChoicesAndContents - Draft deck contains card (\\w+)"), match))
     {
         QString code = match->captured(1);
-        emit pDebug("Reading deck: " + code, numLine);
-        emit newDeckCard(code);
+        if(arenaState == readingDeck)
+        {
+            emit pDebug("Reading deck: " + code, numLine);
+            emit newDeckCard(code);
+        }
+        else if(deckSnapshotSync)   deckSnapshot << code;
+    }
+    //[Arena] DraftManager.OnRedraftBegin - Got new redraft deck with ID: 2769477640
+    else if(line.contains("DraftManager.OnRedraftBegin"))
+    {
+        redraftBeginSeen = true;
     }
     //COMPRAR ARENA -- VUELTA A SELECCION HEROE
     else if(line.contains(QRegularExpression(
@@ -275,6 +304,7 @@ void GameWatcher::processArena(QString &line, qint64 numLine)
     else if(line.contains("SetDraftMode - REDRAFTING"))
     {
         emit pDebug("Found SetDraftMode - REDRAFTING.", numLine);
+        emitDeckSnapshot();
         endReadingDeck();//completeArenaDeck with draft file
         emit redraft();
     }

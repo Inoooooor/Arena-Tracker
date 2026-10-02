@@ -50,6 +50,8 @@ public:
     ~GameWatcher();
 
 private:
+    QStringList deckSnapshot;           //Codes of the deck snapshot being read
+    bool deckSnapshotSync = false, redraftBeginSeen = false;
     enum PowerState { noGame, heroType1State, heroPower1State, heroType2State, mulliganState, inGameState };
     enum ArenaState { noDeckRead, deckRead, readingDeck };
 
@@ -89,6 +91,7 @@ private:
     void processZone(QString &line, qint64 numLine);
     bool advanceTurn(bool playerDraw);
     void startReadingDeck();
+    void emitDeckSnapshot();
     void endReadingDeck();
     bool isHeroPower(QString code);
     bool isCheatingCard(const QString &zoneFrom);
@@ -108,6 +111,7 @@ signals:
     void redraft();
     void arenaChoosingHeroe();
     void inRewards();
+    void deckSnapshotRead(QStringList codes);
     void arenaRetired();
     void newDeckCard(QString card);
     void startGame();

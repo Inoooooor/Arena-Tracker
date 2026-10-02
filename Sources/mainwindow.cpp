@@ -148,8 +148,9 @@ void MainWindow::init()
     spreadTransparency();
     trackobotUploader->checkAccount();
 
-    //Shown here, after MacFullScreenOverlay exists, so it can show over fullscreen Hearthstone too
-    mascotWindow->show();
+    //Shown here, after MacFullScreenOverlay exists, so it can show over fullscreen Hearthstone too; not over the splash
+    initDone = true;
+    if(!splashOpen)     mascotWindow->show();
 
 #ifdef Q_OS_LINUX
     checkLinuxShortcut();
@@ -974,6 +975,7 @@ void MainWindow::createGameWatcher()
 
     connect(gameWatcher, SIGNAL(newDeckCard(QString)),
             deckHandler, SLOT(newDeckCardAsset(QString)));
+    connect(gameWatcher, &GameWatcher::deckSnapshotRead, deckHandler, &DeckHandler::syncDeckSnapshot);
     connect(gameWatcher, SIGNAL(playerCardDraw(QString,int)),
             deckHandler, SLOT(playerCardDraw(QString,int)));
     connect(gameWatcher, SIGNAL(playerReturnToDeck(QString,int)),
@@ -1301,6 +1303,20 @@ QStringList MainWindow::mascotGoodLuckLines()
             "Queue up. I've got the popcorn ready.",
             "Go win. I'll be judging every misplay.",
             "You've got this. And you've got me."};
+}
+
+
+void MainWindow::setSplashOpen()
+{
+    splashOpen = true;
+}
+
+
+//The first run downloads the card images under the splash: the mascot comes after it
+void MainWindow::splashClosed()
+{
+    splashOpen = false;
+    if(initDone)    mascotWindow->show();
 }
 
 
@@ -4319,6 +4335,7 @@ void MainWindow::checkArenaCards()
     else
     {
         pDebug("CheckArenaCards: No arena cards downloads.");
+        QTimer::singleShot(0, this, &MainWindow::startupReady);     //After main() connects the splash
     }
 }
 
@@ -4354,6 +4371,8 @@ void MainWindow::downloadAllArenaCodes(const QStringList &codeList)
     if(allCardsDownloadList.isEmpty())  this->allCardsDownloaded();
     else
     {
+        allCardsDownloadTotal = allCardsDownloadList.count();
+        QTimer::singleShot(0, this, [this]() { emit startupProgress(0, allCardsDownloadTotal); });
         startProgressBarMini(allCardsDownloadList.count());
         showMessageProgressBar("Downloading cards...", 10000);
     }
@@ -4364,6 +4383,7 @@ void MainWindow::updateProgressAllCardsDownload(QString code)
 {
     if(allCardsDownloadList.removeOne(code))
     {
+        emit startupProgress(allCardsDownloadTotal - allCardsDownloadList.count(), allCardsDownloadTotal);
         advanceProgressBarMini(allCardsDownloadList.count());
     }
 }
@@ -4371,6 +4391,7 @@ void MainWindow::updateProgressAllCardsDownload(QString code)
 
 void MainWindow::allCardsDownloaded()
 {
+    QTimer::singleShot(0, this, &MainWindow::startupReady);     //After main() connects the splash
     QSettings settings("Arena Tracker", "Arena Tracker");
 
     if(allCardsDownloadNeeded)

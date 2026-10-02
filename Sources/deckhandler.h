@@ -92,6 +92,7 @@ public:
     QList<DeckCard> * getDeckCardListRef();
     int getIndexFromCode(const QString &code);
     void redraftReviewDeck(QString bestCodesRedraftingReview[5]);
+    void syncDeckSnapshot(QStringList codes);
 
 signals:
     void checkCardImage(QString code);

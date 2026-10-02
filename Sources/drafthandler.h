@@ -22,8 +22,8 @@
 #define MECHANICS_DELAY_TIME    1000
 // #define CONTINUEDRAFT_DELAY_TIME    3000
 #define REDRAFT_REVIEW_DELAY_TIME   1500
-#define REDRAFT_REMOVE_CARDS        5
-#define REDRAFT_REMOVE_SPARES       3
+#define REDRAFT_REMOVE_CARDS        8       //Suggested to the mascot: 5 are discarded, 3 more to choose from
+#define REDRAFT_REMOVE_SPARES       0
 #define REDRAFT_REMOVE_SECTIONS     2
 #define REDRAFT_WATCH_TIME          2000
 #define REDRAFT_REVIEW_OCR_TIME     1000

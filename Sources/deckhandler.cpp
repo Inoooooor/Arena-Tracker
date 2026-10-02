@@ -1488,6 +1488,32 @@ void DeckHandler::redraftReviewDeck(QString bestCodesRedraftingReview[5])
 }
 
 
+//Hearthstone's list of the deck (Arena.log snapshot) corrects the tracker's: cards it doesn't list were discarded
+//(the redraft review reads the discarded ones by OCR, which can be wrong), the ones it lists are in the deck.
+//The snapshot lists a card once even with 2 copies: copies are kept as they are.
+void DeckHandler::syncDeckSnapshot(QStringList codes)
+{
+    const QSet<QString> present(codes.begin(), codes.end());
+    QStringList removed, added;
+    for(int i=deckCardList.count()-1; i>=1; i--)
+    {
+        const QString code = deckCardList[i].getCode();
+        if(code.isEmpty() || deckCardList[i].isOutsider() || present.contains(code))    continue;
+        removed << Utility::cardEnNameFromCode(code);
+        while(deckCardList[i].total > 1)    cardTotalMin(i);
+        cardRemove(i);
+    }
+    for(const QString &code: present)
+    {
+        if(getIndexFromCode(code) != -1)    continue;
+        added << Utility::cardEnNameFromCode(code);
+        newDeckCard(code);
+    }
+    if(!removed.isEmpty() || !added.isEmpty())
+        emit pDebug("Deck snapshot sync: removed " + removed.join(", ") + " - added " + added.join(", "));
+}
+
+
 void DeckHandler::saveDraftDeck(QString hero)
 {
     if(Utility::classLogNumber2classEnum(hero) == INVALID_CLASS || deckCardList[0].total != 0)
