@@ -1421,6 +1421,7 @@ void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
     mascotLastWon = lastWon;
     mascotLastLosses = losses;
 
+    //The game's line came at its end (mascotEndGame): here only the run's milestones
     QString line;
     MascotWindow::Mood mood = MascotWindow::Happy;
     if(lastWon)
@@ -1435,10 +1436,7 @@ void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
             {11, "Eleven. One more. Don't choke. No pressure. Okay, some pressure."},
             {12, "TWELVE WINS! I drafted it, you just clicked. We're legends."}
         };
-        line = winLines.value(wins, mascotPick({"GG! Told you that deck was good.",
-                                                "Nice one! As I calculated.",
-                                                "GG. Great game, great deck.",
-                                                "GG. I'd say you played well, but I watched."}));
+        line = winLines.value(wins);
         if(wins >= 7)   mood = MascotWindow::Stars;
         else if(wins >= 5)  mood = MascotWindow::Grin;
     }
@@ -1450,12 +1448,12 @@ void MainWindow::mascotArenaRecord(int wins, int losses, bool lastWon)
                                                    "Three losses, run's over. Chin up, loot time."});
         else if(losses == 2)    line = mascotPick({"Two losses. Careful now, one more and we're done.",
                                                    "Two down. Deep breath, we've still got this."});
-        else                    line = mascotPick({"Unlucky. RNG hates us today.",
-                                                   "Shake it off. Next one's ours.",
-                                                   "A loss. Happens to the best of us. Even me, apparently."});
     }
-    mascotWindow->setMood(mood);
-    mascotWindow->say(line, 8000);
+    if(!line.isEmpty())
+    {
+        mascotWindow->setMood(mood);
+        mascotWindow->say(line, 8000);
+    }
 
     //After a win, back on the Ready Up screen, its medal tells the real wins: the support ask comes on a good run,
     //after the win line
@@ -1734,11 +1732,15 @@ void MainWindow::mascotEndGame(bool playerWon, bool playerUnknown)
         mascotWindow->setMood(MascotWindow::Idle);
         return;
     }
+    //Right away; back in the arena menu mascotArenaRecord only adds the run's milestones
     mascotWindow->setMood(playerWon ? MascotWindow::Happy : MascotWindow::Sweat);
-    //In the arena mascotArenaRecord says it with the run's record, a bit later: two lines for one game otherwise
-    if(getLoadingScreen() == arena)     return;
-    mascotWindow->say(playerWon ? mascotPick({"GG! Told you that deck was good.", "Nice one! As I calculated."})
-                                : mascotPick({"Unlucky. RNG hates us today.", "Shake it off. Next one's ours."}), 8000);
+    mascotWindow->say(playerWon ? mascotPick({"GG! Told you that deck was good.",
+                                              "Nice one! As I calculated.",
+                                              "GG. Great game, great deck.",
+                                              "GG. I'd say you played well, but I watched."})
+                                : mascotPick({"Unlucky. RNG hates us today.",
+                                              "Shake it off. Next one's ours.",
+                                              "A loss. Happens to the best of us. Even me, apparently."}), 8000);
 }
 
 

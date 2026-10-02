@@ -161,6 +161,7 @@ private:
     int numCaptured;
     bool drafting, heroDrafting, redrafting, redraftingReview, capturing, findingFrame, stopLoops;
     bool heroesShown = false;   //The current heroes are scored (heroesScored)
+    bool redraftPicksSeen = false;  //OCR read card names on the redraft's pick screen: REDRAFTING alone only offers it
     bool bundlePreviewOpen = false; //A legendary group's preview covers the cards: no capture
     bool mouseInApp;
     Transparency transparency;
@@ -340,6 +341,7 @@ private:
     void emitDraftFinished();
     void updatePickRatingPool();
     bool isPickShown();
+    bool isRedraftOffered();
     void createRedraftRemoveList();
     void createDraftStatus();
     void setDraftStatus(const QString &text);

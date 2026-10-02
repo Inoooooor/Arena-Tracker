@@ -244,6 +244,8 @@ void DraftHandler::createDraftStatus()
 //Empty text hides the status
 void DraftHandler::setDraftStatus(const QString &text)
 {
+    //Waiting on the Ready Up screen for the offered redraft: "Scanning cards..." or "Can't see the arena" would be wrong there
+    if(!text.isEmpty() && isRedraftOffered())   return;
     emit draftStatusChanged(text);
     if(heroDrafting)
     {
@@ -1273,9 +1275,12 @@ void DraftHandler::beginDraft(QString hero, QList<DeckCard> deckCardList, bool s
 }
 
 
+//SetDraftMode - REDRAFTING comes when a redraft is offered (the Ready Up screen with "Draft New Cards"), every time
+//the arena opens until it's taken. Taking it logs nothing: its pick screen is recognized by the card names (isRedraftOffered).
 void DraftHandler::redraft()
 {
     this->redrafting = true;
+    this->redraftPicksSeen = false;
 }
 
 
@@ -2160,6 +2165,17 @@ bool DraftHandler::isRepeatHero()
 
 bool DraftHandler::areCardsDetected()
 {
+    //On the Ready Up screen the frame search can match too and the histograms "find" cards in the medal and the chest:
+    //the redraft's picks need real card names
+    if(isRedraftOffered())
+    {
+        int names = 0;
+        for(int i=0; i<3; i++)  if(!ocrCodes[i].isEmpty())  names++;
+        if(names < 2)   return false;
+        redraftPicksSeen = true;
+        emit pDebug("Redraft pick screen: " + QString::number(names) + " card names read.");
+    }
+
     for(int i=0; i<3; i++)
     {
         if(!cardDetected[i] && !ocrCodes[i].isEmpty())  cardDetected[i] = true;
@@ -3069,7 +3085,7 @@ void DraftHandler::refreshDraft()
     //Force draft
     QList<DeckCard> deckCardList = deckHandler->getDeckCardList();
     initSynergyCounters(deckCardList);
-    newFindScreenLoop(false);
+    newFindScreenLoop(true);    //Not from the saved screen settings: a rescan is asked when the plates are off
 }
 
 
@@ -5053,6 +5069,17 @@ bool DraftHandler::isDrafting()
 bool DraftHandler::isPickShown()
 {
     return heroDrafting ? heroesShown : !draftCards[0].getCode().isEmpty();
+}
+
+
+//A redraft is offered but its pick screen hasn't been seen yet. Only macOS reads card names; elsewhere the histograms decide.
+bool DraftHandler::isRedraftOffered()
+{
+#ifdef Q_OS_MAC
+    return redrafting && drafting && !redraftPicksSeen;
+#else
+    return false;
+#endif
 }
 
 

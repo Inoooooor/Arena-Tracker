@@ -5,7 +5,7 @@
 
 
 #define PICK_RATING_TRUST_GAMES     2000    //A Firestone winrate with this many games is pulled halfway to the class mean
-#define PICK_RATING_FIRE_WEIGHT     0.5f    //HearthArena gets the rest
+#define PICK_RATING_FIRE_WEIGHT     0.6f    //Real games count a bit more; HearthArena (experts) gets the rest
 
 
 //One rating of a draft option from both sources: Firestone's winrate, pulled to the class mean when it has few games
