@@ -23,9 +23,6 @@ protected:
     QString code, name;
     CardRarity rarity;
     CardType type;
-    QList<CardClass> cardClass;
-    QList<CardRace> cardRace;
-    CardSchool cardSchool;
     int cost;
 
 private:
@@ -41,9 +38,6 @@ public:
     CardType getType();
     QString getName();
     CardRarity getRarity();
-    QList<CardClass> getCardClass();
-    QList<CardRace> getRace();
-    CardSchool getSchool();
     int getCost() const;
     void setCode(QString code);
     float getScore(DraftMethod draftMethod) const;

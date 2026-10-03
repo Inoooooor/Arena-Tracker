@@ -1,8 +1,6 @@
 #include "mascotwindow.h"
 #include <QtWidgets>
-#ifdef Q_OS_MAC
     #include "../Utils/macwindow.h"
-#endif
 
 
 #define MASCOT_SPRITE_HEIGHT    163     //Points; the sprites have room above the hat for the grabbed one
@@ -241,9 +239,7 @@ void MascotWindow::showEvent(QShowEvent *event)
         sayTimer.start(pendingSayMsec);
         pendingSayMsec = 0;
     }
-#ifdef Q_OS_MAC
     QTimer::singleShot(0, this, [this]() { MacWindow::raiseAboveFloating(this); });
-#endif
 }
 
 
@@ -396,10 +392,8 @@ void MascotWindow::updateHover(const QPoint &pos)
 void MascotWindow::applyCursor(Qt::CursorShape shape)
 {
     if(cursor().shape() != shape)   setCursor(shape);
-#ifdef Q_OS_MAC
     //Qt only sets it while the app is active, and Hearthstone usually is
     MacWindow::setCursorNow(shape);
-#endif
 }
 
 

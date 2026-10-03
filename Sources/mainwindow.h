@@ -71,7 +71,6 @@ private:
     bool cardsJsonLoaded, arenaSetsLoaded, allCardsDownloadNeeded;
 
 
-
 //Metodos
 public:
     void setSplashOpen();
@@ -104,9 +103,6 @@ private:
     void removeExtraAndHistograms();
     void removeHistograms();
     void checkCardsJsonVersion(QString cardsJsonVersion);
-    void askLinuxShortcut();
-    void showMessageAppImageShortcut();
-    void createLinuxShortcut();
     void checkFirstRunNewVersion();
     void updateProgressAllCardsDownload(QString code);
     void downloadExtraFile(QString nameFile);
@@ -166,7 +162,6 @@ private slots:
     void completeArenaDeck();
     void setLocalLang();
     void replyFinished(QNetworkReply *reply);
-    void checkLinuxShortcut();
     void missingOnWeb(QString code);
     void allCardsDownloaded();
     void init();

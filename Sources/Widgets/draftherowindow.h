@@ -34,7 +34,6 @@ public:
     void setScores(int classOrder[3]);
     void hideScores(bool quick=false);
     //The player's own winrates aren't shown in this design
-    void showPlayerScores(bool show=true);
 
     //Hand of a winrate against the best of the three: 0 up (the best), 1 flat (close to it), 2 down
     static int handFor(float rating, float bestRating);

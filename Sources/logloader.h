@@ -50,7 +50,6 @@ private:
 
 //Metodos
 private:
-    void createFileWatcher();
     bool readSettings();
     bool readLogsDirPath();
     bool readLogConfigPath();
@@ -62,7 +61,6 @@ private:
     void createLogWorker(QString logComponent);
     void addToDataLogs(LogComponent logComponent, QString line, qint64 numLine, qint64 logSeek);
     void processDataLogs();
-    QString findLinuxLogs(QString pattern);
     void deleteLogWorkers();
     void removeOldLogDirs(QStringList logs);
 
@@ -71,7 +69,6 @@ public:
     bool init();
     QString getLogConfigPath();
     QString getRecentLogDir();
-    QString getLogsDirPath();
 
 //Signals
 signals:

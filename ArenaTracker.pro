@@ -1,10 +1,6 @@
-#-------------------------------------------------
-#
-# Project created by QtCreator 2014-12-31T12:10:21
-#
-#-------------------------------------------------
+#macOS only
 
-QT       += core gui network widgets websockets
+QT       += core gui network widgets
 
 TARGET = ArenaTracker
 TEMPLATE = app
@@ -12,16 +8,11 @@ TEMPLATE = app
 QT_CONFIG -= no-pkg-config
 
 CONFIG += link_pkgconfig
-macx:packagesExist(opencv5) {
-    #Only the modules used: pkg-config links all of them, and the app bundle would carry them (and their
-    #dependencies: video codecs, VTK...) for nothing
-    QMAKE_CXXFLAGS += $$system(pkg-config --cflags opencv5)
-    LIBS += -L$$system(pkg-config --variable=libdir opencv5) \
-            -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_features -lopencv_geometry -lopencv_flann
-}
-else: packagesExist(opencv5): PKGCONFIG += opencv5
-else: packagesExist(opencv4): PKGCONFIG += opencv4
-else: PKGCONFIG += opencv
+#Only the OpenCV modules used: pkg-config links all of them, and the app bundle would carry them (and their
+#dependencies: video codecs, VTK...) for nothing
+QMAKE_CXXFLAGS += $$system(pkg-config --cflags opencv5)
+LIBS += -L$$system(pkg-config --variable=libdir opencv5) \
+        -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_features -lopencv_geometry -lopencv_flann
 PKGCONFIG += libzip
 LIBS += -lz
 
@@ -79,23 +70,10 @@ HEADERS  += Sources/mainwindow.h \
 RESOURCES += \
     arenatracker.qrc
 
-linux{
-    QMAKE_LFLAGS += -no-pie
-    SOURCES += Sources/Utils/capturemanager.cpp
-    HEADERS  += Sources/Utils/capturemanager.h
-}
-win32: RC_ICONS = ArenaTracker.ico
-macx{
-    ICON = ArenaTracker.icns
-    QMAKE_TARGET_BUNDLE_PREFIX = com.inoooooor
-    LIBS += -liconv
-    OBJECTIVE_SOURCES += Sources/Utils/macocr.mm Sources/Utils/macwindow.mm
-    HEADERS  += Sources/Utils/macocr.h Sources/Utils/macwindow.h
-    LIBS += -framework Foundation -framework Vision -framework CoreGraphics -framework AppKit
-    QMAKE_OBJECTIVE_CFLAGS += -fobjc-arc
-}
-
-#Deploy MAC
-#First time errors
-#(opencv development package not found)         Add PATH --> :/usr/local/bin
-
+ICON = ArenaTracker.icns
+QMAKE_TARGET_BUNDLE_PREFIX = com.inoooooor
+LIBS += -liconv
+OBJECTIVE_SOURCES += Sources/Utils/macocr.mm Sources/Utils/macwindow.mm
+HEADERS  += Sources/Utils/macocr.h Sources/Utils/macwindow.h
+LIBS += -framework Foundation -framework Vision -framework CoreGraphics -framework AppKit
+QMAKE_OBJECTIVE_CFLAGS += -fobjc-arc

@@ -140,17 +140,6 @@ bool LogLoader::readSettings()
 }
 
 
-QString LogLoader::findLinuxLogs(QString pattern)
-{
-    QProcess p;
-    p.start("find \"" + QDir::homePath() + "\" -wholename \"" + pattern + "\"");
-    p.waitForFinished(-1);
-    QString path = QString(p.readAll()).trimmed();
-    emit pDebug(pattern + " " + QString(path.isEmpty()?"missing":"found") + " on disk.");
-    return path;
-}
-
-
 bool LogLoader::readLogsDirPath()
 {
     QSettings settings;
@@ -160,15 +149,7 @@ bool LogLoader::readLogsDirPath()
     {
         QString initPath = "";
         logsDirPath = "";
-#ifdef Q_OS_WIN
-        initPath = "C:/Program Files (x86)/Hearthstone";
-#endif
-#ifdef Q_OS_MAC
         initPath = "/Applications/Hearthstone";
-#endif
-#ifdef Q_OS_LINUX
-        initPath = findLinuxLogs("*/Program Files*/Hearthstone");
-#endif
 
         if(!QFileInfo::exists(initPath))
         {
@@ -285,17 +266,7 @@ bool LogLoader::readLogConfigPath()
 QString LogLoader::createDefaultLogConfig()
 {
     QString initPath = "";
-#ifdef Q_OS_WIN
-    initPath = QDir::homePath() + "/AppData/Local/Blizzard/Hearthstone/log.config";
-#endif
-#ifdef Q_OS_MAC
     initPath = QDir::homePath() + "/Library/Preferences/Blizzard/Hearthstone/log.config";
-#endif
-#ifdef Q_OS_LINUX
-    initPath = findLinuxLogs("*/AppData/Local/Blizzard/Hearthstone");
-    if(initPath.isEmpty())      initPath = findLinuxLogs("*/Local Settings/Application Data/Blizzard/Hearthstone");
-    if(!initPath.isEmpty())     initPath += "/log.config";
-#endif
 
     if(initPath.isEmpty()) return "";
 
@@ -312,7 +283,6 @@ QString LogLoader::createDefaultLogConfig()
         {
             return initPath;
         }
-#ifdef Q_OS_MAC
         //Hearthstone never started on this account yet: its settings dir is created, instead of asking for a file
         //that doesn't exist. The game reads log.config from there when it starts.
         if(QDir().mkpath(hsDir))
@@ -320,7 +290,6 @@ QString LogLoader::createDefaultLogConfig()
             emit pDebug("Created Hearthstone settings dir: " + hsDir);
             return initPath;
         }
-#endif
     }
 
     return "";
@@ -471,12 +440,6 @@ void LogLoader::setMaxUpdateTime(int value)
 QString LogLoader::getLogConfigPath()
 {
     return this->logConfig;
-}
-
-
-QString LogLoader::getLogsDirPath()
-{
-    return this->logsDirPath;
 }
 
 

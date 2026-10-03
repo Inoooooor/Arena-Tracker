@@ -48,9 +48,6 @@ void DeckCard::setCode(QString code)
         type = Utility::getTypeFromCode(code);
         name = Utility::getCardAttribute(code, "name").toString();
         rarity = Utility::getRarityFromCode(code);
-        cardClass = Utility::getClassFromCode(code);
-        cardRace = Utility::getRaceFromCode(code);
-        cardSchool = Utility::getSchoolFromCode(code);
     }
     else
     {
@@ -58,9 +55,6 @@ void DeckCard::setCode(QString code)
         type = INVALID_TYPE;
         name = "unknown";
         rarity = INVALID_RARITY;
-        cardClass = {INVALID_CLASS};
-        cardRace = {INVALID_RACE};
-        cardSchool = INVALID_SCHOOL;
     }
 }
 
@@ -100,20 +94,3 @@ CardRarity DeckCard::getRarity()
     return rarity;
 }
 
-
-QList<CardClass> DeckCard::getCardClass()
-{
-    return cardClass;
-}
-
-
-QList<CardRace> DeckCard::getRace()
-{
-    return cardRace;
-}
-
-
-CardSchool DeckCard::getSchool()
-{
-    return cardSchool;
-}

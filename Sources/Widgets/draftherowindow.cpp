@@ -70,12 +70,6 @@ void DraftHeroWindow::hideScores(bool quick)
 }
 
 
-void DraftHeroWindow::showPlayerScores(bool show)
-{
-    (void)show;
-}
-
-
 //[hand] [class icon] [Firestone: winrate, games]
 void DraftHeroWindow::paintEvent(QPaintEvent *)
 {

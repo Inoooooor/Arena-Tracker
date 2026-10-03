@@ -1,8 +1,6 @@
 #include "mainwindow.h"
-#ifdef Q_OS_MAC
 #include "Utils/macwindow.h"
 #include "Utils/macocr.h"
-#endif
 #include "utility.h"
 #include "Widgets/cardwindow.h"
 #include "versionchecker.h"
@@ -11,10 +9,6 @@
 #include "Utils/pickrating.h"
 #include <QtConcurrent/QtConcurrent>
 #include <QtWidgets>
-
-#ifdef Q_OS_LINUX
-    #include "Utils/capturemanager.h"
-#endif
 
 
 //Never shown: it owns the handlers and wires them; the user sees the mascot and the draft overlays
@@ -49,10 +43,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
     QTimer::singleShot(1000, this, SLOT(init()));
 
-#ifdef Q_OS_MAC
     new MacHoverTracker(this);
     new MacFullScreenOverlay(this);
-#endif
 }
 
 
@@ -88,10 +80,6 @@ void MainWindow::initVariables()
     winratesDownloader = nullptr;
     draftHandler = nullptr;
     deckHandler = nullptr;
-
-#ifdef Q_OS_LINUX
-    CaptureManager::init(this);
-#endif
 }
 
 
@@ -100,10 +88,6 @@ void MainWindow::init()
     //Shown here, after MacFullScreenOverlay exists, so it can show over fullscreen Hearthstone too; not over the splash
     initDone = true;
     if(!splashOpen)     mascotWindow->show();
-
-#ifdef Q_OS_LINUX
-    checkLinuxShortcut();
-#endif
 }
 
 
@@ -113,25 +97,12 @@ void MainWindow::logPlatform()
     pDebug("MODE DEBUG");
 #endif
 
-#ifdef Q_OS_WIN
-    pDebug("Platform: Windows");
-#endif
 
-#ifdef Q_OS_MAC
     pDebug("Platform: Mac");
-#endif
 
-#ifdef Q_OS_LINUX
-    #ifdef APPIMAGE
-        pDebug("Platform: Linux AppImage");
-    #else
-        pDebug("Platform: Linux Static");
-    #endif
-#endif
 
     pDebug("Path Arena Tracker Dir: " + Utility::dataPath());
 }
-
 
 
 void MainWindow::resetDeckDontRead()
@@ -310,8 +281,6 @@ void MainWindow::replyFinished(QNetworkReply *reply)
             QByteArray data = reply->readAll();
             QString targetPath = Utility::extraPath() + "/" + endUrl;
             Utility::dumpOnFile(data, targetPath);
-
-            if(endUrl == "captureHelper")   Utility::setExecutablePermissions(targetPath);
         }
     }
 }
@@ -727,11 +696,7 @@ void MainWindow::createMascotWindow()
     //The log goes with the report: shown in Finder, ready to drop into the Discord
     connect(mascotWindow, &MascotWindow::reportRequested, this, []() {
         const QString logPath = Utility::dataPath() + "/ArenaTrackerLog.txt";
-#ifdef Q_OS_MAC
         QProcess::startDetached("open", {"-R", logPath});
-#else
-        QDesktopServices::openUrl(QUrl::fromLocalFile(Utility::dataPath()));
-#endif
         QDesktopServices::openUrl(QUrl(MASCOT_DISCORD_URL));
     });
     connect(mascotWindow, SIGNAL(cardEntered(QString,QRect,int,int)),
@@ -744,7 +709,7 @@ void MainWindow::createMascotWindow()
             this, SLOT(mascotStartGame()));
     connect(gameWatcher, SIGNAL(endGame(bool,bool)),
             this, SLOT(mascotEndGame(bool,bool)));
-    connect(gameWatcher, SIGNAL(enemySecretPlayed(int,CardClass,LoadingScreenState)),
+    connect(gameWatcher, SIGNAL(enemySecretPlayed()),
             this, SLOT(mascotEnemySecret()));
     connect(draftHandler, SIGNAL(redraftScreenChanged(int)),
             this, SLOT(mascotRedraftScreen(int)));
@@ -878,14 +843,10 @@ void MainWindow::splashClosed()
 void MainWindow::mascotGreeting()
 {
     bool hearthstoneRunning = true;
-#ifdef Q_OS_MAC
     hearthstoneRunning = !MacOcr::hearthstoneWindowRect().isNull();
-#endif
     bool screenRecording = true;
-#ifdef Q_OS_MAC
     screenRecording = MacWindow::hasScreenRecording();
     if(!screenRecording && MacWindow::isNative())   MacWindow::requestScreenRecording();     //Not in an offscreen test run
-#endif
     //Without it the mascot sees no draft: asked first. Stays until something else is said.
     if(!screenRecording)
     {
@@ -1491,12 +1452,6 @@ void MainWindow::downloadExtraFiles()
     downloadExtraFile("MANA.dat");
     downloadExtraFile("RARITY.dat");
 
-#ifdef Q_OS_LINUX
-    if(CaptureManager::isWaylandSession())
-    {
-        downloadExtraFile("captureHelper");
-    }
-#endif
 
     QFileInfo file = QFileInfo(Utility::extraPath() + "/icon.png");
     if(!file.exists())  networkManager->get(QNetworkRequest(QUrl(IMAGES_URL + QString("/icon.png"))));
@@ -1611,91 +1566,6 @@ void MainWindow::removeHistograms()
     QDir dir = QDir(Utility::histogramsPath());
     dir.removeRecursively();
     pDebug(Utility::histogramsPath() + " removed.");
-}
-
-
-void MainWindow::checkLinuxShortcut()
-{
-    QSettings settings;
-    bool shortcutAsked = settings.value("shortcutAsked", false).toBool();
-
-    if(!shortcutAsked)
-    {
-#ifdef APPIMAGE
-        QFile appFile(Utility::dataPath() + "/ArenaTracker.Linux.AppImage");
-        if(appFile.exists())
-        {
-            settings.setValue("shortcutAsked", true);
-            createLinuxShortcut();
-            showMessageAppImageShortcut();
-        }
-#else
-        settings.setValue("shortcutAsked", true);
-        askLinuxShortcut();
-#endif
-    }
-}
-
-
-void MainWindow::askLinuxShortcut()
-{
-    int answer = QMessageBox::question(this, tr("Create shortcut?"), tr("Do you want to create a desktop shortcut\nand a menu item for Arena Tracker?"),
-                             QMessageBox::Yes, QMessageBox::No);
-    if(answer == QMessageBox::Yes)
-    {
-        createLinuxShortcut();
-    }
-}
-
-
-void MainWindow::showMessageAppImageShortcut()
-{
-    QMessageBox::information(this, tr("Use the shorcut"),
-                    tr("Arena Tracker AppImage has been copied to \n(~/.local/share/Arena Tracker) and a new shortcut has been created "
-                       "in your desktop linked to that AppImage."
-                       "\n\nFrom now on you should run Arena Tracker from that shortcut."
-                       "\nYou can also remove the AppImage you downloaded."),
-                    QMessageBox::Ok);
-}
-
-
-void MainWindow::createLinuxShortcut()
-{
-#ifdef APPIMAGE
-    QString appImagePath = Utility::dataPath() + "/ArenaTracker.Linux.AppImage";
-#else
-    QString appImagePath = Utility::appPath() + "/ArenaTracker";
-#endif
-
-    //Menu Item shortcut
-    QFile shortcutFile(QStandardPaths::writableLocation(QStandardPaths::DesktopLocation) + "/ArenaTracker.desktop");
-    if(shortcutFile.exists())   shortcutFile.remove();
-    if(!shortcutFile.open(QIODevice::WriteOnly))
-    {
-        pDebug("ERROR: Cannot create ArenaTracker.desktop", DebugLevel::Error);
-        return;
-    }
-    shortcutFile.setPermissions(QFileDevice::ExeOwner | QFileDevice::ReadOwner | QFileDevice::WriteOwner);
-
-    QTextStream out(&shortcutFile);
-
-    out << "[Desktop Entry]" << Qt::endl;
-    out << "Type=Application" << Qt::endl;
-    out << "Name=ArenaTracker" << Qt::endl;
-    out << "Comment=Hearthstone Arena Assistant" << Qt::endl;
-    out << "Exec=\"" + appImagePath + "\"" << Qt::endl;
-    out << "Icon=" + Utility::extraPath() + "/icon.png" << Qt::endl;
-    out << "Categories=Game;StrategyGame;" << Qt::endl;
-
-    shortcutFile.close();
-
-    //Desktop shortcut
-    QString appShorcutFilename = QDir::homePath() + "/.local/share/applications/ArenaTracker.desktop";
-    QFile appShortcut(appShorcutFilename);
-    if(appShortcut.exists())    appShortcut.remove();
-    shortcutFile.copy(appShorcutFilename);
-
-    pDebug("Desktop and menu shorcut created pointing to " + appImagePath);
 }
 
 

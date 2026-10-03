@@ -16,12 +16,6 @@ void HDImages::create(QObject *parent)
 }
 
 
-HDImages *HDImages::instance()
-{
-    return self;
-}
-
-
 QString HDImages::filePath(Kind kind, const QString &code)
 {
     QString dir = Utility::dataPath() + "/HD Images/";

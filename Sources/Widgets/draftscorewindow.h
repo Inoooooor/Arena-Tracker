@@ -7,8 +7,6 @@
 
 
 #define MARGIN 10
-#define CLOSE_FIRE_WINRATE  1.0     //Points under the best card winrate that still get a flat hand
-#define CLOSE_HA_SCORE      5       //HearthArena points under the best score that still get a flat hand
 #define CLOSE_RATING        0.25f   //Pick rating (class spreads) under the best card that still gets a flat hand
 
 

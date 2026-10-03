@@ -5,9 +5,6 @@
 #include "opencv2/calib3d.hpp"
 #include "opencv2/highgui.hpp"
 
-#ifdef Q_OS_LINUX
-    #include "Utils/capturemanager.h"
-#endif
 
 using namespace libzippp;
 using namespace std;
@@ -23,12 +20,10 @@ QStringList Utility::arenaSets;
 
 Utility::Utility()
 {
-
 }
 
 Utility::~Utility()
 {
-
 }
 
 
@@ -106,64 +101,6 @@ CardClass Utility::classLogNumber2classEnum(const QString &hero)
 }
 
 
-QString Utility::classLogNumber2classUL_ULName(const QString &hero)
-{
-    if(hero == QString("06"))       return "Druid";
-    else if(hero == QString("05"))  return "Hunter";
-    else if(hero == QString("08"))  return "Mage";
-    else if(hero == QString("04"))  return "Paladin";
-    else if(hero == QString("09"))  return "Priest";
-    else if(hero == QString("03"))  return "Rogue";
-    else if(hero == QString("02"))  return "Shaman";
-    else if(hero == QString("07"))  return "Warlock";
-    else if(hero == QString("01"))  return "Warrior";
-    else if(hero == QString("10"))  return "Demon Hunter";
-    else if(hero == QString("11"))  return "Death Knight";
-    else                            return "";
-}
-
-
-QString Utility::classLogNumber2classULName(const QString &hero)
-{
-    if(hero == QString("06"))       return "Druid";
-    else if(hero == QString("05"))  return "Hunter";
-    else if(hero == QString("08"))  return "Mage";
-    else if(hero == QString("04"))  return "Paladin";
-    else if(hero == QString("09"))  return "Priest";
-    else if(hero == QString("03"))  return "Rogue";
-    else if(hero == QString("02"))  return "Shaman";
-    else if(hero == QString("07"))  return "Warlock";
-    else if(hero == QString("01"))  return "Warrior";
-    else if(hero == QString("10"))  return "Demonhunter";
-    else if(hero == QString("11"))  return "Deathknight";
-    else                            return "";
-}
-
-
-QString Utility::classLogNumber2classUName(const QString &hero)
-{
-    return Utility::classLogNumber2classULName(hero).toUpper();
-}
-
-
-QString Utility::classLogNumber2classLName(const QString &hero)
-{
-    return Utility::classLogNumber2classULName(hero).toLower();
-}
-
-
-//--------------------------------------------------------
-//----Return info about heroes in alphabetical order
-//----NEW HERO CLASS
-//--------------------------------------------------------
-QString Utility::classOrder2classColor(int order)
-{
-    QString heroesColors[NUM_HEROS+1] = {"#2c566a", "#1e5b3d", "#7f4f29", "#347c2c", "#699cd5", "#de9a3e", "#a4a4a4", "#4c4e54", "#0070DE", "#6c4177", "#912a21", "#A9A9A9"};
-    if(order < 0 || order > NUM_HEROS)    return "";
-    return heroesColors[order];
-}
-
-
 QString Utility::classOrder2classULName(int order)
 {
     QString heroes[NUM_HEROS] = {"Deathknight", "Demonhunter", "Druid", "Hunter", "Mage", "Paladin", "Priest", "Rogue", "Shaman", "Warlock", "Warrior"};
@@ -210,40 +147,6 @@ int Utility::className2classOrder(const QString &className)
 }
 
 
-
-
-
-QString Utility::getLoadingScreenToString(LoadingScreenState loadingScreen)
-{
-    switch(loadingScreen)
-    {
-        case arena:
-            return "ARENA";
-        case ranked:
-            return "RANKED";
-        case adventure:
-            return "SOLO";
-        case tavernBrawl:
-            return "BRAWL";
-        case friendly:
-            return "FRIENDLY";
-        default:
-            return "UNKNOWN";
-    }
-}
-
-
-LoadingScreenState Utility::getLoadingScreenFromString(const QString &loadingScreenString)
-{
-    if(loadingScreenString == "ARENA")          return arena;
-    else if(loadingScreenString == "RANKED")    return ranked;
-    else if(loadingScreenString == "SOLO")      return adventure;
-    else if(loadingScreenString == "BRAWL")     return tavernBrawl;
-    else if(loadingScreenString == "FRIENDLY")  return friendly;
-    else                                        return unknown;
-}
-
-
 QString Utility::cardEnNameFromCode(const QString &code)
 {
     return (*cardsJson)[code].value("name").toObject().value("enUS").toString();
@@ -253,15 +156,6 @@ QString Utility::cardEnNameFromCode(const QString &code)
 QString Utility::cardLocalNameFromCode(const QString &code)
 {
     return (*cardsJson)[code].value("name").toObject().value(localLang).toString();
-}
-
-
-QString Utility::cardEnTextFromCode(const QString &code)
-{
-    QString text = (*cardsJson)[code].value("text").toObject().value("enUS").toString();
-    text.replace('\n',' ');
-    text.replace(QChar(160), ' ');
-    return text;
 }
 
 
@@ -283,26 +177,6 @@ QStringList Utility::cardEnCodesFromName(const QString &name, bool onlyCollectib
 }
 
 
-QString Utility::cardLocalCodeFromName(const QString &name)
-{
-    for (QMap<QString, QJsonObject>::const_iterator it = cardsJson->cbegin(); it != cardsJson->cend(); it++)
-    {
-        if(it->value("name").toObject().value(localLang).toString() == name)
-        {
-            if(!it->value("cost").isUndefined())    return it.key();
-        }
-    }
-
-    return "";
-}
-
-
-bool Utility::isCardsJsonCode(const QString &code)
-{
-    return (*cardsJson).contains(code);
-}
-
-
 QJsonValue Utility::getCardAttribute(const QString &code, const QString &attribute)
 {
     if(attribute == "text" || attribute == "name")
@@ -313,33 +187,6 @@ QJsonValue Utility::getCardAttribute(const QString &code, const QString &attribu
     {
         return (*cardsJson)[code].value(attribute);
     }
-}
-
-
-QString Utility::getCodeFromCardAttribute(const QString &attribute, QJsonValue value)
-{
-    if(attribute == "text" || attribute == "name")
-    {
-        for (QMap<QString, QJsonObject>::const_iterator it = cardsJson->cbegin(); it != cardsJson->cend(); it++)
-        {
-            if(it->value(attribute).toObject().value(localLang) == value)
-            {
-                return it.key();
-            }
-        }
-    }
-    else
-    {
-        for (QMap<QString, QJsonObject>::const_iterator it = cardsJson->cbegin(); it != cardsJson->cend(); it++)
-        {
-            if(it->value(attribute) == value)
-            {
-                return it.key();
-            }
-        }
-    }
-
-    return "";
 }
 
 
@@ -365,89 +212,6 @@ CardRarity Utility::getRarityFromCode(const QString &code)
     else if(value == "EPIC")        return EPIC;
     else if(value == "LEGENDARY")   return LEGENDARY;
     else                            return INVALID_RARITY;
-}
-
-
-QList<CardRace> Utility::getRaceFromCode(const QString &code)
-{
-    QJsonValue jsonVraces = Utility::getCardAttribute(code, "races");
-    if(jsonVraces.isUndefined() || !jsonVraces.isArray())
-    {
-        QString stringCardRace = Utility::getCardAttribute(code, "race").toString();
-        return {raceString2cardRace(stringCardRace)};
-    }
-    else
-    {
-        QList<CardRace> cardRaceList;
-        for(const QJsonValue &jsonVrace: (const QJsonArray)jsonVraces.toArray())
-        {
-            cardRaceList << raceString2cardRace(jsonVrace.toString());
-        }
-        return cardRaceList;
-    }
-}
-
-
-//New race step
-CardRace Utility::raceString2cardRace(const QString &value)
-{
-    if(value == "BLOODELF")         return BLOODELF;
-    else if(value == "DRAENEI")     return DRAENEI;
-    else if(value == "DWARF")       return DWARF;
-    else if(value == "GNOME")       return GNOME;
-    else if(value == "GOBLIN")      return GOBLIN;
-    else if(value == "HUMAN")       return HUMAN;
-    else if(value == "NIGHTELF")    return NIGHTELF;
-    else if(value == "ORC")         return ORC;
-    else if(value == "TAUREN")      return TAUREN;
-    else if(value == "TROLL")       return TROLL;
-    else if(value == "UNDEAD")      return UNDEAD;
-    else if(value == "WORGEN")      return WORGEN;
-    else if(value == "GOBLIN2")     return GOBLIN2;
-    else if(value == "MURLOC")      return MURLOC;
-    else if(value == "DEMON")       return DEMON;
-    else if(value == "SCOURGE")     return SCOURGE;
-    else if(value == "MECHANICAL")  return MECHANICAL;
-    else if(value == "MECH")        return MECHANICAL;
-    else if(value == "ELEMENTAL")   return ELEMENTAL;
-    else if(value == "OGRE")        return OGRE;
-    else if(value == "BEAST")       return BEAST;
-    else if(value == "TOTEM")       return TOTEM;
-    else if(value == "NERUBIAN")    return NERUBIAN;
-    else if(value == "PIRATE")      return PIRATE;
-    else if(value == "DRAGON")      return DRAGON;
-    else if(value == "BLANK")       return BLANK;
-    else if(value == "ALL")         return ALL;
-    else if(value == "EGG")         return EGG;
-    else if(value == "QUILBOAR")    return QUILBOAR;
-    else if(value == "CENTAUR")     return CENTAUR;
-    else if(value == "FURBOLG")     return FURBOLG;
-    else if(value == "HIGHELF")     return HIGHELF;
-    else if(value == "TREANT")      return TREANT;
-    else if(value == "OWLKIN")      return OWLKIN;
-    else if(value == "HALFORC")     return HALFORC;
-    else if(value == "LOCK")        return LOCK;
-    else if(value == "NAGA")        return NAGA;
-    else if(value == "OLDGOD")      return OLDGOD;
-    else if(value == "PANDAREN")    return PANDAREN;
-    else if(value == "GRONN")       return GRONN;
-    else                            return INVALID_RACE;
-}
-
-
-CardSchool Utility::getSchoolFromCode(const QString &code)
-{
-    QString value = Utility::getCardAttribute(code, "spellSchool").toString();
-    if(value == "NONE")                 return NONE;
-    else if(value == "ARCANE")          return ARCANE;
-    else if(value == "FEL")             return FEL;
-    else if(value == "FIRE")            return FIRE;
-    else if(value == "FROST")           return FROST;
-    else if(value == "HOLY")            return HOLY;
-    else if(value == "SHADOW")          return SHADOW;
-    else if(value == "NATURE")          return NATURE;
-    else if(value == "PHYSICAL_COMBAT") return PHYSICAL_COMBAT;
-    else                                return INVALID_SCHOOL;
 }
 
 
@@ -541,53 +305,6 @@ CardClass Utility::classString2cardClass(const QString &value)
  */
 
 
-bool Utility::isFromStandardSet(const QString &code)
-{
-    QString cardSet = getCardAttribute(code, "set").toString();
-
-    if( cardSet == "CORE" ||
-//        cardSet == "LEGACY" || cardSet == "VANILLA" || cardSet == "DEMON_HUNTER_INITIATE" ||
-//        cardSet == "BASIC" || cardSet == "EXPERT1" || cardSet == "HOF" || //<-- LEGACY SET
-//        cardSet == "NAXX" || cardSet == "GVG" ||
-//        cardSet == "BRM" || cardSet == "TGT" || cardSet == "LOE" ||
-//        cardSet == "OG" || cardSet == "KARA" || cardSet == "GANGS" ||
-//        cardSet == "UNGORO" || cardSet == "ICECROWN" || cardSet == "LOOTAPALOOZA" ||
-//        cardSet == "GILNEAS" || cardSet == "BOOMSDAY" || cardSet == "TROLL" ||
-//        cardSet == "DALARAN" || cardSet == "ULDUM" || cardSet == "DRAGONS" || cardSet == "YEAR_OF_THE_DRAGON" ||
-//        cardSet == "BLACK_TEMPLE" || cardSet == "SCHOLOMANCE" || cardSet == "DARKMOON_FAIRE" ||
-//        cardSet == "THE_BARRENS" || cardSet == "STORMWIND" || cardSet == "ALTERAC_VALLEY" ||
-//        cardSet == "THE_SUNKEN_CITY" || cardSet == "REVENDRETH" || cardSet == "PATH_OF_ARTHAS" || cardSet == "RETURN_OF_THE_LICH_KING" ||
-//        cardSet == "BATTLE_OF_THE_BANDS" || cardSet == "TITANS" || cardSet == "WILD_WEST" ||
-        cardSet == "WHIZBANGS_WORKSHOP" || cardSet == "ISLAND_VACATION" || cardSet == "SPACE" ||
-        cardSet == "EMERALD_DREAM" || cardSet == "THE_LOST_CITY" || cardSet == "TIME_TRAVEL")
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-
-bool Utility::isASecret(const QString &code)
-{
-    const QJsonArray mechanics = getCardAttribute(code, "mechanics").toArray();
-
-    for(const QJsonValue &mechanic: mechanics)
-    {
-        if(mechanic.toString() == "SECRET") return true;
-    }
-    return false;
-}
-
-
-bool Utility::isAHero(const QString &code)
-{
-    return (Utility::getTypeFromCode(code) == HERO);
-}
-
-
 QStringList Utility::getSetCodes(const QString &set, bool excludeHeroes, bool onlyCollectible)
 {
     QStringList setCodes;
@@ -609,27 +326,6 @@ QStringList Utility::getSetCodes(const QString &set, bool excludeHeroes, bool on
 }
 
 
-QStringList Utility::getSetIntCodes(const int &set, bool excludeHeroes, bool onlyCollectible)
-{
-    QStringList setCodes;
-    const QList<QString> codeList = Utility::cardsJson->keys();
-    for(const QString &code: codeList)
-    {
-        if(getCardAttribute(code, "set").toInt() == set)
-        {
-            if  (
-                (!onlyCollectible || getCardAttribute(code, "collectible").toBool()) &&
-                (!excludeHeroes || !(code.startsWith("HERO_0") || code.startsWith("HERO_1")))
-                )
-            {
-                setCodes.append(code);
-            }
-        }
-    }
-    return setCodes;
-}
-
-
 QStringList Utility::getWildCodes()
 {
     QStringList setCodes;
@@ -637,22 +333,6 @@ QStringList Utility::getWildCodes()
     for(const QString &code: codeList)
     {
         if(getCardAttribute(code, "collectible").toBool() == true)
-        {
-            setCodes.append(code);
-        }
-    }
-    return setCodes;
-}
-
-
-QStringList Utility::getStandardCodes()
-{
-    QStringList setCodes;
-    const QList<QString> codeList = Utility::cardsJson->keys();
-    for(const QString &code: codeList)
-    {
-        if(Utility::isFromStandardSet(code) &&
-            (getCardAttribute(code, "collectible").toBool() == true))
         {
             setCodes.append(code);
         }
@@ -702,12 +382,6 @@ QJsonObject Utility::loadHearthArena()
 }
 
 
-bool Utility::getTrustHA()
-{
-    return Utility::trustHA;
-}
-
-
 //The local cards.json can be outdated until cardsVersion.json is checked (and the new one downloaded).
 bool Utility::isCardsJsonUpToDate()
 {
@@ -751,15 +425,11 @@ QString Utility::appPath()
 {
     QString dirPath = QCoreApplication::applicationDirPath();
 
-#ifdef Q_OS_MAC
     QDir dir(dirPath);
     dir.cdUp();
     dir.cdUp();
     dir.cdUp();
     return dir.absolutePath();
-#else
-    return dirPath;
-#endif
 }
 
 
@@ -769,11 +439,7 @@ QString Utility::dataPath()
     if(dirInfo.exists())   return dirInfo.absoluteFilePath();
     else
     {
-#ifdef Q_OS_LINUX
-        return QDir::homePath() + "/.local/share" + "/Arena Tracker";
-#else
         return QDir::homePath() + "/Arena Tracker";
-#endif
     }
 }
 
@@ -850,13 +516,6 @@ QString Utility::removeAccents(const QString &s)
 
 QImage Utility::getScreenshot(QScreen *screen)
 {
-#ifdef Q_OS_LINUX
-    if(CaptureManager::isWaylandSession())
-    {
-        return CaptureManager::instance().getLatestFrame();
-    }
-#endif
-
     QScreen *primaryScreen = QGuiApplication::primaryScreen();
     if(!primaryScreen || !screen)   return QImage();
 
@@ -903,7 +562,7 @@ std::vector<Point2f> Utility::findTemplateOnScreen(const QString &templateImage,
     goodMatches = 0;
     if(!screen.valid)   return screenPoints;
 
-    goodMatches = findTemplateOnScene(templateImage, screen.scene, templatePoints, screenPoints, 10, DEBUG_SHOW_MATCHES);
+    goodMatches = findTemplateOnScene(templateImage, screen.scene, templatePoints, screenPoints, 10);
     for(Point2f &point: screenPoints)   point *= static_cast<float>(1.0/screen.scale);
     return screenPoints;
 }
@@ -919,22 +578,22 @@ SceneFeatures Utility::sceneFeatures(const cv::Mat &mat)
 }
 
 
-ulong Utility::findTemplateOnMat(const QString &templateImage, cv::Mat &mat, bool showMatches)
+ulong Utility::findTemplateOnMat(const QString &templateImage, cv::Mat &mat)
 {
     std::vector<Point2f> templatePoints, targetPoints;
-    return findTemplateOnMat(templateImage, mat, templatePoints, targetPoints, 5, showMatches);
+    return findTemplateOnMat(templateImage, mat, templatePoints, targetPoints, 5);
 }
 
 
 ulong Utility::findTemplateOnMat(const QString &templateImage, cv::Mat &mat, const std::vector<Point2f> &templatePoints,
-                                std::vector<Point2f> &targetPoints, ulong minGoodMatches, bool showMatches)
+                                std::vector<Point2f> &targetPoints, ulong minGoodMatches)
 {
-    return findTemplateOnScene(templateImage, sceneFeatures(mat), templatePoints, targetPoints, minGoodMatches, showMatches);
+    return findTemplateOnScene(templateImage, sceneFeatures(mat), templatePoints, targetPoints, minGoodMatches);
 }
 
 
 ulong Utility::findTemplateOnScene(const QString &templateImage, const SceneFeatures &scene, const std::vector<Point2f> &templatePoints,
-                                  std::vector<Point2f> &targetPoints, ulong minGoodMatches, bool showMatches)
+                                  std::vector<Point2f> &targetPoints, ulong minGoodMatches)
 {
     Mat img_object = imread((Utility::extraPath() + "/" + templateImage).toStdString(), cv::IMREAD_GRAYSCALE );
     if(!img_object.data)
@@ -942,7 +601,6 @@ ulong Utility::findTemplateOnScene(const QString &templateImage, const SceneFeat
         qDebug() << "Utility: Cannot find" << templateImage;
         return 0;
     }
-    const Mat &img_scene = scene.gray;
     const std::vector<KeyPoint> &keypoints_scene = scene.keypoints;
     const Mat &descriptors_scene = scene.descriptors;
 
@@ -1024,88 +682,7 @@ ulong Utility::findTemplateOnScene(const QString &templateImage, const SceneFeat
     //-- Get the corners from the image_1 ( the object to be "detected" )
     cv::transform(templatePoints, targetPoints, A);
 
-    //Show matches (debug only: highgui isn't linked in the macOS bundle)
-#if DEBUG_SHOW_MATCHES
-    if(showMatches)
-    {
-        Mat img_matches;
-        drawMatches( img_object, keypoints_object, img_scene, keypoints_scene,
-                     good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-                     vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-        imshow( "Good Matches & Object detection", img_matches );
-    }
-#else
-    (void)showMatches;
-#endif
-
     return goodMatches;
-}
-
-
-QPropertyAnimation * Utility::fadeInWidget(QWidget * widget, bool force)
-{
-    QGraphicsOpacityEffect *eff = static_cast<QGraphicsOpacityEffect *>(widget->graphicsEffect());
-    if(eff == nullptr)
-    {
-        eff = new QGraphicsOpacityEffect(widget);
-        widget->setGraphicsEffect(eff);
-        eff->setOpacity(1);
-    }
-
-    if(eff->opacity() < 1 || force)
-    {
-        QPropertyAnimation *a = new QPropertyAnimation(eff,"opacity");
-        a->setDuration(ANIMATION_TIME);
-        a->setStartValue(0);
-        a->setEndValue(1);
-        a->setEasingCurve(SHOW_EASING_CURVE);
-        a->start(QPropertyAnimation::DeleteWhenStopped);
-        return a;
-    }
-    else    return nullptr;
-}
-
-
-QPropertyAnimation * Utility::fadeOutWidget(QWidget * widget, bool force)
-{
-    QGraphicsOpacityEffect *eff = static_cast<QGraphicsOpacityEffect *>(widget->graphicsEffect());
-    if(eff == nullptr)
-    {
-        eff = new QGraphicsOpacityEffect(widget);
-        widget->setGraphicsEffect(eff);
-        eff->setOpacity(1);
-    }
-
-    if(eff->opacity() > 0 || force)
-    {
-        QPropertyAnimation *a = new QPropertyAnimation(eff,"opacity");
-        a->setDuration(ANIMATION_TIME);
-        a->setStartValue(1);
-        a->setEndValue(0);
-        a->setEasingCurve(SHOW_EASING_CURVE);
-        a->start(QPropertyAnimation::DeleteWhenStopped);
-        return a;
-    }
-    else    return nullptr;
-}
-
-
-QPixmap Utility::getTransformedImage(QPixmap image, QPointF pos, QPointF anchor, qreal rot, QPointF &origin)
-{
-    QPointF center = QPointF(image.width() / 2, image.height() / 2);
-    qreal dist = QLineF(anchor, center).length();
-    qreal a = qAtan2(anchor.y() - center.y(), anchor.x() - center.x());
-    QPointF rotAnchor(qCos(rot + a) * dist, qSin(rot + a) * dist);
-    rotAnchor += center;
-
-    QPixmap rotImage = image.transformed(QTransform().rotateRadians(rot));
-
-    QPointF rotCenter = QPointF(rotImage.width() / 2, rotImage.height() / 2);
-    QPointF offset = rotCenter - center;
-
-    origin = pos - (rotAnchor + offset);
-
-    return rotImage;
 }
 
 
@@ -1149,17 +726,6 @@ void Utility::dumpOnFile(const QByteArray &data, const QString &path)
 }
 
 
-bool Utility::setExecutablePermissions(const QString &filePath)
-{
-    QFile file(filePath);
-    if(!file.exists())  return false;
-
-    QFileDevice::Permissions permissions = file.permissions();
-    permissions |= (QFileDevice::ExeUser | QFileDevice::ExeGroup | QFileDevice::ExeOther);
-    return file.setPermissions(permissions);
-}
-
-
 void Utility::clearLayout(QLayout* layout, bool deleteWidgets, bool recursive)
 {
     while(QLayoutItem* item = layout->takeAt(0))
@@ -1192,33 +758,6 @@ void Utility::showItemsLayout(QLayout* layout)
 }
 
 
-void Utility::fadeInLayout(QLayout* layout)
-{
-    fadeLayout(layout, true);
-}
-
-
-void Utility::fadeOutLayout(QLayout* layout)
-{
-    fadeLayout(layout, false);
-}
-
-
-void Utility::fadeLayout(QLayout* layout, bool in)
-{
-    for(int i=0; i<layout->count(); i++)
-    {
-        QLayoutItem *child = layout->itemAt(i);
-        QWidget *widget = child->widget();
-        if(widget != nullptr)
-        {
-            if(in)  fadeInWidget(widget);
-            else    fadeOutWidget(widget);
-        }
-    }
-}
-
-
 bool Utility::createDir(const QString &pathDir)
 {
     QFileInfo dirInfo(pathDir);
@@ -1246,9 +785,7 @@ void Utility::unZip(const QString &zipName, const QString &targetPath)
         int size = static_cast<int>(entry.getSize());
         if(name.endsWith('/'))
         {
-#ifdef Q_OS_MAC
             if(!name.endsWith("__MACOSX/"))
-#endif
             createDir(targetPath + "/" + name);
         }
         else
@@ -1265,274 +802,9 @@ void Utility::unZip(const QString &zipName, const QString &targetPath)
 }
 
 
-//Resize HEARTHSTONE TOP DECKS signature cards
-void Utility::resizeSignatureCards()
-{
-    QString goldenDir = QDir::homePath() + "/Documentos/ArenaTracker/HearthstoneGoldenCards";
-    QDir dir(goldenDir);
-    dir.setFilter(QDir::Files);
-    dir.setSorting(QDir::Name);
-    QStringList filterName;
-    filterName << "*.png";
-    dir.setNameFilters(filterName);
-    QRegularExpressionMatch match;
-    QStringList signatureCodes;
-
-    for(const QString &file: (const QStringList)dir.entryList())
-    {
-        if(file.contains(QRegularExpression(".*_([a-zA-Z0-9]+_[a-zA-Z0-9]+)_enUS_.*_SIGNATURE.*\\.png"), &match))
-        // if(file.contains(QRegularExpression("([a-zA-Z0-9]+_[a-zA-Z0-9]+)_premium\\.png"), &match))
-        {
-            QString code = match.captured(1);
-            QString fileName = code + "_premium.png";
-            QString destDir;
-
-            if(isCardsJsonCode(code))
-            {
-                if(getCardAttribute(code, "collectible").toBool())
-                {
-                    destDir = "Collectible";
-                    signatureCodes += code;
-                }
-                else    destDir = "Non-collectible";
-            }
-            else
-            {
-                destDir = "UnknownCode";
-            }
-
-            QImage webImage(goldenDir + "/" + file);
-            if(webImage.width() != 1024 || webImage.height() != 1024)
-            {
-                qDebug()<<"WRONG IMAGE SIZE: " + file;
-                continue;
-            }
-            webImage = webImage.copy(196, 14, 606, 920);//Minions
-            webImage = webImage.scaledToWidth(200, Qt::SmoothTransformation);//Minions
-
-            if(!webImage.save(goldenDir + "/" + destDir + "/" + fileName, "png"))
-            {
-                qDebug()<<"Failed to save card image to disk: " + fileName;
-            }
-            else
-            {
-                qDebug()<<"Card resized: " + destDir + "/" + fileName;
-            }
-        }
-        else
-        {
-            qDebug()<<"WRONG NAMEFILE: " + file;
-        }
-    }
-    qDebug()<<signatureCodes;
-}
-
-
-void Utility::checkTierlistsCount(const QStringList &arenaCodes)
-{
-    QStringList haSets;
-    QJsonObject haJsonObj = Utility::loadHearthArena();
-    for(int i=0; i<NUM_HEROS; i++)
-    {
-        const QString &heroLog = Utility::classOrder2classLogNumber(i);
-        const QString heroString = Utility::classLogNumber2classUL_ULName(heroLog);
-        const CardClass heroClass = (CardClass)i;
-
-        qDebug()<<Qt::endl<<"--------------------"<<heroString<<"--------------------";
-        QMap<QString, QString> arenaMap;
-
-        //Arena Codes List
-        for(const QString &code: arenaCodes)
-        {
-            QList<CardClass> cardClassList = Utility::getClassFromCode(code);
-            if(cardClassList.contains(NEUTRAL) || cardClassList.contains(heroClass))
-            {
-                arenaMap[code] = "";
-            }
-        }
-        const QStringList arenaCodes = arenaMap.keys();
-
-
-        //HearthArena Codes List
-        const QStringList haNames = haJsonObj.value(heroString).toObject().keys();
-
-        qDebug()<<heroString<<"Arena count:"<<arenaMap.count();
-        qDebug()<<heroString<<"HearthArena count:"<<haNames.count();
-
-
-        //Check Missing cards
-        bool missing = false;
-        for(const QString &code: arenaCodes)
-        {
-            QString name = Utility::cardEnNameFromCode(code);
-            if(haNames.contains(name))
-            {
-                QStringList arenaNames = arenaMap.values();
-                if(arenaNames.contains(name))
-                {
-                    qDebug()<<"Duplicated card in arenaSets:"<<code<<arenaMap.keys(name)<<name;
-                }
-                else
-                {
-                    QString set = getCardAttribute(code, "set").toString();
-                    if(!haSets.contains(set))
-                    {
-                        haSets << set;
-                        // qDebug()<<"Add SET "<<set<<" for CODE "<<code;
-                    }
-                }
-                arenaMap[code] = name;
-            }
-            else
-            {
-                qDebug()<<"HearthArena missing:"<<code<<name;
-                missing = true;
-            }
-        }
-        if(!missing)    qDebug()<<"HearthArena OK!";
-        missing = false;
-        QStringList arenaNames = arenaMap.values();
-        for(const QString &name: haNames)
-        {
-            if(!arenaNames.contains(name))
-            {
-                QStringList codes = Utility::cardEnCodesFromName(name);
-                if(codes.isEmpty())  codes = Utility::cardEnCodesFromName(name, false);
-                if(codes.isEmpty())  qDebug()<<"HearthArena WRONG NAME!!!"<<name;
-                else
-                {
-                    qDebug()<<"Arena missing:"<<codes<<name;
-                    missing = true;
-                    QString set = getCardAttribute(codes.first(), "set").toString();
-                    if(!haSets.contains(set))
-                    {
-                        haSets << set;
-                        // qDebug()<<"Add SET "<<set<<" for CODE "<<codes;
-                    }
-                }
-            }
-        }
-        if(!missing)    qDebug()<<"Arena OK!";
-    }
-
-    arenaSets.sort();
-    haSets.sort();
-    qDebug()<<Qt::endl<<"---------------------------------------------------------------------------"
-                "SETS ---------------------------------------------------------------------------";
-    qDebug()<<"Arena Sets:"<<arenaSets;
-    qDebug()<<"HA    Sets:"<<haSets;
-    qDebug()<<"---------------------------------------------------------------------------"
-                "SETS ---------------------------------------------------------------------------"<<Qt::endl;
-}
-
-
-QStringList Utility::getArenaSets(const QStringList &codeList)
-{
-    QStringList arenaSets;
-    for(const QString &code: codeList)
-    {
-        QString cardSet = Utility::getCardAttribute(code, "set").toString();
-        if(!arenaSets.contains(cardSet))    arenaSets.append(cardSet);
-    }
-    return arenaSets;
-}
-
-
-bool Utility::checkHeroPortrait(const QString &code)
-{
-    if(code.isEmpty())  return false;
-
-    QFileInfo cardFile(QDir::homePath() + "/Documentos/ArenaTracker/HearthstoneCards/" + code + ".png");
-
-    if(!cardFile.exists())  return false;
-    return true;
-}
-
-
-void Utility::checkMissingGoldenCards()
-{
-    QDir dir(QDir::homePath() + "/Documentos/ArenaTracker/HearthstoneCards");
-    dir.setFilter(QDir::Files);
-    dir.setSorting(QDir::Name);
-    QStringList filterName;
-    filterName << "*.png";
-    dir.setNameFilters(filterName);
-
-    QStringList files = dir.entryList();
-
-    for(int i = 0; i < (files.count()-1); i++)
-    {
-        if(!files[i].endsWith("_premium.png"))
-        {
-            QString code = files[i].left(files[i].length()-4);
-
-            if(files[i+1].endsWith("_premium.png"))
-            {
-                if(code == files[i+1].left(files[i+1].length()-12))
-                {
-                    if(QFileInfo(dir.absoluteFilePath(files[i])).size() == QFileInfo(dir.absoluteFilePath(files[i+1])).size())
-                    {
-                        qDebug()<<"Same golden:" << code << "-" << Utility::cardEnNameFromCode(code);
-                    }
-                }
-                else
-                {
-                    qDebug()<<"DEBUG MISSING GOLDEN: ERROR: Files missing"<<files[i]<<files[i+1];
-                }
-            }
-            else if(!code.startsWith("HERO_"))
-            {
-                qDebug()<<"----- NO golden:" << code << "-" << Utility::cardEnNameFromCode(code);
-            }
-        }
-    }
-}
-
-
-void Utility::timeStamp(const QString &tag)
-{
-    static qint64 start;
-    qint64 end = QDateTime::currentMSecsSinceEpoch();
-    qDebug()<<tag<<end-start;
-    start = end;
-}
-
-
-void Utility::buildDbfIdMap(QMap<int, QString> *map)
-{
-    for(QMap<QString, QJsonObject>::const_iterator it = cardsJson->cbegin(); it != cardsJson->cend(); it++)
-    {
-        map->insert(it->value("dbfId").toInt(), it.key());
-    }
-}
-
-
 //--------------------------------------------------------
 //----Constants
 //--------------------------------------------------------
-
-
-bool Utility::codeEqConstant(const QString &code, const QString &codeConstant)
-{
-    QString coreCodeConstant = "CORE_" + codeConstant;
-    if(code == codeConstant || code == coreCodeConstant)    return true;
-    return false;
-}
-
-
-QString Utility::otherCodeConstant(const QString &code)
-{
-    QString otherCode;
-    if(code.startsWith("CORE_"))
-    {
-        otherCode = code.mid(5);
-    }
-    else
-    {
-        otherCode = "CORE_" + code;
-    }
-    return otherCode;
-}
 
 
 //--------------------------------------------------------
@@ -1611,110 +883,5 @@ QStringList Utility::getSetCodesSpecific(const QString &set)
         return codes;
     }
     return {};
-}
-
-
-int Utility::getCorrectedCardMana(const QString &code, int cost)
-{
-    QString otherCode = Utility::otherCodeConstant(code);
-
-    //Evitar draw/discover cost 0/1/2 -> no draw y mantenemos coste original
-    //Descuento minions on board -> suponemos 2 aliados y 2 enemigos (4 total)
-    //Descuento spells cast this game -> 3
-    {
-        QStringList candidates = {
-            GRASP_THE_FUTURE, TIMEWAY_WANDERER, BLOODBLOOM, PRIMORDIAL_GLYPH, FAR_SIGHT, CHEAT_DEATH,
-            LUNAS_POCKET_GALAXY, ACADEMIC_ESPIONAGE, HAUNTING_VISIONS, WAXMANCY, IMPRISONED_SATYR, SKULL_OF_GULDAN, DEMONIC_STUDIES,
-            DRACONIC_STUDIES, ATHLETIC_STUDIES, PRIMORDIAL_STUDIES, CARRION_STUDIES, NATURE_STUDIES, ILLIDARI_STUDIES, INSIGHT,
-            FLOODSAIL_DECKHAND, EFFICIENT_OCTOBOT, LIVING_SEED, SCABBS_CUTTERBUTTER, KINDLING_ELEMENTAL, CELESTIAL_INK_SET,
-            RUNED_MITHRIL_ROD, SIGIL_OF_ALACRITY, TO_THE_FRONT, CERATHINE_FLEETRUNNER, RECONNAISSANCE, SHIVERING_SORCERESS,
-            BRACING_COLD, WAYWARD_SAGE, SWIFTSCALE_TRICKSTER, PLANTED_EVIDENCE, SERRATED_BONE_SPIKE, MURLOCULA, BONELORD_FROSTWHISPER,
-            ROTTEN_RODENT, PRIESTESS_VALISHJ, FREQUENCY_OSCILLATOR, LOVE_EVERLASTING, BIG_DREAMS, BLOOD_TREANT, AQUA_ARCHIVIST,
-            HUNTERS_INSIGHT, SANDBOX_SCOUNDREL, ENSMALLEN, AVIANA_ELUNES_CHOSEN, REANIMATED_PTERRORDAX, ENTOMOLOGIST_TORU, BLASTEROID,
-            BLOOD_DRAW, ALTER_TIME
-        };
-        if(candidates.contains(code) || candidates.contains(otherCode)) return 0;
-    }
-
-    {
-        QStringList candidates = {
-            FROM_THE_DEPTHS, EYE_BEAM, AUCTIONHOUSE_GAVEL, SI7_SKULKER, PRIDE_SEEKER, STORMPIKE_MARSHAL, MURKWATER_SCRIBE,
-            LIFE_FROM_DEATH, RUSH_THE_STAGE, HOLY_COWBOY, LOAD_THE_CHAMBER, SPARKLING_PHIAL, BOULDERING_BUDDY, FELFIRE_BONFIRE
-        };
-        if(candidates.contains(code) || candidates.contains(otherCode)) return 1;
-    }
-
-    {
-        QStringList candidates = {
-            FRENZIED_FELWING, PALM_READING, FELGORGER, FROSTWOLF_WARMASTER, STORMPIKE_BATTLE_RAM, SEAFLOOR_GATEWAY, GREENTHUMB_GARDENER,
-            LIGHT_OF_THE_PHOENIX, SPREAD_THE_WORD, JAZZ_BASS, ALTERED_CHORD, CATTLE_RUSTLER, FOR_GLORY
-        };
-        if(candidates.contains(code) || candidates.contains(otherCode)) return 2;
-    }
-
-    {
-        QStringList candidates = {
-            NERUBIAN_PROPHET, CORRIDOR_CREEPER, SECOND_RATE_BRUISER, DREAMPETAL_FLORIST, FEL_GUARDIANS, CUTTING_CLASS, GRANITE_FORGEBORN,
-            CLUMSY_COURIER, EXCAVATION_SPECIALIST, ANUBREKHAN, INZAH, WISDOM_OF_NORGANNON, TRAM_OPERATOR, SPIRIT_PEDDLER, URSOL
-        };
-        if(candidates.contains(code) || candidates.contains(otherCode)) return 3;
-    }
-
-    {
-        QStringList candidates = {
-            MOLTEN_BLADE, SHIFTER_ZERUS, SHIFTING_SCROLL, CHAMELEOS, UMBRAL_OWL, TENT_TRASHER, FROSTSABER_MATRIARCH, WILDPAW_GNOLL,
-            SCRIBBLING_STENOGRAPHER, SHADOW_OF_DEMISE, RELIC_OF_DIMENSIONS, STITCHED_GIANT, DJ_MANASTORM, STARSTRUNG_BOW, PRISMATIC_BEAM,
-            THRISTY_DRIFTER, MANTLE_SHAPER, TABLE_FLIP, EREDAR_BRUTE, AGAMAGGAN, TECHYSAURUS
-        };
-        if(candidates.contains(code) || candidates.contains(otherCode)) return 4;
-    }
-
-    {
-        QStringList candidates = {
-            FORBIDDEN_SHAPING, FORBIDDEN_FLAME, FORBIDDEN_HEALING, FORBIDDEN_RITUAL, FORBIDDEN_ANCIENT, FORBIDDEN_WORDS, MOGU_FLESHSHAPER,
-            RABBLE_BOUNCER, DEVOUT_PUPIL, EMBIGGEN, POWER_WORD_FORTITUDE, SHIELD_SHATTER, LOKHOLAR_THE_ICE_LORD, LIGHTRAY, CRYPT_KEEPER,
-            VENGEFUL_WALLOPER, ABYSSAL_BASSIST, IMPRISONED_HORROR, CULTIVATION, FORBIDDEN_FRUIT, RED_GIANT
-        };
-        if(candidates.contains(code) || candidates.contains(otherCode)) return 5;
-    }
-
-    {
-        QStringList candidates = {
-            TIMEBOUND_GIANT, DEMONBOLT, SEA_GIANT, BLOODBOIL_BRUTE, FLESH_GIANT, IREBOUND_BRUTE, THE_GARDENS_GRACE,
-            GIGANTOTEM, GOLDSHIRE_GNOLL, LIVING_HORIZON, SEASIDE_GIANT
-        };
-        if(candidates.contains(code) || candidates.contains(otherCode)) return 6;
-    }
-
-    {
-        QStringList candidates = {
-            URZUL_GIANT, LOST_EXARCH, FYE_THE_SETTING_SUN
-        };
-        if(candidates.contains(code) || candidates.contains(otherCode)) return 7;
-    }
-
-    {
-        QStringList candidates = {
-            CLOCKWORK_GIANT, MULCHMUNCHER, RESKA_THE_PIT_BOSS
-        };
-        if(candidates.contains(code) || candidates.contains(otherCode)) return 8;
-    }
-
-    {
-        QStringList candidates = {
-            GRAVE_HORROR
-        };
-        if(candidates.contains(code) || candidates.contains(otherCode)) return 9;
-    }
-
-    {
-        QStringList candidates = {
-            LIVING_MANA, NAGA_GIANT, FANOTTEM_LORD_OF_THE_OPERA, YOGG_SARON_UNLEASHED, PLAYHOUSE_GIANT, THE_CEASELESS_EXPANSE
-        };
-        if(candidates.contains(code) || candidates.contains(otherCode)) return 10;
-    }
-
-    int overload = Utility::getCardAttribute(code, "overload").toInt();
-    return std::min(10, cost) + overload;
 }
 

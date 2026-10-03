@@ -16,7 +16,6 @@ public:
     enum Kind { Tile, Render, Portrait };
 
     static void create(QObject *parent);
-    static HDImages *instance();
     //Local file of the image, or empty: then it is downloaded and ready() comes after
     static QString path(Kind kind, const QString &code);
 

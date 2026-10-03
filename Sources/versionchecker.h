@@ -29,12 +29,10 @@ private:
     void downloadLatestVersion(const QJsonObject &versionJsonObject);
     void saveRestart(const QByteArray &data);
     void removeOldNewVersion();
-    void saveRestartAppImage(const QByteArray &data);
     void showVersionLog(QString changesLog);
     bool isNewApp();
     void newAppReplace();
     void saveRestartOld(const QByteArray &data);
-    void saveRestartNew(const QByteArray &data);
 
 signals:
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="VersionChecker");

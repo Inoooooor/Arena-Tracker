@@ -86,21 +86,6 @@ void VersionChecker::checkUpdate(QByteArray versionJson)
     versionJsonObject = QJsonDocument::fromJson(versionJson).object();
 
 
-    //AppImage version se baja siempre en el primer run para que el usuario ejecute el
-    //AppImage de ~/Arena Tracker
-    //Al reiniciar se crearan los shortcut
-#ifdef Q_OS_LINUX
-    #ifdef APPIMAGE
-    QFile appFile(Utility::dataPath() + "/ArenaTracker.Linux.AppImage");
-    if(!appFile.exists())
-    {
-        downloadLatestVersion(versionJsonObject);
-        return;
-    }
-    #endif
-#endif
-
-
     QSettings settings;
     QString remindedVersion = settings.value("version", "").toString();
 
@@ -203,21 +188,9 @@ void VersionChecker::downloadLatestVersion(const QJsonObject &versionJsonObject)
 {
     QString binaryUrl = "";
 
-#ifdef Q_OS_WIN
-    binaryUrl = versionJsonObject.value("windowsUrl").toString();
-#endif
 
-#ifdef Q_OS_MAC
         binaryUrl = versionJsonObject.value("macUrl").toString();
-#endif
 
-#ifdef Q_OS_LINUX
-    #ifdef APPIMAGE
-        binaryUrl = versionJsonObject.value("linuxAppUrl").toString();
-    #else
-        binaryUrl = versionJsonObject.value("linuxStaticUrl").toString();
-    #endif
-#endif
 
     if(!binaryUrl.isEmpty())
     {
@@ -232,43 +205,14 @@ void VersionChecker::saveRestart(const QByteArray &data)
 {
     emit pDebug("New binary --> Download Success.");
 
-#ifdef Q_OS_LINUX
-    #ifdef APPIMAGE
-        saveRestartAppImage(data);
-        return;
-    #endif
-#endif
 
-#ifdef Q_OS_WIN
-    saveRestartNew(data);
-#else
     saveRestartOld(data);
-#endif
-}
-
-
-void VersionChecker::saveRestartAppImage(const QByteArray &data)
-{
-    QString runningBinaryName = "ArenaTracker.Linux.AppImage";
-    QString runningBinaryPath = Utility::dataPath() + "/" + runningBinaryName;
-
-    QFile appFile(runningBinaryPath);
-    if(appFile.exists())    appFile.rename(Utility::dataPath() + "/ArenaTracker.old");
-
-    Utility::dumpOnFile(data, runningBinaryPath);
-    QFile::setPermissions(runningBinaryPath, QFileDevice::ExeOther|QFileDevice::ReadOther|
-                          QFileDevice::ExeGroup|QFileDevice::ReadGroup|
-                          QFileDevice::ExeUser|QFileDevice::WriteUser|QFileDevice::ReadUser|
-                          QFileDevice::ExeOwner|QFileDevice::WriteOwner|QFileDevice::ReadOwner);
-
-    QProcess::startDetached(runningBinaryPath, qApp->arguments());
-    static_cast<QMainWindow*>(this->parent())->close();
 }
 
 
 void VersionChecker::saveRestartOld(const QByteArray &data)
 {
-    emit pDebug("Using ArenaTracker.old renaming for Linux/Mac.");
+    emit pDebug("Using ArenaTracker.old renaming.");
 
     QString runningBinaryName = QCoreApplication::applicationFilePath().split("/").last();
     QString runningBinaryPath = Utility::appPath() + "/" + runningBinaryName;
@@ -291,41 +235,6 @@ void VersionChecker::saveRestartOld(const QByteArray &data)
     emit pDebug("Start downloaded ArenaTracker...");
 
     QProcess::startDetached(qApp->arguments()[0], qApp->arguments());
-    static_cast<QMainWindow*>(this->parent())->close();
-}
-
-
-void VersionChecker::saveRestartNew(const QByteArray &data)
-{
-    emit pDebug("Using ArenaTracker.new workaround for WIN10.");
-
-    QString runningBinaryName = QCoreApplication::applicationFilePath().split("/").last();
-    QString runningBinaryPath = Utility::appPath() + "/" + runningBinaryName;
-    QString dataBinaryPath = Utility::dataPath() + "/" + runningBinaryName;
-
-    QFile appFile(runningBinaryPath);
-    QFile::Permissions permissions = appFile.permissions();
-
-    Utility::dumpOnFile(data, Utility::dataPath() + "/binaryTemp.zip");
-    Utility::unZip(Utility::dataPath() + "/binaryTemp.zip", Utility::dataPath());
-    QFile zipFile(Utility::dataPath() + "/binaryTemp.zip");
-    zipFile.remove();
-
-    emit pDebug("Extract ArenaTracker on " + Utility::dataPath());
-
-    QFile::setPermissions(dataBinaryPath, permissions);
-
-    QFile appDataFile(dataBinaryPath);
-    appDataFile.copy(Utility::dataPath() + "/ArenaTracker.new");
-
-    emit pDebug("Copy downloaded ArenaTracker on " + Utility::dataPath() + "/ArenaTracker.new");
-
-    QSettings settings;
-    settings.setValue("runningBinaryPath", runningBinaryPath);
-
-    emit pDebug("Start ArenaTracker.new...");
-
-    QProcess::startDetached(Utility::dataPath() + "/ArenaTracker.new", qApp->arguments());
     static_cast<QMainWindow*>(this->parent())->close();
 }
 

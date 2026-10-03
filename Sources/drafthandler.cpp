@@ -1,17 +1,12 @@
 #include "drafthandler.h"
 #include "Utils/pickrating.h"
-#ifdef Q_OS_MAC
 #include <pthread/qos.h>
-#endif
 #include <QtConcurrent/QtConcurrent>
 #include <QtWidgets>
-#ifdef Q_OS_MAC
     #include "Utils/macocr.h"
     #include "Utils/macwindow.h"
-#endif
 
 
-#ifdef Q_OS_MAC
 //The screenshot of screenRect shows the tracker's own windows over Hearthstone too (the mascot's bubble lists card
 //names): they are painted black before the OCR reads it
 static void hideTrackerWindows(QImage &image, const QRect &screenRect)
@@ -28,11 +23,7 @@ static void hideTrackerWindows(QImage &image, const QRect &screenRect)
         painter.fillRect(QRectF(area.x()*scale, area.y()*scale, area.width()*scale, area.height()*scale), Qt::black);
     }
 }
-#endif
 
-#ifdef Q_OS_LINUX
-#include "Utils/capturemanager.h"
-#endif
 
 DraftHandler::DraftHandler(QObject *parent, DeckHandler *deckHandler) : QObject(parent)
 {
@@ -114,7 +105,6 @@ void DraftHandler::setDraftStatus(const QString &text)
     draftStatus = text;
     emit draftStatusChanged(text);
 }
-
 
 
 void DraftHandler::setMulticlassArena(bool multiclassArena)
@@ -609,12 +599,6 @@ void DraftHandler::leaveArena()
     stopLoops = true;
     stopRedraftWatch();
 
-#ifdef Q_OS_LINUX
-    if(CaptureManager::isWaylandSession())
-    {
-        CaptureManager::instance().triggerDraftEnd();
-    }
-#endif
 
     if(draftScoreWindow != nullptr)        draftScoreWindow->hide();
 
@@ -795,12 +779,6 @@ void DraftHandler::beginDraft(QString hero, QList<DeckCard> deckCardList, bool s
         draftCards[i].setCode("");
     }
 
-#ifdef Q_OS_LINUX
-    if(CaptureManager::isWaylandSession())
-    {
-        CaptureManager::instance().triggerDraftStart();
-    }
-#endif
 
     initCodesAndHistMaps(deckCardList, skipScreenSettings);
     initDeckCounters(deckCardList);
@@ -829,11 +807,9 @@ void DraftHandler::checkRedraft()
 
 void DraftHandler::startRedraftWatch()
 {
-#ifdef Q_OS_MAC
     if(redraftWatchTimer->isActive())   return;
     emit pDebug("Start watching for the redraft review screen.");
     redraftWatchTimer->start();
-#endif
 }
 
 
@@ -845,12 +821,9 @@ void DraftHandler::stopRedraftWatch()
 }
 
 
-#ifdef Q_OS_MAC
 static QImage grabHearthstoneWindow(int maxWidth);
 static bool isHearthstoneWindowSmall();
-#endif
 
-#ifdef Q_OS_MAC
 //Why a big number wasn't read, for the log
 enum BigNumberFail {NoWindow = -1, NoAnchor = -2, NoNumber = -3};
 static QString bigNumberFailText(int fail)
@@ -915,7 +888,6 @@ static int readBigNumber(const QImage &rgb, const QRect &crop)
     const int wins = number.toInt(&ok);
     return (ok && wins >= 0 && wins <= 12) ? wins : -1;
 }
-#endif
 
 
 //The rewards screen of a run shows its final wins on the chest, also the games the tracker didn't see (closed).
@@ -930,7 +902,6 @@ void DraftHandler::readRewardsWins()
 
 void DraftHandler::tryReadRewardsWins()
 {
-#ifdef Q_OS_MAC
     if(Utility::getLocalLang() != "enUS")
     {
         emit rewardsWinsRead(-1);
@@ -964,9 +935,6 @@ void DraftHandler::tryReadRewardsWins()
         const int wins = readBigNumber(rgb, crop);
         return (wins < 0) ? int(NoNumber) : wins;
     }));
-#else
-    emit rewardsWinsRead(-1);
-#endif
 }
 
 
@@ -999,7 +967,6 @@ void DraftHandler::readReadyUpWins()
 
 void DraftHandler::tryReadReadyUpWins()
 {
-#ifdef Q_OS_MAC
     if(Utility::getLocalLang() != "enUS" || futureReadyUpWins.isRunning())  return;
     //Away from Hearthstone (e.g. another app right after the game) the tries wait for it, up to 10 minutes
     if(isHearthstoneWindowSmall() && ++readyUpWinsWaits < 300)
@@ -1043,7 +1010,6 @@ void DraftHandler::tryReadReadyUpWins()
         const int wins = crop.isEmpty() ? -1 : readBigNumber(rgb, crop);
         return (wins < 0) ? int(NoNumber) : wins;
     }));
-#endif
 }
 
 
@@ -1064,7 +1030,6 @@ void DraftHandler::finishReadReadyUpWins()
 //Only the review screen has more than 30 cards in the deck.
 void DraftHandler::checkRedraftScreen()
 {
-#ifdef Q_OS_MAC
     if(drafting || heroDrafting || redrafting || arenaHero == INVALID_CLASS)  return;
     if(futureRedraftCounter.isRunning())    return;
 
@@ -1092,7 +1057,6 @@ void DraftHandler::checkRedraftScreen()
         }
         return 0;
     }));
-#endif
 }
 
 
@@ -1107,7 +1071,6 @@ void DraftHandler::setRedraftReviewCodes(const QStringList &codes)
 //Reads the Hearthstone window; the deck list on the right, from the "NN/30" counter to the right, is left out.
 void DraftHandler::captureRedraftReviewNames()
 {
-#ifdef Q_OS_MAC
     if(!redraftingReview)
     {
         redraftReviewTimer->stop();
@@ -1162,7 +1125,6 @@ void DraftHandler::captureRedraftReviewNames()
         read.codes = read.codes.mid(0, 5);
         return read;
     }));
-#endif
 }
 
 
@@ -1331,7 +1293,6 @@ void DraftHandler::beginRedraftReview()
     updateRedraftRemoveList();
     cardsHist.clear();
 
-#ifdef Q_OS_MAC
     redraftNameMap.clear();
     for(DeckCard &deckCard: *deckHandler->getDeckCardListRef())
     {
@@ -1342,7 +1303,6 @@ void DraftHandler::beginRedraftReview()
     }
     redraftReviewTimer->start();
     return;
-#endif
 
     QTimer::singleShot(REDRAFT_REVIEW_DELAY_TIME, this, [=] () {newFindScreenLoop(true);});
 
@@ -1391,12 +1351,6 @@ void DraftHandler::stopDraft()
     stopLoops = true;
     stopRedraftWatch();
 
-#ifdef Q_OS_LINUX
-    if(CaptureManager::isWaylandSession())
-    {
-        CaptureManager::instance().triggerDraftEnd();
-    }
-#endif
 
     if(redrafting)  endRedraftReview();
     if(drafting)
@@ -1747,7 +1701,6 @@ void DraftHandler::removeDuplicatedPicks(QStringList slotCodes[3])
 //so it's more reliable than the art histogram. macOS only (Apple Vision).
 void DraftHandler::readCardNames(const cv::Mat &screenCapture)
 {
-#ifdef Q_OS_MAC
     if(cardsNameMap.isEmpty())  return;
 
     //For a few seconds after a pick the previous 3 cards can still be on screen
@@ -1825,16 +1778,12 @@ void DraftHandler::readCardNames(const cv::Mat &screenCapture)
             ocrNameCenters[i] = QPointF(banner.x + line.rect.center().x(), banner.y + line.rect.center().y());
         }
     }
-#else
-    (void)screenCapture;
-#endif
 }
 
 
 //Reads the class label under each hero (enUS only). Hero skins make the portrait histograms unreliable.
 void DraftHandler::readHeroClasses(const cv::Mat &screenCapture)
 {
-#ifdef Q_OS_MAC
     if(Utility::getLocalLang() != "enUS")   return;
 
     static const QStringList classNames = {"DEATHKNIGHT", "DEMONHUNTER", "DRUID", "HUNTER", "MAGE", "PALADIN",
@@ -1885,13 +1834,9 @@ void DraftHandler::readHeroClasses(const cv::Mat &screenCapture)
             }
         }
     }
-#else
-    (void)screenCapture;
-#endif
 }
 
 
-#ifdef Q_OS_MAC
 //The Hearthstone window, scaled down to maxWidth
 static QImage grabHearthstoneWindow(int maxWidth)
 {
@@ -1910,7 +1855,6 @@ static bool isHearthstoneWindowSmall()
 {
     return MacOcr::hearthstoneWindowRect().width() < 600;
 }
-#endif
 
 
 //Card name of an OCR line without the mana cost before it or the copies count after it
@@ -1991,7 +1935,6 @@ void DraftHandler::startBundlePreview(const QString &code)
 
 void DraftHandler::captureBundlePreview()
 {
-#ifdef Q_OS_MAC
     if(!bundlePending || !drafting)
     {
         bundleTimer->stop();
@@ -2037,7 +1980,6 @@ void DraftHandler::captureBundlePreview()
         }
         return qMakePair(true, codes.mid(0, 3));
     }));
-#endif
 }
 
 
@@ -2114,7 +2056,6 @@ void DraftHandler::confirmBundle()
 //Adds the deck list cards (right of the draft screen) the tracker doesn't have, at most a bundle
 void DraftHandler::readDeckList()
 {
-#ifdef Q_OS_MAC
     if(!drafting || futureDeckList.isRunning())     return;
 
     QImage image = grabHearthstoneWindow(1400);
@@ -2134,7 +2075,6 @@ void DraftHandler::readDeckList()
         }
         return codes;
     }));
-#endif
 }
 
 
@@ -2282,42 +2222,6 @@ void DraftHandler::applyOcrCodes(QStringList slotCodes[3])
 }
 
 
-//Distingue grupos de legendarias de no legendarias
-//En los eventos las cartas legendarias introducidas no tienen rareza legendaria, para ellas no analizaremos rarezas
-CardRarity DraftHandler::getBestRarity()
-{
-    CardRarity rarity[3];
-    for(int i=0; i<3; i++)
-    {
-        if(bestMatchesMaps[i].isEmpty())    return INVALID_RARITY;
-        QString code = bestMatchesMaps[i].first();
-        //No restringimos rarezas si hay cartas unicas de arena (no colleccionables) (que no tienen rareza)
-        if(!Utility::getCardAttribute(degoldCode(code), "collectible").toBool())    return INVALID_RARITY;
-        rarity[i] = draftCardMaps[i][code].getRarity();
-    }
-
-//    if(rarity[0] == rarity[1] || rarity[0] == rarity[2])    return rarity[0];
-//    else if(rarity[1] == rarity[2])                         return rarity[1];
-//    else
-    {
-        double bestMatch = 1;
-        int bestIndex = 0;
-
-        for(int i=0; i<3; i++)
-        {
-            double match = bestMatchesMaps[i].firstKey();
-            if(match < bestMatch)
-            {
-                bestMatch = match;
-                bestIndex = i;
-            }
-        }
-
-        return rarity[bestIndex];
-    }
-}
-
-
 void DraftHandler::getBestCards(DraftCard bestCards[3])
 {
     for(int i=0; i<3; i++)
@@ -2349,13 +2253,11 @@ void DraftHandler::pickCard(QString code)
         emit pDebug("WARNING: Duplicate pick code detected: " + code);
         return;
     }
-#ifdef Q_OS_MAC
     if(!redrafting && Utility::getRarityFromCode(code) == LEGENDARY)
     {
         startBundlePreview(code);
         return;
     }
-#endif
     //Saltamos legendary bundles
     if(!redrafting && Utility::getRarityFromCode(code) == LEGENDARY)
     {
@@ -3271,9 +3173,7 @@ void DraftHandler::finishFindScreenRects()
     }
     //macOS Game Mode (on for fullscreen games) slows every other app down 20-40 times: a search takes 15-40 s
     bool gameModeHint = false;
-#ifdef Q_OS_MAC
     gameModeHint = (totalMs > 5000) && draftCards[0].getCode().isEmpty() && MacFullScreenOverlay::isHearthstoneFullScreen();
-#endif
     if(gameModeHint)
     {
         setDraftStatus("macOS Game Mode slows the tracker down. Turn it off with the gamepad icon in the menu bar.");
@@ -3366,19 +3266,15 @@ void DraftHandler::finishFindScreenRects()
 ScreenDetection DraftHandler::findScreenRects()
 {
     findScreenStartMs = findScreenClock.elapsed();
-#ifdef Q_OS_MAC
     //Pool threads run at the default QoS, which macOS moves to the efficiency cores while the app is in the background
     pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0);
-#endif
 
-#ifdef Q_OS_MAC
     //The class labels under the heroes place them better than the frame template, which can match a bit off
     if(heroDrafting)
     {
         ScreenDetection screenDetection;
         if(findHeroRectsByOcr(screenDetection))     return screenDetection;
     }
-#endif
 
     std::vector<Point2f> templatePoints;
     if(heroDrafting)
@@ -3442,9 +3338,7 @@ ScreenDetection DraftHandler::findScreenRects()
     //One job per screen: the screenshot's SIFT features are computed once and matched against every template
     auto findTemplates = [&](const QStringList &arenaTemplates) {
         futureList.append(QtConcurrent::run([=]() { // <-- [=] captura por valor
-#ifdef Q_OS_MAC
             pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0);
-#endif
             ScreenFeatures features = Utility::screenFeatures(screen, image);
             SDBasic bestSdb;
             bestSdb.goodMatches = -1;
@@ -3468,13 +3362,6 @@ ScreenDetection DraftHandler::findScreenRects()
     };
 
     bool inWayland = false;
-#ifdef Q_OS_LINUX
-    if(CaptureManager::isWaylandSession())
-    {
-        inWayland = true;
-        screenIndex = CaptureManager::instance().getActiveScreenIndex(heroDrafting);
-    }
-#endif
 
     if(inWayland)
     {
@@ -3577,7 +3464,6 @@ ScreenDetection DraftHandler::findScreenRects()
 //side 0.625 and center 0.505 above the label, in label distances).
 bool DraftHandler::findHeroRectsByOcr(ScreenDetection &screenDetection)
 {
-#ifdef Q_OS_MAC
     if(Utility::getLocalLang() != "enUS")   return false;
     const QRect hsRect = MacOcr::hearthstoneWindowRect();
     QScreen *screen = hsRect.isNull() ? nullptr : QGuiApplication::screenAt(hsRect.center());
@@ -3660,10 +3546,6 @@ bool DraftHandler::findHeroRectsByOcr(ScreenDetection &screenDetection)
                                           screenRect.height() / static_cast<qreal>(screenshot.height()));
     emit pDebug("Hero slots found by OCR: " + labels[0].first + " " + labels[1].first + " " + labels[2].first);
     return true;
-#else
-    (void)screenDetection;
-    return false;
-#endif
 }
 
 
@@ -3699,12 +3581,6 @@ void DraftHandler::beginHeroDraft()
     this->heroDrafting = true;
     this->heroesShown = false;
 
-#ifdef Q_OS_LINUX
-    if(CaptureManager::isWaylandSession())
-    {
-        CaptureManager::instance().triggerDraftStart();
-    }
-#endif
 
     QList<DeckCard> deckCardList;
     initCodesAndHistMaps(deckCardList, true);
@@ -3760,7 +3636,6 @@ void DraftHandler::showNewHeroes()
     if(draftHeroWindow != nullptr)     draftHeroWindow->setScores(classOrder);
     heroesShown = true;
     emit heroesScored(classOrder[0], classOrder[1], classOrder[2]);
-
 }
 
 
@@ -3808,14 +3683,10 @@ void DraftHandler::createDraftWindows()
 
         connect(draftHeroWindow, SIGNAL(pDebug(QString,DebugLevel,QString)),
                 this, SIGNAL(pDebug(QString,DebugLevel,QString)));
-
     }
 
     showOverlay();
 }
-
-
-
 
 
 void DraftHandler::setShowDraftScoresOverlay(bool value)
@@ -3860,29 +3731,6 @@ void DraftHandler::setDraftMethod(bool draftMethodHA, bool draftMethodFire)
 }
 
 
-void DraftHandler::craftGoldenCopy(int cardIndex)
-{
-    QString code = draftCards[cardIndex].getCode();
-    if(!drafting || code.isEmpty())  return;
-
-    //Lanza script
-    QProcess p;
-    QStringList params;
-
-    params << QDir::toNativeSeparators(Utility::extraPath() + "/goldenCrafter.py");
-    params << Utility::removeAccents(draftCards[cardIndex].getName());//Card Name
-
-    qDebug()<<"Start script:\n" + params.join(" - ");
-
-#ifdef Q_OS_WIN
-    p.start("python", params);
-#else
-    p.start("python3", params);
-#endif
-    p.waitForFinished(-1);
-}
-
-
 bool DraftHandler::isDrafting()
 {
     return this->drafting;
@@ -3899,31 +3747,13 @@ bool DraftHandler::isPickShown()
 //A redraft is offered but its pick screen hasn't been seen yet. Only macOS reads card names; elsewhere the histograms decide.
 bool DraftHandler::isRedraftOffered()
 {
-#ifdef Q_OS_MAC
     return redrafting && drafting && !redraftPicksSeen;
-#else
-    return false;
-#endif
 }
 
 
 bool DraftHandler::isRedrafting()
 {
     return this->redrafting;
-}
-
-
-void DraftHandler::minimizeScoreWindow()
-{
-    if(this->draftHeroWindow != nullptr)                                                       draftHeroWindow->showMinimized();
-    if(this->draftScoreWindow != nullptr && showDraftScoresOverlay)                            draftScoreWindow->showMinimized();
-}
-
-
-void DraftHandler::deMinimizeScoreWindow()
-{
-    if(this->draftHeroWindow != nullptr)                                                       draftHeroWindow->setWindowState(Qt::WindowActive);
-    if(this->draftScoreWindow != nullptr && showDraftScoresOverlay)                            draftScoreWindow->setWindowState(Qt::WindowActive);
 }
 
 
@@ -3958,23 +3788,6 @@ void DraftHandler::initTierLists(const CardClass &heroClass)
     QStringList arenaCodes = Utility::getAllArenaCodes();
     initLightForgeTiers(heroClass, multiclassArena, arenaCodes, false);
     initHearthArenaTiers(heroClass, multiclassArena);
-}
-
-
-//Inicia hearthArenaTiers con todos sus codigos y sin bundles para revisarlos en MainWindow::checkHearthArenaTLCodes()
-void DraftHandler::initCheckHearthArena()
-{
-    QStringList haCodes = Utility::getAllArenaCodes(true);
-    initLightForgeTiers(MAGE, true, haCodes, false);
-    initHearthArenaTiers(MAGE, true);
-}
-
-
-void DraftHandler::clearTierLists()
-{
-    hearthArenaTiers.clear();
-    lightForgeTiers.clear();
-    codesByClass.clear();
 }
 
 

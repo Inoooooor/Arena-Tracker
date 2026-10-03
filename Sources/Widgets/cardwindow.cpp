@@ -2,11 +2,8 @@
 #include "../Utils/hdimages.h"
 #include "../utility.h"
 #include <QtWidgets>
-#ifdef Q_OS_MAC
     #include "../Utils/macwindow.h"
-#endif
 
-#ifdef Q_OS_MAC
 //A (non-activating) panel on macOS, like the mascot, so it also shows over fullscreen Hearthstone.
 //No shadow: on macOS it drew a light line along the window edge.
 CardWindow::CardWindow(QWidget *parent) :
@@ -14,11 +11,6 @@ CardWindow::CardWindow(QWidget *parent) :
 {
     setAttribute(Qt::WA_MacAlwaysShowToolWindow);
     setAttribute(Qt::WA_ShowWithoutActivating);
-#else
-CardWindow::CardWindow(QWidget *parent) :
-    QMainWindow(parent, Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint|Qt::NoDropShadowWindowHint)
-{
-#endif
     cardLabel = new QLabel(this);
     alwaysHidden = false;
     setCentralWidget(cardLabel);
@@ -122,9 +114,7 @@ void CardWindow::loadCard(QString code, QRect rectCard, int maxTop, int maxBotto
     shown.setDevicePixelRatio(dpr);
     cardLabel->setPixmap(shown);
     show();
-#ifdef Q_OS_MAC
     MacWindow::raiseAboveFloating(this);     //Over the mascot too
-#endif
 }
 
 

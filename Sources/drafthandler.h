@@ -240,7 +240,6 @@ private:
     //partial: the text can be any part of the name (the curved names of the legendary groups screen)
     static QString matchCardName(const QStringList &lines, const QMap<QString, QString> &nameMap, bool partial=false);
     void applyOcrCodes(QStringList slotCodes[3]);
-    CardRarity getBestRarity();
     void getBestCards(DraftCard bestCards[3]);
     void addCardHist(QString code, bool premium, bool isHero=false);
     QString degoldCode(QString fileName);
@@ -315,13 +314,11 @@ public:
     void reHistDownloadedCardImage(const QString &fileNameCode, bool missingOnWeb=false);
     void setShowDraftScoresOverlay(bool value);
     void setDraftMethod(bool draftMethodHA, bool draftMethodFire);
-    void craftGoldenCopy(int cardIndex);
     bool isDrafting();
     bool isRedrafting();
     void readRewardsWins();
     void readReadyUpWins();
     bool isEmptyDeck();
-    void deMinimizeScoreWindow();
     QStringList getAllHeroCodes();
     void setFireWRMap(QMap<QString, float> fireWRMap[]);
     void setFireSamplesMap(QMap<QString, int> fireSamplesMap[]);
@@ -329,8 +326,6 @@ public:
     void closeFindScreenRects();
     CardClass getArenaHero();
     void initTierLists(const CardClass &heroClass);
-    void initCheckHearthArena();
-    void clearTierLists();
     void setShowMyWR(bool value);
 
 signals:
@@ -366,7 +361,6 @@ public slots:
     void pickCard(QString code);
     // void enterArena();//OLD
     void leaveArena();
-    void minimizeScoreWindow();
     void redraft();
     void checkRedraft();
 
