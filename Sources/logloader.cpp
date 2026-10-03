@@ -153,7 +153,7 @@ QString LogLoader::findLinuxLogs(QString pattern)
 
 bool LogLoader::readLogsDirPath()
 {
-    QSettings settings("Arena Tracker", "Arena Tracker");
+    QSettings settings;
     logsDirPath = settings.value("logsDirPath", "").toString();
 
     if(logsDirPath.isEmpty())
@@ -216,7 +216,7 @@ bool LogLoader::readLogsDirPath()
             if(!file.open(QIODevice::WriteOnly | QIODevice::Text))
             {
                 emit pDebug("Cannot access client.config");
-                QSettings settings("Arena Tracker", "Arena Tracker");
+                QSettings settings;
                 settings.setValue("logsDirPath", "");
                 QMessageBox::information(static_cast<QWidget*>(this->parent()), tr("client.config problem"),
                                          tr("Can't create client.config. Restart Arena Tracker and try again."));
@@ -239,7 +239,7 @@ bool LogLoader::readLogsDirPath()
 bool LogLoader::readLogConfigPath()
 {
     bool isOk = true;
-    QSettings settings("Arena Tracker", "Arena Tracker");
+    QSettings settings;
     logConfig = settings.value("logConfig", "").toString();
 
     if(logConfig.isEmpty())
@@ -342,7 +342,7 @@ bool LogLoader::checkLogConfig()
     if(!file.open(QIODevice::ReadWrite | QIODevice::Text))
     {
         emit pDebug("Cannot access log.config");
-        QSettings settings("Arena Tracker", "Arena Tracker");
+        QSettings settings;
         settings.setValue("logConfig", "");
         QMessageBox::information(static_cast<QWidget*>(this->parent()), tr("log.config not found"), tr("log.config not found. Restart Arena Tracker and set the path again."));
         return false;

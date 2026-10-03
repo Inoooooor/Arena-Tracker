@@ -10,6 +10,10 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setStyle(QStyleFactory::create("Fusion"));
+    //Every QSettings uses these. A test run (log replay) gets its own settings with AT_SETTINGS_APP, as on macOS
+    //they don't follow HOME: e.g. AT_SETTINGS_APP="Arena Tracker Test" -> com.arena-tracker.Arena Tracker Test
+    QCoreApplication::setOrganizationName("Arena Tracker");
+    QCoreApplication::setApplicationName(qEnvironmentVariable("AT_SETTINGS_APP", "Arena Tracker"));
 
     //Deleted when closed
     SplashWindow *splash = new SplashWindow();
@@ -21,9 +25,6 @@ int main(int argc, char *argv[])
     QObject::connect(splash, &QObject::destroyed, &window, &MainWindow::splashClosed);
     QObject::connect(&window, &MainWindow::startupProgress, splash, &SplashWindow::setProgress);
     QObject::connect(&window, &MainWindow::startupReady, splash, &SplashWindow::ready);
-#ifdef OLD_TRACKER_WINDOWS
-    window.show();
-#endif
 
     return app.exec();
 }

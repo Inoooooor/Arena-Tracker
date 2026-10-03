@@ -589,7 +589,7 @@ void MascotWindow::contextMenuEvent(QContextMenuEvent *event)
 //Default: bottom right corner of the primary screen. A saved position off every screen falls back to it.
 void MascotWindow::loadAnchor()
 {
-    QSettings settings("Arena Tracker", "Arena Tracker");
+    QSettings settings;
     QRect available = QGuiApplication::primaryScreen()->availableGeometry();
     QPoint defaultAnchor = available.bottomRight() - QPoint(110, 10);
     anchor = settings.value("mascotAnchor", defaultAnchor).toPoint();
@@ -599,6 +599,6 @@ void MascotWindow::loadAnchor()
 
 void MascotWindow::saveAnchor()
 {
-    QSettings settings("Arena Tracker", "Arena Tracker");
+    QSettings settings;
     settings.setValue("mascotAnchor", anchor);
 }

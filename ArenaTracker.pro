@@ -37,26 +37,18 @@ SOURCES += Sources/main.cpp\
     Sources/utility.cpp \
     Sources/Cards/deckcard.cpp \
     Sources/Cards/draftcard.cpp \
-    Sources/Widgets/resizebutton.cpp \
     Sources/Widgets/draftscorewindow.cpp \
     Sources/Widgets/splashwindow.cpp \
     Sources/Utils/pickrating.cpp \
     Sources/Widgets/mascotwindow.cpp \
     Sources/Widgets/scoreplate.cpp \
     Sources/Widgets/scorebutton.cpp \
-    Sources/Widgets/movelistwidget.cpp \
-    Sources/Widgets/movetabwidget.cpp \
-    Sources/Widgets/movetreewidget.cpp \
-    Sources/Widgets/moveverticalscrollarea.cpp \
     Sources/Widgets/cardwindow.cpp \
     Sources/versionchecker.cpp \
-    Sources/Utils/qcompressor.cpp \
-    Sources/Utils/deckstringhandler.cpp \
     Sources/themehandler.cpp \
     Sources/Utils/libzippp.cpp \
     Sources/Utils/hdimages.cpp \
     Sources/Utils/hdicons.cpp \
-    Sources/detachwindow.cpp \
     Sources/Widgets/draftherowindow.cpp \
     Sources/winratesdownloader.cpp
 
@@ -71,32 +63,22 @@ HEADERS  += Sources/mainwindow.h \
     Sources/utility.h \
     Sources/Cards/deckcard.h \
     Sources/Cards/draftcard.h \
-    Sources/Widgets/resizebutton.h \
     Sources/Widgets/draftscorewindow.h \
     Sources/Widgets/splashwindow.h \
     Sources/Utils/pickrating.h \
     Sources/Widgets/mascotwindow.h \
     Sources/Widgets/scoreplate.h \
     Sources/Widgets/scorebutton.h \
-    Sources/Widgets/movelistwidget.h \
-    Sources/Widgets/ui_extended.h \
-    Sources/Widgets/movetabwidget.h \
-    Sources/Widgets/movetreewidget.h \
-    Sources/Widgets/moveverticalscrollarea.h \
     Sources/Widgets/cardwindow.h \
     Sources/versionchecker.h \
-    Sources/Utils/qcompressor.h \
     Sources/constants.h \
-    Sources/Utils/deckstringhandler.h \
     Sources/themehandler.h \
     Sources/Utils/libzippp.h \
     Sources/Utils/hdimages.h \
     Sources/Utils/hdicons.h \
-    Sources/detachwindow.h \
     Sources/Widgets/draftherowindow.h \
     Sources/winratesdownloader.h
 
-FORMS    += mainwindow.ui
 
 RESOURCES += \
     arenatracker.qrc

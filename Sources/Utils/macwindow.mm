@@ -3,10 +3,24 @@
 #import <AppKit/AppKit.h>
 
 
+bool MacWindow::isNative()
+{
+    return QGuiApplication::platformName() == "cocoa";
+}
+
+
+//nil without a cocoa window: a test run on the offscreen platform has no NSView behind winId()
+static NSView *nativeView(QWidget *widget)
+{
+    if(widget == nullptr || !MacWindow::isNative())     return nil;
+    return (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
+}
+
+
 void MacWindow::allowMiniaturize(QWidget *window)
 {
     if(window == nullptr)   return;
-    NSView *view = (__bridge NSView *)reinterpret_cast<void *>(window->winId());
+    NSView *view = nativeView(window);
     if(view == nil || view.window == nil)   return;
     view.window.styleMask |= NSWindowStyleMaskMiniaturizable;
 }
@@ -54,7 +68,7 @@ void MacWindow::setCursorNow(Qt::CursorShape shape)
 void MacWindow::raiseAboveFloating(QWidget *window)
 {
     if(window == nullptr)   return;
-    NSView *view = (__bridge NSView *)reinterpret_cast<void *>(window->winId());
+    NSView *view = nativeView(window);
     if(view == nil || view.window == nil)   return;
     view.window.level = NSFloatingWindowLevel + 1;
 }
@@ -149,7 +163,7 @@ bool MacFullScreenOverlay::isDraftOverlay(QWidget *widget)
 //Hidden through the NSWindow alpha, so the draft code keeps showing and hiding them as usual
 void MacFullScreenOverlay::showDraftOverlay(QWidget *widget)
 {
-    NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
+    NSView *view = nativeView(widget);
     if(view == nil || view.window == nil)   return;
     view.window.alphaValue = hsOnScreen ? 1.0 : 0.0;
     //The plates must let the clicks through to Hearthstone (its options menu opens under them)
@@ -187,7 +201,7 @@ bool MacFullScreenOverlay::eventFilter(QObject *watched, QEvent *event)
         QWidget *widget = static_cast<QWidget *>(watched);
         if(widget->isWindow() && widget->windowFlags().testFlag(Qt::WindowStaysOnTopHint))
         {
-            NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
+            NSView *view = nativeView(widget);
             if(view != nil && view.window != nil)
             {
                 NSWindowCollectionBehavior behavior = view.window.collectionBehavior;

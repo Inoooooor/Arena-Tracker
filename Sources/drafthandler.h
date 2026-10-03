@@ -1,16 +1,13 @@
 #ifndef DRAFTHANDLER_H
 #define DRAFTHANDLER_H
 
-#include "Widgets/ui_extended.h"
 #include "deckhandler.h"
 #include "Cards/draftcard.h"
 #include "utility.h"
 #include "Widgets/draftherowindow.h"
 #include "Widgets/draftscorewindow.h"
-#include "Widgets/movelistwidget.h"
 #include <QObject>
 #include <QFutureWatcher>
-#include <QPointer>
 #include <QElapsedTimer>
 #include <atomic>
 
@@ -19,7 +16,6 @@
 // #define CONTINUEDRAFT_DELAY_TIME    3000
 #define REDRAFT_REVIEW_DELAY_TIME   1500
 #define REDRAFT_REMOVE_CARDS        8       //Suggested to the mascot: 5 are discarded, 3 more to choose from
-#define REDRAFT_REMOVE_SPARES       0
 #define REDRAFT_REMOVE_SECTIONS     2
 #define REDRAFT_WATCH_TIME          2000
 #define REDRAFT_REVIEW_OCR_TIME     1000
@@ -116,19 +112,15 @@ class DraftHandler : public QObject
 {
     Q_OBJECT
 public:
-    DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckHandler);
+    DraftHandler(QObject *parent, DeckHandler *deckHandler);
     ~DraftHandler();
 
 //Variables
 private:
-    Ui::Extended *ui;
     DeckHandler *deckHandler;
-    QPointer<QWidget> redraftTab;   //Owned by the tab widget while shown, so it may be deleted before us
-    //Deck cards suggested for removal after a redraft, worst first: one section by Firestone, one by HearthArena
-    QLabel *redraftRemoveLabel[REDRAFT_REMOVE_SECTIONS];
     QString draftStatus;    //What the draft recognition is doing, said by the mascot
     int findScreenFails;
-    MoveListWidget *redraftRemoveListWidget[REDRAFT_REMOVE_SECTIONS];
+    //Deck cards suggested for removal after a redraft, worst first: section 0 by Firestone, 1 by HearthArena
     QList<DeckCard> redraftRemoveCards[REDRAFT_REMOVE_SECTIONS];
     QMap<QString, int> hearthArenaTiers;
     QMap<QString, int> lightForgeTiers;
@@ -287,8 +279,6 @@ private:
     void loadImgTemplates(QList<Mat> &imgTemplates, const QString &filename);
     bool areScreenRectsValid(Mat &screenCapture, int length);
     bool isSignatureCard(const QString &code);
-    void setDraftMethodDeck();
-    void hideDeckScores();
     void endRedraftReview();
     void captureDraftRedraftingReview();
     void setRedraftReviewCodes(const QStringList &codes);
@@ -303,13 +293,10 @@ private:
     void updatePickRatingPool();
     bool isPickShown();
     bool isRedraftOffered();
-    void createRedraftRemoveList();
     void setDraftStatus(const QString &text);
     void updateRedraftRemoveList();
-    bool fillRedraftRemoveSection(int section, DraftMethod draftMethod);
+    void fillRedraftRemoveSection(int section, DraftMethod draftMethod);
     void clearRedraftRemoveList();
-    void showRedraftTab();
-    void hideRedraftTab();
     void startRedraftWatch();
     void stopRedraftWatch();
     bool areScreenPointsValid(std::vector<Point2f> screenPoints, int screenHeight);
@@ -323,17 +310,13 @@ public:
     QString getHACode(QString code);
     QString getFireCode(QString code, CardClass heroClass);
     void setDeckScores();
-    QWidget *getRedraftTab();
     QList<RedraftSuggestion> getRedraftRemoveSuggestions();
     void rescan();
     PickScores getPickScores();
-    static QIcon redraftTabIcon();
     void buildHeroCodesList();
     void reHistDownloadedCardImage(const QString &fileNameCode, bool missingOnWeb=false);
     void setShowDraftScoresOverlay(bool value);
-    void redrawAllCards();
     void setDraftMethod(bool draftMethodHA, bool draftMethodFire);
-    void setTheme();
     void craftGoldenCopy(int cardIndex);
     bool isDrafting();
     bool isRedrafting();
@@ -373,9 +356,6 @@ signals:
     void startProgressBar(int maximum, QString text);
     void showMessageProgressBar(QString text, int hideDelay = 5000);
     void itemLeave();
-    void cardEntered(QString code, QRect rectCard, int maxTop, int maxBottom);
-    void cardLeave();
-    void calculateMinimumWidth();
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="DraftHandler");
 
 public slots:
@@ -409,7 +389,6 @@ private slots:
     void finishReviewBestCards();
     void checkRedraftScreen();
     void finishCheckRedraftScreen();
-    void redraftRemoveCardEntered(QListWidgetItem *item);
     void captureRedraftReviewNames();
     void captureBundlePreview();
     void finishBundlePreview();

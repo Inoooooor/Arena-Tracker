@@ -245,7 +245,7 @@ int CaptureManager::getActiveScreenIndex(bool heroDrafting) const
 
     if(screenIndex == -1)
     {
-        QSettings settings("Arena Tracker", "Arena Tracker");
+        QSettings settings;
         QString tag;
         if(heroDrafting)    tag = "heroDraftingScreenIndex";
         else                tag = "draftingScreenIndex";

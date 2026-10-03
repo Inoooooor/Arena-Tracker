@@ -187,6 +187,8 @@ QString DeckCard::getCreatedByCode()
 
 void DeckCard::draw()
 {
+    if(listItem == nullptr)     return;     //Not in a list: the deck model and the redraft suggestions
+
     QPixmap canvas;
 
     if(!this->createdByCode.isEmpty() && this->code.isEmpty())

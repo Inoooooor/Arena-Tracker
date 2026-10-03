@@ -25,8 +25,6 @@
 #define DEBUG_OVERLAYS_RIGHT false
 #define DEBUG_ALLOW_SAME_TRIO false
 
-//The mascot replaced the old interface: the tracker windows are never shown
-//#define OLD_TRACKER_WINDOWS
 
 
 using namespace cv;

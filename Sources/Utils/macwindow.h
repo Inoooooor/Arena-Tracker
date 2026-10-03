@@ -11,6 +11,9 @@
 //macOS window behaviour the frameless Qt windows don't get by themselves
 namespace MacWindow
 {
+    //Real cocoa windows (false in an offscreen test run): the rest does nothing without them
+    bool isNative();
+
     //Frameless windows can't be minimized to the Dock unless their style allows it
     void allowMiniaturize(QWidget *window);
 

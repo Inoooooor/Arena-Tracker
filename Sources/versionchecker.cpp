@@ -13,7 +13,7 @@ VersionChecker::VersionChecker(QObject *parent) : QObject(parent)
 
     networkManager->get(QNetworkRequest(QUrl(VERSION_URL)));
 
-    QSettings settings("Arena Tracker", "Arena Tracker");
+    QSettings settings;
     QString runVersion = settings.value("runVersion", VERSION).toString();
     newVersion = (runVersion != VERSION);
     settings.setValue("runVersion", VERSION);
@@ -110,7 +110,7 @@ void VersionChecker::checkUpdate(QByteArray versionJson)
 #endif
 
 
-    QSettings settings("Arena Tracker", "Arena Tracker");
+    QSettings settings;
     QString remindedVersion = settings.value("version", "").toString();
 
     emit pDebug("VERSION: " + VERSION + " - RemindedVersion: " + remindedVersion +
@@ -329,7 +329,7 @@ void VersionChecker::saveRestartNew(const QByteArray &data)
 
     emit pDebug("Copy downloaded ArenaTracker on " + Utility::dataPath() + "/ArenaTracker.new");
 
-    QSettings settings("Arena Tracker", "Arena Tracker");
+    QSettings settings;
     settings.setValue("runningBinaryPath", runningBinaryPath);
 
     emit pDebug("Start ArenaTracker.new...");
@@ -366,7 +366,7 @@ bool VersionChecker::isNewApp()
 
 void VersionChecker::newAppReplace()
 {
-    QSettings settings("Arena Tracker", "Arena Tracker");
+    QSettings settings;
     QString runningBinaryPath = settings.value("runningBinaryPath", "").toString();
     QString runningBinaryName = runningBinaryPath.split("/").last();
     QString dataBinaryPath = Utility::dataPath() + "/" + runningBinaryName;

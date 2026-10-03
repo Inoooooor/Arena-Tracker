@@ -1585,7 +1585,7 @@ void GameWatcher::createGameResult()
     else
     {
         emit pDebug("Save playerName: " + playerTagPreSharp + "(" + playerTag + ")", 0);
-        QSettings settings("Arena Tracker", "Arena Tracker");
+        QSettings settings;
         settings.setValue("playerName", playerTagPreSharp);
     }
 }
