@@ -20,7 +20,7 @@ When the user reports a bug they hit while playing (draft, game, mascot, overlay
 python3 tools/collect_session.py -n "<short English description>"
 ```
 
-Add `-c` when the user says they just took a screenshot (their screenshots go to the clipboard). Then fill the `Expected` / `Actual` sections of the fixture's `note.md` from what the user said. Fixtures live in `~/Desktop/hs fixtures`, outside the repo: they contain BattleTags, never commit them.
+Screenshots: if the user attached one to the chat, use that and don't touch the clipboard. An attachment with a file path goes in with `-s <path>`. A pasted image without a path can't be saved, so describe what it shows in `note.md`. Only when nothing is attached and the user says they took a screenshot, add `-c` to save the clipboard image (their screenshots go to the clipboard). Then fill the `Expected` / `Actual` sections of the fixture's `note.md` from what the user said. Fixtures live in `~/Desktop/hs fixtures`, outside the repo: they contain BattleTags, never commit them.
 
 ## Project
 
