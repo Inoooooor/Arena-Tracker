@@ -12,6 +12,16 @@ Write all new code comments in English (existing Spanish comments can stay as th
 
 **Never push to any remote** (`git push` in any form, including `--force`, tags, or pushing via `gh`). The user pushes personally. Committing locally is fine when asked.
 
+## Bug reports from play sessions
+
+When the user reports a bug they hit while playing (draft, game, mascot, overlay), archive the session **before** investigating: Hearthstone keeps only its last couple of log sessions and the tracker log rotates on every restart.
+
+```sh
+python3 tools/collect_session.py -n "<short English description>"
+```
+
+Add `-c` when the user says they just took a screenshot (their screenshots go to the clipboard). Then fill the `Expected` / `Actual` sections of the fixture's `note.md` from what the user said. Fixtures live in `~/Desktop/hs fixtures`, outside the repo: they contain BattleTags, never commit them.
+
 ## Project
 
 Arena Tracker (AT) is a Qt 6 / C++ desktop deck tracker for Hearthstone, focused on Arena drafting. Single qmake project, no test suite, no linter. Code comments are frequently in Spanish.
