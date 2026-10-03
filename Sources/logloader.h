@@ -78,7 +78,6 @@ signals:
     void logReset();
     void logsCaughtUp();    //The log lines written before the tracker started are processed
     void logConfigSet();
-    void showMessageProgressBar(QString text);
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="LogLoader");
 
     //LogWorker signal reemit

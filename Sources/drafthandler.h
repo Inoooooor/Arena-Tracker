@@ -245,10 +245,8 @@ private:
     void addCardHist(QString code, bool premium, bool isHero=false);
     QString degoldCode(QString fileName);
     bool isGoldCode(QString fileName);
-    void showMessageDeckScore(float deckScoreFire, int deckScoreHA);
     void endHeroDraft();
     void showNewHeroes();
-    QString getDeckAvgString(float deckScoreFire, int deckScoreHA);
     bool loadTemplateSettings();
     bool saveTemplateSettings();
     bool isFindScreenOk(ScreenDetection &screenDetection);
@@ -352,10 +350,6 @@ signals:
     void scoreAvg(int deckScoreHA, float deckScoreFire, QString heroLog);
     void overlayCardEntered(QString code, QRect rectCard, int maxTop, int maxBottom, bool alignReverse=true);
     void overlayCardLeave();
-    void advanceProgressBar(int remaining, QString text);
-    void startProgressBar(int maximum, QString text);
-    void showMessageProgressBar(QString text, int hideDelay = 5000);
-    void itemLeave();
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="DraftHandler");
 
 public slots:

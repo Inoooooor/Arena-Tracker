@@ -35,6 +35,8 @@ private:
     int fireDataThreads;
     QMap<QString, float> *fireWRMap;
     QMap<QString, int> *fireSamplesMap;
+    static float heroScores[NUM_HEROS];     //Arena winrate of each class (Firestone)
+    static int heroGames[NUM_HEROS];
 
 
 //Metodos
@@ -44,18 +46,16 @@ private:
     void localFireCards(const int classOrder);
     void startProcessFireCards(const QJsonObject &jsonObject, const int classOrder);
     void processHeroesWinrate(const QJsonObject &jsonObject);
-    void showDataProgressBar();
     int url2classOrder(QString url);
 
 public:
     void initWRCards();
     void initHeroesWinrate();
     void waitFinishThreads();
+    static float getHeroScore(int classOrder);
+    static int getHeroGames(int classOrder);
 
 signals:
-    void startProgressBar(int maximum, QString text);
-    void advanceProgressBar(int remaining, QString text="");
-    void showMessageProgressBar(QString text, int hideDelay = 5000);
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="WinratesDownloader");
     void readyFireWRMap(QMap<QString, float> *fireWRMap);
     void readyFireSamplesMap(QMap<QString, int> *fireSamplesMap);

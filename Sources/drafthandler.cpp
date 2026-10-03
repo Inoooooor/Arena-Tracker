@@ -113,7 +113,6 @@ void DraftHandler::setDraftStatus(const QString &text)
     if(!text.isEmpty() && isRedraftOffered())   return;
     draftStatus = text;
     emit draftStatusChanged(text);
-    if(heroDrafting && !text.isEmpty())     emit showMessageProgressBar(text, 3000);
 }
 
 
@@ -510,10 +509,9 @@ void DraftHandler::initCodesAndHistMaps(QList<DeckCard> &deckCardList, bool skip
             if(needSaveCardHist)    saveCardHist();
             newCaptureDraftLoop();
         }
-        else
+        else if(!heroDrafting)
         {
-            if(heroDrafting)    emit startProgressBar(cardsDownloading.count(), "Downloading card images...");
-            else                setDraftStatus(QStringLiteral("Downloading card images (%1 left)...").arg(cardsDownloading.count()));
+            setDraftStatus(QStringLiteral("Downloading card images (%1 left)...").arg(cardsDownloading.count()));
         }
     }
 }
@@ -529,14 +527,12 @@ void DraftHandler::reHistDownloadedCardImage(const QString &fileNameCode, bool m
         if(!histBase.empty())   cardsHist[fileNameCode] = histBase;
     }
     cardsDownloading.removeOne(fileNameCode);
-    if(heroDrafting)    emit advanceProgressBar(cardsDownloading.count(), fileNameCode.split("_premium").first() + " downloaded");
-    else if(!cardsDownloading.isEmpty())
+    if(!heroDrafting && !cardsDownloading.isEmpty())
         setDraftStatus(QStringLiteral("Downloading card images (%1 left)...").arg(cardsDownloading.count()));
     if(cardsDownloading.isEmpty())
     {
         if(needSaveCardHist)    saveCardHist();
-        if(heroDrafting)    emit showMessageProgressBar("All cards downloaded");
-        else                setDraftStatus("Scanning cards...");
+        if(!heroDrafting)   setDraftStatus("Scanning cards...");
         newCaptureDraftLoop();
     }
 }
@@ -1272,14 +1268,12 @@ void DraftHandler::endDraft(bool createNewArena)
     if(createNewArena)  emit draftEnded(heroLog);//(connect) arenaHandler->newArena() / deckHandler->saveDraftDeck()
     if(createNewArena)  emitDraftFinished();
 
-    //Show Deck Score
-    if(createNewArena)
+    //Deck Score
+    if(createNewArena && numCards==30)
     {
-        int deckScoreHA = (numCards==0)?0:round(deckRatingHA/static_cast<double>(numCards));
-        float deckScoreFire = (numCards==0)?0:round(deckRatingFire/numCards * 10)/10.0;
-        showMessageDeckScore(deckScoreFire, deckScoreHA);
-
-        if(numCards==30)    emit scoreAvg(deckScoreHA, deckScoreFire, heroLog);
+        int deckScoreHA = round(deckRatingHA/static_cast<double>(numCards));
+        float deckScoreFire = round(deckRatingFire/numCards * 10)/10.0;
+        emit scoreAvg(deckScoreHA, deckScoreFire, heroLog);
     }
 
     clearLists(false);
@@ -1367,7 +1361,6 @@ void DraftHandler::beginRedraftReview()
 
     //Wait for cards
     if(cardsDownloading.isEmpty())  newCaptureDraftLoop();
-    else                            emit startProgressBar(cardsDownloading.count(), "Downloading card images...");
 }
 
 
@@ -2754,26 +2747,6 @@ void DraftHandler::updateDeckScore(float cardRatingHA, float cardRatingFire)
 }
 
 
-QString DraftHandler::getDeckAvgString(float deckScoreFire, int deckScoreHA)
-{
-    QString scoreText = "";
-    if(draftMethodFire)   scoreText += "Fire: " + QString::number(static_cast<double>(deckScoreFire)) + '%';
-    if(draftMethodHA)
-    {
-        if(!scoreText.isEmpty())    scoreText += " -- ";
-        scoreText += "HA: " + QString::number(deckScoreHA);
-    }
-    return scoreText;
-}
-
-
-void DraftHandler::showMessageDeckScore(float deckScoreFire, int deckScoreHA)
-{
-    QString scoreText = getDeckAvgString(deckScoreFire, deckScoreHA);
-    if(!scoreText.isEmpty())    emit showMessageProgressBar(scoreText, 10000);
-}
-
-
 void DraftHandler::showNewRatings(const QString &cardName1, const QString &cardName2, const QString &cardName3,
                                     float rating1, float rating2, float rating3,
                                     DraftMethod draftMethod,
@@ -3771,7 +3744,6 @@ void DraftHandler::updateHeroScores()
 
 void DraftHandler::showNewHeroes()
 {
-    emit showMessageProgressBar("Heroes read", 2000);
     int classOrder[3];
     for(int i=0; i<3; i++)
     {

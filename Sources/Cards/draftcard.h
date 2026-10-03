@@ -2,8 +2,6 @@
 #define DRAFTCARD_H
 
 #include "deckcard.h"
-#include <QRadioButton>
-#include <QLabel>
 
 
 class DraftCard : public DeckCard
@@ -21,7 +19,6 @@ private:
 
 //Metodos
 public:
-    void draw(QLabel *label);
     double getBestQualityMatches();
     void setBestQualityMatch(double matchScore, bool force);
     bool isGold();

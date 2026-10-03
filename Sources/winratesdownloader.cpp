@@ -1,11 +1,30 @@
 #include "winratesdownloader.h"
-#include "Widgets/scorebutton.h"
 #include "QtConcurrent/qtconcurrentrun.h"
 #include "qfileinfo.h"
 #include "qjsonarray.h"
 #include "qjsondocument.h"
 #include "qnetworkreply.h"
 #include <QRegularExpression>
+
+
+float WinratesDownloader::heroScores[NUM_HEROS] = {0};
+int WinratesDownloader::heroGames[NUM_HEROS] = {0};
+
+
+//Arena winrate of the class, 0 if unknown
+float WinratesDownloader::getHeroScore(int classOrder)
+{
+    if(classOrder < 0 || classOrder >= NUM_HEROS)   return 0;
+    return heroScores[classOrder];
+}
+
+
+//Games behind getHeroScore, -1 if unknown
+int WinratesDownloader::getHeroGames(int classOrder)
+{
+    if(classOrder < 0 || classOrder >= NUM_HEROS)   return -1;
+    return heroGames[classOrder];
+}
 
 
 WinratesDownloader::WinratesDownloader(QObject *parent) : QObject(parent)
@@ -107,13 +126,6 @@ void WinratesDownloader::replyFinished(QNetworkReply *reply)
 
 
 //Show threads progres
-void WinratesDownloader::showDataProgressBar()
-{
-    emit advanceProgressBar(fireDataThreads, QStringLiteral("Firestone: card stats %1/%2").arg(NUM_HEROS - fireDataThreads).arg(NUM_HEROS));
-    if(fireDataThreads == 0)    emit showMessageProgressBar("Firestone card stats ready");
-}
-
-
 //Class winrates of the arena from Firestone
 void WinratesDownloader::initHeroesWinrate()
 {
@@ -166,8 +178,11 @@ void WinratesDownloader::processHeroesWinrate(const QJsonObject &jsonObject)
     }
 
     emit pDebug("Heroes winrate (Firestone) ready.");
-    ScoreButton::setHeroScores(heroScores);
-    ScoreButton::setHeroGames(heroGames);
+    for(int i=0; i<NUM_HEROS; i++)
+    {
+        WinratesDownloader::heroScores[i] = heroScores[i];
+        WinratesDownloader::heroGames[i] = heroGames[i];
+    }
     emit readyHeroesWinrate();
 }
 
@@ -175,7 +190,6 @@ void WinratesDownloader::processHeroesWinrate(const QJsonObject &jsonObject)
 void WinratesDownloader::initWRCards()
 {
     fireDataThreads = NUM_HEROS;
-    emit startProgressBar(fireDataThreads, QStringLiteral("Firestone: card stats 0/%1").arg(NUM_HEROS));
     initFireCards();
 }
 
@@ -197,7 +211,6 @@ void WinratesDownloader::initFireCards()
                 emit readyFireWRMap(fireWRMap);
                 emit readyFireSamplesMap(fireSamplesMap);
             }
-            showDataProgressBar();
         });
 
 
@@ -226,10 +239,8 @@ void WinratesDownloader::localFireCards(const int classOrder)
     QFile file(Utility::extraPath() + "/" + filename);
     if(!file.open(QIODevice::ReadOnly))
     {
-        //Count the class as done, or the progress bar would wait forever
         emit pDebug("ERROR: Failed to open " + filename);
         fireDataThreads--;
-        showDataProgressBar();
         return;
     }
     QByteArray jsonData = file.readAll();

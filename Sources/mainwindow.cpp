@@ -1,5 +1,4 @@
 #include "mainwindow.h"
-#include "Widgets/scorebutton.h"
 #ifdef Q_OS_MAC
 #include "Utils/macwindow.h"
 #include "Utils/macocr.h"
@@ -22,9 +21,6 @@
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent, Qt::FramelessWindowHint|Qt::WindowStaysOnTopHint)
 {
-    QFontDatabase::addApplicationFont(":Fonts/hsFont.ttf");
-    QFontDatabase::addApplicationFont(":Fonts/LuckiestGuy.ttf");
-
     initVariables();
     createNetworkManager();
     createDataDir();
@@ -1149,7 +1145,7 @@ void MainWindow::mascotHeroes(int classOrder0, int classOrder1, int classOrder2)
 
     //Best and second best by winrate
     QList<QPair<float, int>> heroes;
-    for(int classOrder: {classOrder0, classOrder1, classOrder2})    heroes << qMakePair(ScoreButton::getHeroScore(classOrder), classOrder);
+    for(int classOrder: {classOrder0, classOrder1, classOrder2})    heroes << qMakePair(WinratesDownloader::getHeroScore(classOrder), classOrder);
     std::sort(heroes.begin(), heroes.end(), [](const QPair<float, int> &a, const QPair<float, int> &b) { return a.first > b.first; });
 
     QString line;
@@ -1359,9 +1355,6 @@ void MainWindow::readSettings()
     if(tooltipScale < 10)   tooltipScale = 10;
     cardWindow->scale(tooltipScale);
 
-    DeckCard::setCardHeight(settings.value("cardHeight", 35).toInt());
-    DeckCard::setDrawClassColor(settings.value("showClassColor", true).toBool());
-    DeckCard::setDrawSpellWeaponColor(settings.value("showSpellColor", true).toBool());
 
     draftHandler->setShowDraftScoresOverlay(settings.value("showDraftScoresOverlay", true).toBool());
     draftHandler->setShowMyWR(settings.value("showMyWR", true).toBool());

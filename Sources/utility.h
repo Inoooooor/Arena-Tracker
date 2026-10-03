@@ -175,7 +175,6 @@ public:
     static void dumpOnFile(const QByteArray &data, const QString &path);
     static bool setExecutablePermissions(const QString &filePath);
     static QString getCodeFromCardAttribute(const QString &attribute, QJsonValue value);
-    static void drawShadowText(QPainter &painter, const QFont &font, const QString &text, int x, int y, bool alignCenter, bool isCardText=true);
     static QString histogramsPath();
     static QString arenaStatsPath();
     static int classLogNumber2classOrder(const QString &heroLog);
@@ -211,7 +210,6 @@ public:
     static QStringList getSetCodesSpecific(const QString &set);
     static bool codeEqConstant(const QString &code, const QString &codeConstant);
     static QString otherCodeConstant(const QString &code);
-    static void shrinkText(QFont &font, const QString &text, int startFontSize, int maxLong);
     static void buildDbfIdMap(QMap<int, QString> *map);
     static int getCorrectedCardMana(const QString &code, int cost);
 };

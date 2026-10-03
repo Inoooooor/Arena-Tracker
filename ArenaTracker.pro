@@ -42,10 +42,8 @@ SOURCES += Sources/main.cpp\
     Sources/Utils/pickrating.cpp \
     Sources/Widgets/mascotwindow.cpp \
     Sources/Widgets/scoreplate.cpp \
-    Sources/Widgets/scorebutton.cpp \
     Sources/Widgets/cardwindow.cpp \
     Sources/versionchecker.cpp \
-    Sources/themehandler.cpp \
     Sources/Utils/libzippp.cpp \
     Sources/Utils/hdimages.cpp \
     Sources/Utils/hdicons.cpp \
@@ -68,11 +66,9 @@ HEADERS  += Sources/mainwindow.h \
     Sources/Utils/pickrating.h \
     Sources/Widgets/mascotwindow.h \
     Sources/Widgets/scoreplate.h \
-    Sources/Widgets/scorebutton.h \
     Sources/Widgets/cardwindow.h \
     Sources/versionchecker.h \
     Sources/constants.h \
-    Sources/themehandler.h \
     Sources/Utils/libzippp.h \
     Sources/Utils/hdimages.h \
     Sources/Utils/hdicons.h \

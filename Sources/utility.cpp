@@ -1,6 +1,5 @@
 #include "utility.h"
 #include "constants.h"
-#include "themehandler.h"
 #include <QtWidgets>
 #include "opencv2/features2d.hpp"
 #include "opencv2/calib3d.hpp"
@@ -1161,40 +1160,6 @@ bool Utility::setExecutablePermissions(const QString &filePath)
 }
 
 
-void Utility::drawShadowText(QPainter &painter, const QFont &font, const QString &text, int x, int y, bool alignCenter, bool isCardText)
-{
-    //Gran parte de los textos pintados usan el offset (que solo deberia ser usado para el texto de cartas),
-    //Eso hace que en los diferentes temas muestren el texto diferente donde no deberian (Ej Vida/Atk cartas replay)
-    QFontMetrics fm(font);
-
-    int textWide = fm.horizontalAdvance(text);
-    int textHigh = fm.height();
-
-    double offsetY = 0.25 - (isCardText?ThemeHandler::cardsFontOffsetY():0)/100.0;
-    if(font.family() == LG_FONT)
-    {
-#ifdef Q_OS_WIN
-        offsetY += 0.05;
-#else
-        offsetY += 0.15;
-#endif
-    }
-
-    QPainterPath path;
-    path.addText(x - (alignCenter?textWide/2:0), y + textHigh*offsetY, font, text);
-
-    //Outline outside the letters: a stroke on the path would cover half of each thin letter
-    QPen pen = painter.pen();
-    if(pen.style() != Qt::NoPen)
-    {
-        pen.setWidthF(std::max<qreal>(1, pen.widthF())*2);
-        pen.setJoinStyle(Qt::RoundJoin);
-        painter.strokePath(path, pen);
-    }
-    painter.fillPath(path, painter.brush());
-}
-
-
 void Utility::clearLayout(QLayout* layout, bool deleteWidgets, bool recursive)
 {
     while(QLayoutItem* item = layout->takeAt(0))
@@ -1250,23 +1215,6 @@ void Utility::fadeLayout(QLayout* layout, bool in)
             if(in)  fadeInWidget(widget);
             else    fadeOutWidget(widget);
         }
-    }
-}
-
-
-void Utility::shrinkText(QFont &font, const QString &text, int startFontSize, int maxLong)
-{
-    int fontSize = startFontSize;
-    font.setPixelSize(fontSize);
-
-    QFontMetrics fm(font);
-    int textWide = fm.horizontalAdvance(text);
-    while(textWide > maxLong)
-    {
-        fontSize--;
-        font.setPixelSize(fontSize);
-        fm = QFontMetrics(font);
-        textWide = fm.horizontalAdvance(text);
     }
 }
 

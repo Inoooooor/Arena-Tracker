@@ -32,12 +32,6 @@ VersionChecker::~VersionChecker()
 }
 
 
-void VersionChecker::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
-{
-    emit advanceProgressBar(static_cast<int>(bytesTotal - bytesReceived), "Downloading " + latestVersion + "...");
-}
-
-
 void VersionChecker::replyFinished(QNetworkReply *reply)
 {
     reply->deleteLater();
@@ -56,10 +50,7 @@ void VersionChecker::replyFinished(QNetworkReply *reply)
         {
             QByteArray location = reply->rawHeader("Location");
             emit pDebug("Redirect to --> " + location);
-            emit startProgressBar(1, "Downloading " + latestVersion + "...");
-            QNetworkReply *reply = networkManager->get(QNetworkRequest(QUrl(location)));
-            connect(reply, SIGNAL(downloadProgress(qint64,qint64)),
-                    this, SLOT(downloadProgress(qint64,qint64)));
+            networkManager->get(QNetworkRequest(QUrl(location)));
         }
 
         //Check version
@@ -71,7 +62,7 @@ void VersionChecker::replyFinished(QNetworkReply *reply)
         //New version downloaded
         else
         {
-            emit showMessageProgressBar(latestVersion + " downloaded");
+            emit pDebug(latestVersion + " downloaded.");
             saveRestart(reply->readAll());
         }
     }
@@ -393,5 +384,4 @@ void VersionChecker::startNewAppReplace()
 void VersionChecker::finishNewAppReplace()
 {
     emit pDebug("ArenaTracker replaced by downloaded version.");
-    emit showMessageProgressBar(VERSION + " ready to use");
 }

@@ -1,8 +1,7 @@
 #include "draftherowindow.h"
 #include "mascotwindow.h"
-#include "scorebutton.h"
+#include "../winratesdownloader.h"
 #include "scoreplate.h"
-#include "../Utils/hdicons.h"
 #include <QtWidgets>
 
 
@@ -56,7 +55,7 @@ void DraftHeroWindow::setScores(int classOrder[3])
     for(int i=0; i<3; i++)
     {
         this->classOrder[i] = classOrder[i];
-        ratings[i] = ScoreButton::getHeroScore(classOrder[i]);
+        ratings[i] = WinratesDownloader::getHeroScore(classOrder[i]);
     }
     scoresShown = true;
     update();
@@ -91,7 +90,7 @@ void DraftHeroWindow::paintEvent(QPaintEvent *)
         content.classOrder = classOrder[i];
         content.showFire = true;
         content.fireWinrate = ratings[i];
-        content.fireGames = ScoreButton::getHeroGames(classOrder[i]);
+        content.fireGames = WinratesDownloader::getHeroGames(classOrder[i]);
         ScorePlate::paint(painter, plateRects[i], content, devicePixelRatioF());
     }
 }

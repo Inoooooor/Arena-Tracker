@@ -1,14 +1,5 @@
 <RCC>
     <qresource prefix="/">
-        <file>Images/lose.png</file>
-        <file>Images/win.png</file>
-        <file>Images/coin.png</file>
-        <file>Images/first.png</file>
-        <file>Images/arcanedust.png</file>
-        <file>Images/gold.png</file>
-        <file>Images/boosterpack.png</file>
-        <file>Images/cardgold.png</file>
-        <file>Images/cardplain.png</file>
         <file>Images/hero01.png</file>
         <file>Images/hero02.png</file>
         <file>Images/hero03.png</file>
@@ -18,99 +9,6 @@
         <file>Images/hero07.png</file>
         <file>Images/hero08.png</file>
         <file>Images/hero09.png</file>
-        <file>Images/bgCard1.png</file>
-        <file>Images/bgCard2.png</file>
-        <file>Fonts/hsFont.ttf</file>
-        <file>Images/resize.png</file>
-        <file>Images/close.png</file>
-        <file>Images/minimize.png</file>
-        <file>Images/handCard1.png</file>
-        <file>Images/handCard2.png</file>
-        <file>Images/icon.png</file>
-        <file>Images/secretHunter.png</file>
-        <file>Images/secretMage.png</file>
-        <file>Images/secretPaladin.png</file>
-        <file>Images/remove64.png</file>
-        <file>Images/minus64.png</file>
-        <file>Images/plus64.png</file>
-        <file>Images/deck.png</file>
-        <file>Images/hand.png</file>
-        <file>Images/config.png</file>
-        <file>Images/log.png</file>
-        <file>Images/arena.png</file>
-        <file>Images/draft.png</file>
-        <file>Images/clearDeck.png</file>
-        <file>Images/loadDeck.png</file>
-        <file>Images/newDeck.png</file>
-        <file>Images/saveDeck.png</file>
-        <file>Images/refresh.png</file>
-        <file>Images/web.png</file>
-        <file>Images/bgCard1Warrior.png</file>
-        <file>Images/bgCard2Warrior.png</file>
-        <file>Images/bgCard1Druid.png</file>
-        <file>Images/bgCard2Druid.png</file>
-        <file>Images/bgCard1Hunter.png</file>
-        <file>Images/bgCard2Hunter.png</file>
-        <file>Images/bgCard1Mage.png</file>
-        <file>Images/bgCard2Mage.png</file>
-        <file>Images/bgCard1Paladin.png</file>
-        <file>Images/bgCard2Paladin.png</file>
-        <file>Images/bgCard1Priest.png</file>
-        <file>Images/bgCard2Priest.png</file>
-        <file>Images/bgCard1Rogue.png</file>
-        <file>Images/bgCard2Rogue.png</file>
-        <file>Images/bgCard1Shaman.png</file>
-        <file>Images/bgCard2Shaman.png</file>
-        <file>Images/bgCard1Warlock.png</file>
-        <file>Images/bgCard2Warlock.png</file>
-        <file>Images/enemyDeck.png</file>
-        <file>Images/unknown.png</file>
-        <file>Images/replay.png</file>
-        <file>Images/bgMinionSimple.png</file>
-        <file>Images/bgMinionGlow.png</file>
-        <file>Images/bgMinionShield.png</file>
-        <file>Images/bgMinionTauntGlow.png</file>
-        <file>Images/bgMinionTauntSimple.png</file>
-        <file>Images/bgHeroAttack.png</file>
-        <file>Images/bgHeroLife.png</file>
-        <file>Images/bgHeroArmor.png</file>
-        <file>Images/bgHeroGlow.png</file>
-        <file>Images/bgMinionStealth.png</file>
-        <file>Images/bgMinionFrozen.png</file>
-        <file>Images/bgHeroFrozen.png</file>
-        <file>Images/plan.png</file>
-        <file>Images/bgMinionDead.png</file>
-        <file>Images/arrowAttack.png</file>
-        <file>Images/arrowReinforce.png</file>
-        <file>Images/bgMinionAddon.png</file>
-        <file>Images/arrowHeroAttack.png</file>
-        <file>Images/bgFatigueAddon.png</file>
-        <file>Images/bgMinionAddonDamage.png</file>
-        <file>Images/bgMinionAddonLife.png</file>
-        <file>Images/bgCardGlow.png</file>
-        <file>Images/bgCardUnknown.png</file>
-        <file>Images/bgCardDiscard.png</file>
-        <file>Images/bgCardDraw.png</file>
-        <file>Images/bgHeroDead.png</file>
-        <file>Images/bgCardCreatedBy.png</file>
-        <file>Images/bgWeaponSimple.png</file>
-        <file>Images/bgHeroPower.png</file>
-        <file>Images/bgHeroPowerGlow.png</file>
-        <file>Images/bgHeroPowerClosed.png</file>
-        <file>Images/bgTotalAttack.png</file>
-        <file>Images/bgCrystal.png</file>
-        <file>Images/planFirst.png</file>
-        <file>Images/planLast.png</file>
-        <file>Images/planNext.png</file>
-        <file>Images/planPrev.png</file>
-        <file>Images/planResize.png</file>
-        <file>Images/splash.png</file>
-        <file>Images/bgScoreHA.png</file>
-        <file>Images/bgScoreLF.png</file>
-        <file>Images/games.png</file>
-        <file>Images/branchClosed.png</file>
-        <file>Images/branchOpen.png</file>
-        <file>Fonts/LuckiestGuy.ttf</file>
         <file>Fonts/Jersey10.ttf</file>
         <file>Images/Mascot/idle.png</file>
         <file>Images/Mascot/popcorn.png</file>
@@ -128,68 +26,9 @@
         <file>Images/Mascot/thumb_up.png</file>
         <file>Images/Mascot/hand_flat.png</file>
         <file>Images/Mascot/thumb_down.png</file>
-        <file>Images/lfBest.png</file>
-        <file>Images/lfClose.png</file>
-        <file>Images/lfOpen.png</file>
-        <file>Images/haBest.png</file>
-        <file>Images/haClose.png</file>
-        <file>Images/haOpen.png</file>
-        <file>Images/legendaryStar.png</file>
-        <file>Images/manaLimit.png</file>
-        <file>Images/aoeMechanic.png</file>
-        <file>Images/damageMechanic.png</file>
-        <file>Images/destroyMechanic.png</file>
-        <file>Images/drawMechanic.png</file>
-        <file>Images/manaCounter.png</file>
-        <file>Images/minionsCounter.png</file>
-        <file>Images/pingMechanic.png</file>
-        <file>Images/reachMechanic.png</file>
-        <file>Images/restoreMechanic.png</file>
-        <file>Images/spellsCounter.png</file>
-        <file>Images/tauntMechanic.png</file>
-        <file>Images/weaponsCounter.png</file>
-        <file>Images/bgDraftMechanics.png</file>
-        <file>Images/bgDraftMechanicsHelp.png</file>
-        <file>Images/becomePatreon.png</file>
-        <file>Images/secretRogue.png</file>
-        <file>Images/goldenMechanic.png</file>
-        <file>Images/graveyard.png</file>
-        <file>Images/graveyardEnemy.png</file>
-        <file>Images/graveyardPlayer.png</file>
-        <file>Images/speedClose.png</file>
-        <file>Images/speedLava.png</file>
-        <file>Images/speedOpen.png</file>
         <file>Images/haText.png</file>
         <file>Images/lfText.png</file>
-        <file>Images/speedDWText.png</file>
-        <file>Images/speedTwitchText.png</file>
-        <file>Images/userGuide.png</file>
-        <file>Images/handCard3.png</file>
-        <file>Images/handCard4.png</file>
-        <file>Images/drop2Counter.png</file>
-        <file>Images/drop3Counter.png</file>
-        <file>Images/drop4Counter.png</file>
-        <file>Images/bgDraftMechanicsHelpDrops.png</file>
-        <file>Images/greenMechanic.png</file>
-        <file>Images/redMechanic.png</file>
         <file>Images/hero10.png</file>
-        <file>Images/bgCard1Demonhunter.png</file>
-        <file>Images/bgCard2Demonhunter.png</file>
-        <file>Images/bgHeroPower1.png</file>
-        <file>Images/bgMinionDormant.png</file>
-        <file>Images/bgCard1Deathknight.png</file>
-        <file>Images/bgCard2Deathknight.png</file>
         <file>Images/hero11.png</file>
-        <file>Images/bgCorpses.png</file>
-        <file>Images/youText.png</file>
-        <file>Images/weaponsMinionsSpells.png</file>
-        <file>Images/checkCardOk.png</file>
-        <file>Images/bgLeaderboard.png</file>
-        <file>Images/bgDraftMechanicsReenter.png</file>
-        <file>Images/bgMinionStarship.png</file>
-        <file>Images/bgLocationGlow.png</file>
-        <file>Images/bgLocationSimple.png</file>
-        <file>Images/bgLocationOpening.png</file>
-        <file>Images/bgLocationClosed.png</file>
     </qresource>
 </RCC>

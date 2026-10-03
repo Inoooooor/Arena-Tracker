@@ -1,6 +1,5 @@
 #include "draftcard.h"
 #include "../utility.h"
-#include <QtWidgets>
 
 DraftCard::DraftCard() : DraftCard("", false)
 {
@@ -40,10 +39,3 @@ bool DraftCard::isGold()
     return gold;
 }
 
-
-void DraftCard::draw(QLabel *label)
-{
-    QPixmap canvas = DeckCard::draw(1, false);
-
-    label->setPixmap(canvas);
-}

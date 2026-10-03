@@ -37,16 +37,12 @@ private:
     void saveRestartNew(const QByteArray &data);
 
 signals:
-    void startProgressBar(int maximum, QString text);
-    void advanceProgressBar(int remaining, QString text="");
-    void showMessageProgressBar(QString text, int hideDelay = 5000);
     void pDebug(QString line, DebugLevel debugLevel=Normal, QString file="VersionChecker");
 
 public slots:
     void replyFinished(QNetworkReply *reply);
 
 private slots:
-    void downloadProgress(qint64 bytesReceived, qint64 bytesTotal);
     void startNewAppReplace();
     void finishNewAppReplace();
 };

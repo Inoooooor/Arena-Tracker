@@ -16,8 +16,6 @@
 #define DARK_ORANGE QColor(180,85,0)
 
 //Fuentes
-#define HS_FONT "Belwe Bd BT"
-#define LG_FONT "Luckiest Guy"
 
 
 //Secretos
