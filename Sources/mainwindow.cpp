@@ -930,8 +930,6 @@ void MainWindow::completeUI()
             this, SLOT(spreadMouseInApp()));
     connect(ui->tabWidget, SIGNAL(currentChanged(int)),
             this, SLOT(changingTabResetSizePlan()));
-    connect(ui->tabWidget, SIGNAL(currentChanged(int)),
-            this, SLOT(changingTabUpdateDraftSize()));
     connect(ui->tabWidget, SIGNAL(detachTab(int,QPoint)),
             this, SLOT(createDetachWindow(int,QPoint)));
 
@@ -1918,7 +1916,6 @@ void MainWindow::initConfigTab(int tooltipScale, int cardHeight, bool autoSize, 
     updateShowDraftScoresOverlay(showDraftScoresOverlay);
 
     if(draftLearningMode)           ui->configCheckLearning->setChecked(true);
-    updateDraftLearningMode(draftLearningMode);
 
     if(showMyWR)                    ui->configCheckWR->setChecked(true);
     updateShowMyWR(showMyWR);
@@ -2128,7 +2125,6 @@ void MainWindow::spreadMouseInApp()
     QWidget *currentTab = ui->tabWidget->currentWidget();
 
     if(currentTab == ui->tabDeck)           deckHandler->setMouseInApp(mouseInApp);
-    else if(currentTab == ui->tabDraft)     draftHandler->setMouseInApp(mouseInApp);
     else                                    updateOtherTabsTransparency();
 
     //Fade Bar
@@ -2143,17 +2139,6 @@ void MainWindow::spreadMouseInApp()
             currentTab != ui->tabDeck && currentTab != ui->tabEnemy && currentTab != ui->tabEnemyDeck && currentTab != ui->tabGraveyard)
     {
         fadeBarAndButtons(false);
-    }
-}
-
-
-void MainWindow::changingTabUpdateDraftSize()
-{
-    QWidget *currentTab = ui->tabWidget->currentWidget();
-
-    if(currentTab == ui->tabDraft)
-    {
-        draftHandler->updateMinimumHeight();
     }
 }
 
@@ -2760,7 +2745,6 @@ void MainWindow::spreadTransparency(Transparency newTransparency)
     deckHandler->setTransparency(
                 (this->deckWindow != nullptr && kindOfTransparent)?
                     Transparent:transparency);
-    draftHandler->setTransparency(transparency);
     updateOtherTabsTransparency();
 
     showWindowFrame(transparency == Framed);
@@ -3264,11 +3248,7 @@ void MainWindow::spreadTamCard(int value)
         deckHandler->redrawAllCards();
     }
 
-    if(draftHandler != nullptr)
-    {
-        draftHandler->updateTamCard();
-        draftHandler->redrawAllCards();
-    }
+    if(draftHandler != nullptr)     draftHandler->redrawAllCards();
 
     bool windowsWithBorders = (transparency == Framed || transparency == Opaque);
     if(deckWindow != nullptr)      calculateCardWindowMinimumWidth(deckWindow, windowsWithBorders);
@@ -3331,12 +3311,6 @@ void MainWindow::updateShowManaLimits(bool checked)
 void MainWindow::updateShowDraftScoresOverlay(bool checked)
 {
     draftHandler->setShowDraftScoresOverlay(checked);
-}
-
-
-void MainWindow::updateDraftLearningMode(bool checked)
-{
-    draftHandler->setLearningMode(checked);
 }
 
 
@@ -3406,7 +3380,6 @@ void MainWindow::completeConfigTab()
     ui->configCheckWR->hide();
     connect(ui->configCheckScoresOverlay, SIGNAL(clicked(bool)), this, SLOT(updateShowDraftScoresOverlay(bool)));
     connect(ui->configCheckMechanicsOverlay, SIGNAL(clicked(bool)), this, SLOT(updateShowDraftMechanicsOverlay(bool)));
-    connect(ui->configCheckLearning, SIGNAL(clicked(bool)), this, SLOT(updateDraftLearningMode(bool)));
     connect(ui->configCheckShowDrops, SIGNAL(clicked(bool)), this, SLOT(updateDraftShowDrops(bool)));
     connect(ui->configCheckWR, SIGNAL(clicked(bool)), this, SLOT(updateShowMyWR(bool)));
     connect(ui->configCheckHA, SIGNAL(clicked(bool)), this, SLOT(spreadDraftMethod()));

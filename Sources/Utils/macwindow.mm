@@ -152,7 +152,8 @@ void MacFullScreenOverlay::showDraftOverlay(QWidget *widget)
     NSView *view = (__bridge NSView *)reinterpret_cast<void *>(widget->winId());
     if(view == nil || view.window == nil)   return;
     view.window.alphaValue = hsOnScreen ? 1.0 : 0.0;
-    view.window.ignoresMouseEvents = !hsOnScreen;
+    //The plates must let the clicks through to Hearthstone (its options menu opens under them)
+    view.window.ignoresMouseEvents = !hsOnScreen || widget->testAttribute(Qt::WA_TransparentForMouseEvents);
 }
 
 

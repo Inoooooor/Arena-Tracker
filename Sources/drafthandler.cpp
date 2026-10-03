@@ -51,14 +51,11 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
     this->capturing = false;
     this->findingFrame = false;
     this->stopLoops = true;
-    this->transparency = Opaque;
     this->draftHeroWindow = nullptr;
     this->draftScoreWindow = nullptr;
-    this->mouseInApp = false;
     this->draftMethodHA = false;
     this->draftMethodFire = true;
     this->multiclassArena = false;
-    this->learningMode = false;
     this->showMyWR = true;
     this->fireWRMap = nullptr;
     this->fireSamplesMap = nullptr;
@@ -79,11 +76,11 @@ DraftHandler::DraftHandler(QObject *parent, Ui::Extended *ui, DeckHandler *deckH
         rarityRects[i] = cv::Rect(0,0,0,0);
     }
 
+    findScreenFails = 0;
     createRedraftRemoveList();
-    createDraftStatus();
-    completeUI();
 
     connect(&futureFindScreenRects, SIGNAL(finished()), this, SLOT(finishFindScreenRects()));
+    connect(&futureReviewBestCards, SIGNAL(finished()), this, SLOT(finishReviewBestCards()));
 
     redraftWatchTimer = new QTimer(this);
     redraftWatchTimer->setInterval(REDRAFT_WATCH_TIME);
@@ -149,73 +146,14 @@ void DraftHandler::createRedraftRemoveList()
 }
 
 
-void DraftHandler::createDraftStatus()
-{
-    findScreenFails = 0;
-
-    draftStatusLabel = new QLabel(ui->tabDraft);
-    draftStatusLabel->setAlignment(Qt::AlignCenter);
-    draftStatusLabel->setWordWrap(true);
-    draftStatusLabel->hide();
-    ui->draftVerticalLayout->insertWidget(0, draftStatusLabel);
-
-    redraftStatusLabel = new QLabel(redraftTab);
-    redraftStatusLabel->setAlignment(Qt::AlignCenter);
-    redraftStatusLabel->setWordWrap(true);
-    redraftStatusLabel->hide();
-    //Before the final stretch
-    QVBoxLayout *layout = static_cast<QVBoxLayout *>(redraftTab->layout());
-    layout->insertWidget(layout->count()-1, redraftStatusLabel);
-
-    QLabel *labels[2] = {draftStatusLabel, redraftStatusLabel};
-    for(int i=0; i<2; i++)
-    {
-        QGraphicsOpacityEffect *effect = new QGraphicsOpacityEffect(labels[i]);
-        effect->setOpacity(1);
-        labels[i]->setGraphicsEffect(effect);
-
-        draftStatusPulse[i] = new QPropertyAnimation(effect, "opacity", this);
-        draftStatusPulse[i]->setDuration(1200);
-        draftStatusPulse[i]->setKeyValueAt(0, 1.0);
-        draftStatusPulse[i]->setKeyValueAt(0.5, 0.35);
-        draftStatusPulse[i]->setKeyValueAt(1, 1.0);
-        draftStatusPulse[i]->setEasingCurve(QEasingCurve::InOutSine);
-        draftStatusPulse[i]->setLoopCount(-1);
-    }
-}
-
-
-//Empty text hides the status
+//Empty text clears the status
 void DraftHandler::setDraftStatus(const QString &text)
 {
     //Waiting on the Ready Up screen for the offered redraft: "Scanning cards..." or "Can't see the arena" would be wrong there
     if(!text.isEmpty() && isRedraftOffered())   return;
+    draftStatus = text;
     emit draftStatusChanged(text);
-    if(heroDrafting)
-    {
-        if(!text.isEmpty())     emit showMessageProgressBar(text, 3000);
-        return;
-    }
-
-    int index = (redrafting && !drafting)?1:0;
-    QLabel *label = (index == 1)?redraftStatusLabel:draftStatusLabel;
-    QLabel *other = (index == 1)?draftStatusLabel:redraftStatusLabel;
-    other->hide();
-    draftStatusPulse[1-index]->stop();
-    label->setText(text);
-    label->setVisible(!text.isEmpty());
-
-    //Work in progress ("Scanning cards...") pulses; results and warnings stay still
-    QPropertyAnimation *pulse = draftStatusPulse[index];
-    if(text.endsWith("..."))
-    {
-        if(pulse->state() != QAbstractAnimation::Running)  pulse->start();
-    }
-    else
-    {
-        pulse->stop();
-        static_cast<QGraphicsOpacityEffect *>(label->graphicsEffect())->setOpacity(1);
-    }
+    if(heroDrafting && !text.isEmpty())     emit showMessageProgressBar(text, 3000);
 }
 
 
@@ -229,10 +167,8 @@ void DraftHandler::showRedraftTab()
 {
     if(ui->tabWidget->indexOf(redraftTab) != -1)    return;
 
-    //Right after the draft tab, if there is one
-    int index = (ui->tabWidget->indexOf(ui->tabDraft) != -1)?1:0;
-    ui->tabWidget->insertTab(index, redraftTab, redraftTabIcon(), "");
-    ui->tabWidget->setTabToolTip(index, "Redraft: cards to remove");
+    ui->tabWidget->insertTab(0, redraftTab, redraftTabIcon(), "");
+    ui->tabWidget->setTabToolTip(0, "Redraft: cards to remove");
     emit calculateMinimumWidth();
 }
 
@@ -312,75 +248,9 @@ void DraftHandler::redraftRemoveCardEntered(QListWidgetItem *item)
 }
 
 
-void DraftHandler::completeUI()
-{
-    comboBoxCard[0] = ui->comboBoxCard1;
-    comboBoxCard[1] = ui->comboBoxCard2;
-    comboBoxCard[2] = ui->comboBoxCard3;
-    labelLFscore[0] = ui->labelLFscore1;
-    labelLFscore[1] = ui->labelLFscore2;
-    labelLFscore[2] = ui->labelLFscore3;
-    labelHAscore[0] = ui->labelHAscore1;
-    labelHAscore[1] = ui->labelHAscore2;
-    labelHAscore[2] = ui->labelHAscore3;
-
-    for(int i=0; i<3; i++)
-    {
-        comboBoxCard[i]->setFocusPolicy(Qt::NoFocus);
-    }
-
-    ui->lineEditCardName->hide();
-
-    connect(ui->refreshDraftButton, SIGNAL(clicked(bool)),
-                this, SLOT(refreshDraft()));
-    connect(ui->lineEditCardName, SIGNAL(textEdited(QString)),
-                this, SLOT(editCardName(QString)));
-    connect(ui->lineEditCardName, SIGNAL(editingFinished()),
-                this, SLOT(editCardNameFinish()));
-    connect(&futureFindCodeFromText, SIGNAL(finished()), this, SLOT(finishFindCodeFromText()));
-    connect(&futureReviewBestCards, SIGNAL(finished()), this, SLOT(finishReviewBestCards()));
-
-
-}
-
-
 void DraftHandler::setMulticlassArena(bool multiclassArena)
 {
     this->multiclassArena = multiclassArena;
-}
-
-
-void DraftHandler::connectAllComboBox()
-{
-    for(int i=0; i<3; i++)
-    {
-        connect(comboBoxCard[i], SIGNAL(activated(int)),
-                this, SLOT(comboBoxActivated()));
-        connect(comboBoxCard[i], SIGNAL(highlighted(int)),
-                this, SLOT(comboBoxHighLight(int)));
-        comboBoxCard[i]->setEnabled(true);
-    }
-    ui->refreshDraftButton->setEnabled(true);
-}
-
-
-void DraftHandler::clearAndDisconnectAllComboBox()
-{
-    editComboBoxNum = -1;
-    for(int i=0; i<3; i++)
-    {
-        comboBoxCard[i]->setEnabled(false);
-        clearAndDisconnectComboBox(i);
-    }
-    ui->refreshDraftButton->setEnabled(false);
-    hideLineEditCardName();
-}
-
-
-void DraftHandler::clearAndDisconnectComboBox(int index)
-{
-    disconnect(comboBoxCard[index], nullptr, nullptr, nullptr);
-    comboBoxCard[index]->clear();
 }
 
 
@@ -802,47 +672,9 @@ void DraftHandler::reHistDownloadedCardImage(const QString &fileNameCode, bool m
 }
 
 
-void DraftHandler::resetTab(bool alreadyDrafting)
-{
-    clearAndDisconnectAllComboBox();
-    for(int i=0; i<3; i++)
-    {
-        clearScore(labelLFscore[i], FireStone);
-        clearScore(labelHAscore[i], HearthArena);
-        draftCards[i].setCode("");
-        draftCards[i].draw(comboBoxCard[i]);
-        comboBoxCard[i]->setCurrentIndex(0);
-    }
-
-    if(!alreadyDrafting)
-    {
-        //SizePreDraft
-        QMainWindow *mainWindow = static_cast<QMainWindow*>(parent());
-        QSettings settings("Arena Tracker", "Arena Tracker");
-        settings.setValue("size", mainWindow->size());
-
-        //Show Tab
-        ui->tabWidget->insertTab(0, ui->tabDraft, HDIcons::tab(HDIcons::TabArena), "");
-        ui->tabWidget->setTabToolTip(0, "Draft");
-
-        //Reset scores
-        updateDeckScore();//Basicamente para updateLabelDeckScore
-        updateScoresVisibility();
-
-        //SizeDraft
-        QSize sizeDraft = settings.value("sizeDraft", QSize(350, 400)).toSize();
-        mainWindow->resize(sizeDraft);
-        emit calculateMinimumWidth();
-    }
-
-    ui->tabWidget->setCurrentWidget(ui->tabDraft);
-}
-
-
 void DraftHandler::clearLists(bool keepCounters)
 {
     resetBundle();
-    clearAndDisconnectAllComboBox();
     hearthArenaTiers.clear();
     lightForgeTiers.clear();
     codesByClass.clear();
@@ -1125,7 +957,6 @@ void DraftHandler::beginDraft(QString hero, QList<DeckCard> deckCardList, bool s
         endHeroDraft();
     }
 
-    bool alreadyDrafting = drafting;
     this->arenaHero = Utility::classLogNumber2classEnum(hero);
     if(arenaHero == INVALID_CLASS)
     {
@@ -1149,7 +980,11 @@ void DraftHandler::beginDraft(QString hero, QList<DeckCard> deckCardList, bool s
     this->drafting = true;
     this->justPickedCard = "";
 
-    for(int i=0; i<3; i++)  prevCodes[i] = "";
+    for(int i=0; i<3; i++)
+    {
+        prevCodes[i] = "";
+        draftCards[i].setCode("");
+    }
 
 #ifdef Q_OS_LINUX
     if(CaptureManager::isWaylandSession())
@@ -1159,7 +994,6 @@ void DraftHandler::beginDraft(QString hero, QList<DeckCard> deckCardList, bool s
 #endif
 
     initCodesAndHistMaps(deckCardList, skipScreenSettings);
-    resetTab(alreadyDrafting);
     initDeckCounters(deckCardList);
     loadImgTemplates(manaTemplates, "MANA.dat");
     loadImgTemplates(rarityTemplates, "RARITY.dat");
@@ -1604,7 +1438,6 @@ void DraftHandler::initDeckCounters(QList<DeckCard> &deckCardList)
         }
     }
 
-    updateDeckScore();
     emit pDebug("Counters starts with " + QString::number(numDraftedCards) + " cards.");
 }
 
@@ -1615,20 +1448,6 @@ void DraftHandler::endDraft(bool createNewArena)
 
     emit pDebug("End draft.");
     setDraftStatus("");
-
-    //SizeDraft
-    QMainWindow *mainWindow = static_cast<QMainWindow*>(parent());
-    QSettings settings("Arena Tracker", "Arena Tracker");
-    settings.setValue("sizeDraft", mainWindow->size());
-
-    //Hide Tab
-    ui->tabWidget->removeTab(ui->tabWidget->indexOf(ui->tabDraft));
-    ui->tabWidget->setCurrentIndex(ui->tabWidget->indexOf(ui->tabArena));
-    emit calculateMinimumWidth();
-
-    //SizePreDraft
-    QSize size = settings.value("size", QSize(400, 400)).toSize();
-    mainWindow->resize(size);
 
     //Create new arena
     //Set updateTime in log
@@ -2059,12 +1878,10 @@ void DraftHandler::buildBestMatchesMaps()
 
         for(int i=0; i<3; i++)
         {
-            comboBoxCard[i]->clear();
             for(const QString &code: qAsConst(slotCodes[i]))
             {
                 double match = draftCardMaps[i][code].getBestQualityMatches();
                 bestMatchesMaps[i].insert(match, code);
-                draftCardMaps[i][code].draw(comboBoxCard[i]);
             }
         }
     }
@@ -2147,13 +1964,27 @@ void DraftHandler::readCardNames(const cv::Mat &screenCapture)
 
         //Name banner, measured on arenaTemplate.png relative to the art rect
         const cv::Rect &art = screenRects[i];
-        cv::Rect banner(art.x - art.width*0.65, art.y + art.height*1.08, art.width*2.4, art.height*(legendaryPick ? 0.7 : 0.44));
+        cv::Rect banner;
+        if(legendaryPick)   banner = cv::Rect(art.x - art.width*0.65, art.y + art.height*1.08, art.width*2.4, art.height*0.7);
+        else
+        {
+            //Centered on the card (0.15 art widths left of the art's center), 1.25 art widths each side: long names
+            //("Spirit of the Kaldorei") lost their start with the old crop, which reached 1.4 right but 1 left.
+            //The found arts can be spaced a bit short of the cards: plateScale (from the names read) moves the crop.
+            const double scale = (plateScale > 0) ? plateScale : 1.0;
+            const double artSpacing = screenRects[1].x - screenRects[0].x;
+            const double center = art.x + art.width*0.35 + i*artSpacing*(scale - 1);
+            const double halfWidth = art.width*1.25*scale;
+            banner = cv::Rect(center - halfWidth, art.y + art.height*1.08, halfWidth*2, art.height*0.44*scale);
+        }
         banner &= cv::Rect(0, 0, screenCapture.cols, screenCapture.rows);
         if(banner.width < 10 || banner.height < 5)  continue;
 
         cv::Mat crop = screenCapture(banner).clone();
         QImage image(crop.data, crop.cols, crop.rows, static_cast<qsizetype>(crop.step), QImage::Format_RGB32);
-        const QStringList lines = MacOcr::recognizeLines(image.copy(), Utility::getLocalLang());
+        const QList<MacOcr::TextLine> textLines = MacOcr::recognizeTextLines(image.copy(), Utility::getLocalLang());
+        QStringList lines;
+        for(const MacOcr::TextLine &line: textLines)    lines << line.text;
         QString code = legendaryPick ? matchCardName(lines, legendaryNameMap, true) : matchCardName(lines, cardsNameMap);
         //The first trio after a group's pick still finds the deck empty (the group counts on this trio): normal cards
         if(code.isEmpty() && legendaryPick)     code = matchCardName(lines, cardsNameMap);
@@ -2173,6 +2004,21 @@ void DraftHandler::readCardNames(const cv::Mat &screenCapture)
         ocrCodes[i] = code;
         emit pDebug("OCR slot " + QString::number(i+1) + ": \"" + lines.join(" ") + "\" --> " +
                     code + " " + Utility::cardEnNameFromCode(code));
+
+        //Where the name is: the plates go right under the card. The banner can also show a neighbour's
+        //name, so the matching line closest to the banner's center. Not on the legendary groups (curved names).
+        ocrNameCodes[i] = "";
+        if(legendaryPick)   continue;
+        double bestDist = -1;
+        for(const MacOcr::TextLine &line: textLines)
+        {
+            if(matchCardName({line.text}, cardsNameMap) != code)    continue;
+            const double dist = std::abs(line.rect.center().x() - banner.width/2.0);
+            if(bestDist >= 0 && dist >= bestDist)  continue;
+            bestDist = dist;
+            ocrNameCodes[i] = code;
+            ocrNameCenters[i] = QPointF(banner.x + line.rect.center().x(), banner.y + line.rect.center().y());
+        }
     }
 #else
     (void)screenCapture;
@@ -2311,7 +2157,7 @@ void DraftHandler::showDraftNotice(const QString &text)
 {
     setDraftStatus(text);
     QTimer::singleShot(5000, this, [this, text]() {
-        if(draftStatusLabel->text() == text)    setDraftStatus("");
+        if(draftStatus == text)     setDraftStatus("");
     });
 }
 
@@ -2595,6 +2441,9 @@ QString DraftHandler::matchCardName(const QStringList &lines, const QMap<QString
 
     //Accept only a close match with no other card almost as close
     if(best >= (partial ? 0.7 : 0.8) && (best - second) >= 0.1)   return bestCode;
+    //Or a looser match far ahead of every other card: the bent names are read with errors at their ends
+    //("San of the Kaldores" 0.75 against 0.44 of the next card). Readings of other text stay below 0.6.
+    if(!partial && best >= 0.65 && (best - second) >= 0.2)   return bestCode;
     return "";
 }
 
@@ -2674,11 +2523,9 @@ void DraftHandler::getBestCards(DraftCard bestCards[3])
         QString cardInfo = code + " " + name + " " + QString::number(static_cast<int>(match*1000)/1000.0);
 
         bestCards[i] = draftCardMaps[i][code];
-        comboBoxCard[i]->setCurrentIndex(0);
         emit pDebug("Choose: " + cardInfo);
     }
 
-    connectAllComboBox();
     emit pDebug("(" + QString::number(numDraftedCards) + ") " +
                 bestCards[0].getCode() + "/" + bestCards[1].getCode() +
                 "/" + bestCards[2].getCode() + " New codes.");
@@ -2760,15 +2607,10 @@ void DraftHandler::pickCard(QString code)
     updateDeckScore(getHAScore(code), (fireWRMap == nullptr) ? 0 : fireWRMap[this->arenaHero][code]);
 
     //Clear cards and score
-    clearAndDisconnectAllComboBox();
     for(int i=0; i<3; i++)
     {
-        clearScore(labelLFscore[i], FireStone);
-        clearScore(labelHAscore[i], HearthArena);
         prevCodes[i] = draftCards[i].getCode();
         draftCards[i].setCode("");
-        draftCards[i].draw(comboBoxCard[i]);
-        comboBoxCard[i]->setCurrentIndex(0);
         cardDetected[i] = false;
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
@@ -2796,15 +2638,10 @@ void DraftHandler::refreshCapturedCards()
     if(!drafting)   return;
 
     //Clear cards and score
-    clearAndDisconnectAllComboBox();
     for(int i=0; i<3; i++)
     {
-        clearScore(labelLFscore[i], FireStone);
-        clearScore(labelHAscore[i], HearthArena);
         prevCodes[i] = "";
         draftCards[i].setCode("");
-        draftCards[i].draw(comboBoxCard[i]);
-        comboBoxCard[i]->setCurrentIndex(0);
         cardDetected[i] = false;
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
@@ -2827,15 +2664,10 @@ void DraftHandler::refreshDraft()
     emit pDebug("\nRefresh Draft.");
 
     //Clear cards and score
-    clearAndDisconnectAllComboBox();
     for(int i=0; i<3; i++)
     {
-        clearScore(labelLFscore[i], FireStone);
-        clearScore(labelHAscore[i], HearthArena);
         prevCodes[i] = "";
         draftCards[i].setCode("");
-        draftCards[i].draw(comboBoxCard[i]);
-        comboBoxCard[i]->setCurrentIndex(0);
         cardDetected[i] = false;
         draftCardMaps[i].clear();
         bestMatchesMaps[i].clear();
@@ -3061,12 +2893,7 @@ void DraftHandler::showNewCards(DraftCard bestCards[])
     for(int i=0; i<3; i++)  prevCodes[i] = "";
 
     //Load cards
-    for(int i=0; i<3; i++)
-    {
-        clearScore(labelLFscore[i], FireStone);
-        clearScore(labelHAscore[i], HearthArena);
-        draftCards[i] = bestCards[i];
-    }
+    for(int i=0; i<3; i++)  draftCards[i] = bestCards[i];
 
     QString ogCodes[3];
     QString cardNames[3];
@@ -3081,6 +2908,23 @@ void DraftHandler::showNewCards(DraftCard bestCards[])
     for(int i=0; i<3; i++)  if(Utility::getRarityFromCode(ogCodes[i]) != LEGENDARY)     legendaryGroups = false;
     pickScores = PickScores();
     if(draftScoreWindow != nullptr)     draftScoreWindow->setLegendaryGroups(legendaryGroups);
+    if(draftScoreWindow != nullptr && !legendaryGroups && screenIndex >= 0 && screenIndex < QGuiApplication::screens().count())
+    {
+        //The found screen can be a bit off in scale: the names read on the cards place the plates
+        const QRect screenGeometry = QGuiApplication::screens()[screenIndex]->geometry();
+        QList<QPointF> nameCenters;
+        for(int i=0; i<3; i++)
+        {
+            if(!ocrNameCodes[i].isEmpty() && ocrNameCodes[i] == ocrCodes[i] && ocrCodes[i] == degoldCode(ogCodes[i]))
+            {
+                nameCenters << QPointF(screenGeometry.x() + ocrNameCenters[i].x() * screenScale.x(),
+                                       screenGeometry.y() + ocrNameCenters[i].y() * screenScale.y());
+            }
+            else    nameCenters << QPointF(-1, -1);
+        }
+        const double measured = draftScoreWindow->setNameCenters(nameCenters, plateScale);
+        if(measured > 0)    plateScale = measured;
+    }
     updatePickRatingPool();     //Before the scores: the plates' hands use the ratings
     showHAScores(ogCodes, cardNames);
     showFireScores(ogCodes, cardNames);
@@ -3093,13 +2937,8 @@ void DraftHandler::showNewCards(DraftCard bestCards[])
 
 void DraftHandler::updateDeckScore(float cardRatingHA, float cardRatingFire)
 {
-
-    int numCards = numDraftedCards;
     deckRatingHA += static_cast<int>(cardRatingHA);
     deckRatingFire += cardRatingFire;
-    int deckScoreHA = (numCards==0)?0:round(deckRatingHA/static_cast<double>(numCards));
-    float deckScoreFire = (numCards==0)?0:round(deckRatingFire/numCards * 10)/10.0;
-    updateLabelDeckScore(deckScoreFire, deckScoreHA, numCards);
 }
 
 
@@ -3113,14 +2952,6 @@ QString DraftHandler::getDeckAvgString(float deckScoreFire, int deckScoreHA)
         scoreText += "HA: " + QString::number(deckScoreHA);
     }
     return scoreText;
-}
-
-
-void DraftHandler::updateLabelDeckScore(float deckScoreFire, int deckScoreHA, int numCards)
-{
-    QString scoreText = getDeckAvgString(deckScoreFire, deckScoreHA);
-    scoreText += " (" + QString::number(numCards) + "/30)";
-    ui->labelDeckScore->setText(scoreText);
 }
 
 
@@ -3138,7 +2969,6 @@ void DraftHandler::showNewRatings(const QString &cardName1, const QString &cardN
 {
     QString cardNames[3] = {cardName1, cardName2, cardName3};
     float ratings[3] = {rating1,rating2,rating3};
-    float maxRating = std::max(std::max(rating1,rating2),rating3);
     int includedDecks[3] = {includedDecks1, includedDecks2, includedDecks3};
 
     for(int i=0; i<3; i++)
@@ -3151,27 +2981,6 @@ void DraftHandler::showNewRatings(const QString &cardName1, const QString &cardN
             pickScores.fireGames[i] = includedDecks[i];
         }
         else if(draftMethod == HearthArena)     pickScores.ha[i] = ratings[i];
-    }
-
-    for(int i=0; i<3; i++)
-    {
-        //Update score label
-        if(draftMethod == FireStone)
-        {
-            QString text = QString::number(static_cast<double>(ratings[i])) + "%";
-            if(includedDecks[i] < 1000) text += " -- " + QString::number(includedDecks[i]) + " played";
-            else                        text += " -- " + QString::number(round(includedDecks[i]/100.0)/10.0) + "K played";
-
-            labelLFscore[i]->setText(text);
-            labelLFscore[i]->setToolTip(cardNames[i] + " - FireStone");
-            if(FLOATEQ(maxRating, ratings[i]))  highlightScore(labelLFscore[i], draftMethod);
-        }
-        else if(draftMethod == HearthArena)
-        {
-            labelHAscore[i]->setText(QString::number(static_cast<int>(ratings[i])));
-            labelHAscore[i]->setToolTip(cardNames[i] + " - Heartharena");
-            if(FLOATEQ(maxRating, ratings[i]))  highlightScore(labelHAscore[i], draftMethod);
-        }
     }
 
     //Mostrar score
@@ -3737,6 +3546,18 @@ void DraftHandler::finishFindScreenRects()
         {
             if(!redraftingReview)   createDraftWindows();
             if(drafting || heroDrafting || redraftingReview)    newCaptureDraftLoop();
+
+            //The slow end of the arena intro zoom passes the stable check: look once more, a moved screen
+            //is "Not the same" and places the plates again
+            if(drafting || heroDrafting)
+            {
+                QTimer::singleShot(FINDSCREEN_VERIFY_TIME, this, [this]() {
+                    if(findingFrame || stopLoops || screenIndex == -1)  return;
+                    emit pDebug("Checking the arena screen again after the intro.");
+                    findingFrame = true;
+                    startFindScreenRects();
+                });
+            }
         }
         else
         {
@@ -4213,40 +4034,8 @@ void DraftHandler::createDraftWindows()
 
 
 
-void DraftHandler::clearScore(QLabel *label, DraftMethod draftMethod, bool clearText)
-{
-    if(clearText)   label->setText("");
-    else if(label->styleSheet().contains("background-image"))
-    {
-        highlightScore(label, draftMethod);
-        return;
-    }
-
-    if(!mouseInApp && transparency == Transparent)
-    {
-        label->setStyleSheet("QLabel {background-color: transparent; color: white;}");
-    }
-    else
-    {
-        label->setStyleSheet("");
-    }
-}
-
-
-void DraftHandler::highlightScore(QLabel *label, DraftMethod draftMethod)
-{
-    QString backgroundImage = "";
-    if(draftMethod == FireStone)            backgroundImage = ":/Images/bgScoreLF.png";
-    else if(draftMethod == HearthArena)     backgroundImage = ":/Images/bgScoreHA.png";
-    label->setStyleSheet("QLabel {background-color: transparent; color: " +
-                         QString((!mouseInApp && transparency == Transparent)?"white":ThemeHandler::fgColor()) + ";"
-                         "background-image: url(" + backgroundImage + "); background-repeat: no-repeat; background-position: center; }");
-}
-
-
 void DraftHandler::setTheme()
 {
-    ui->refreshDraftButton->setIcon(QIcon(ThemeHandler::buttonDraftRefreshFile()));
     QFont redraftFont(ThemeHandler::bigFont());
     redraftFont.setPixelSize(16);
     for(int section=0; section<REDRAFT_REMOVE_SECTIONS; section++)
@@ -4254,65 +4043,6 @@ void DraftHandler::setTheme()
         redraftRemoveListWidget[section]->setTheme();
         redraftRemoveLabel[section]->setFont(redraftFont);
     }
-    QFont statusFont(ThemeHandler::defaultFont());
-    statusFont.setPixelSize(14);
-    draftStatusLabel->setFont(statusFont);
-    redraftStatusLabel->setFont(statusFont);
-
-    QFont font(ThemeHandler::bigFont());
-    font.setPixelSize(24);
-    ui->labelLFscore1->setFont(font);
-    ui->labelLFscore2->setFont(font);
-    ui->labelLFscore3->setFont(font);
-    ui->labelHAscore1->setFont(font);
-    ui->labelHAscore2->setFont(font);
-    ui->labelHAscore3->setFont(font);
-
-    for(int i=0; i<3; i++)
-    {
-        if(labelLFscore[i]->styleSheet().contains("background-image"))      highlightScore(labelLFscore[i], FireStone);
-        if(labelHAscore[i]->styleSheet().contains("background-image"))      highlightScore(labelHAscore[i], HearthArena);
-    }
-
-    //Change Arena draft icon
-    int index = ui->tabWidget->indexOf(ui->tabDraft);
-    if(index >= 0)  ui->tabWidget->setTabIcon(index, HDIcons::tab(HDIcons::TabArena));
-}
-
-
-void DraftHandler::setTransparency(Transparency value)
-{
-    this->transparency = value;
-
-    if(!mouseInApp && transparency==Transparent)
-    {
-        ui->tabDraft->setAttribute(Qt::WA_OpaquePaintEvent);
-        ui->tabDraft->repaint();
-
-        ui->labelDeckScore->setStyleSheet("QLabel {background-color: transparent; color: white;}");
-    }
-    else
-    {
-        ui->tabDraft->setAttribute(Qt::WA_OpaquePaintEvent, false);
-        ui->tabDraft->repaint();
-
-        ui->labelDeckScore->setStyleSheet("");
-    }
-
-    //Update score labels
-    clearScore(ui->labelLFscore1, FireStone, false);
-    clearScore(ui->labelLFscore2, FireStone, false);
-    clearScore(ui->labelLFscore3, FireStone, false);
-    clearScore(ui->labelHAscore1, HearthArena, false);
-    clearScore(ui->labelHAscore2, HearthArena, false);
-    clearScore(ui->labelHAscore3, HearthArena, false);
-}
-
-
-void DraftHandler::setMouseInApp(bool value)
-{
-    this->mouseInApp = value;
-    setTransparency(this->transparency);
 }
 
 
@@ -4334,14 +4064,6 @@ void DraftHandler::showOverlay()
         if(showDraftScoresOverlay)  this->draftScoreWindow->show();
         else                        this->draftScoreWindow->hide();
     }
-}
-
-
-void DraftHandler::setLearningMode(bool value)
-{
-    this->learningMode = value;
-
-    updateScoresVisibility();
 }
 
 
@@ -4367,9 +4089,6 @@ void DraftHandler::setDraftMethod(bool draftMethodHA, bool draftMethodFire)
     {
         draftScoreWindow->setDraftMethod(draftMethodHA, draftMethodFire);
     }
-
-    updateDeckScore();//Basicamente para updateLabelDeckScore
-    updateScoresVisibility();
 }
 
 
@@ -4384,59 +4103,9 @@ void DraftHandler::setDraftMethodDeck()
 }
 
 
-void DraftHandler::updateScoresVisibility()
-{
-    if(learningMode)
-    {
-        for(int i=0; i<3; i++)
-        {
-            labelLFscore[i]->hide();
-            labelHAscore[i]->hide();
-        }
-    }
-    else
-    {
-        for(int i=0; i<3; i++)
-        {
-            labelLFscore[i]->setVisible(draftMethodFire);
-            labelHAscore[i]->setVisible(draftMethodHA);
-        }
-    }
-}
-
-
-void DraftHandler::updateMinimumHeight()
-{
-    ui->tabDraft->setMinimumHeight(ui->tabDraft->sizeHint().height());
-}
-
-
 void DraftHandler::redrawAllCards()
 {
     if(redrafting)  updateRedraftRemoveList();
-    if(!drafting)   return;
-
-    for(int i=0; i<3; i++)
-    {
-        int currentIndex = comboBoxCard[i]->currentIndex();
-        clearAndDisconnectComboBox(i);
-        const QList<QString> codeList = bestMatchesMaps[i].values();
-        for(const QString &code: codeList)
-        {
-            draftCardMaps[i][code].draw(comboBoxCard[i]);
-        }
-        comboBoxCard[i]->setCurrentIndex(currentIndex);
-    }
-
-    connectAllComboBox();
-}
-
-
-void DraftHandler::updateTamCard()
-{
-    ui->comboBoxCard1->setIconSize(QSize(DeckCard::getCardWidth(), DeckCard::getCardHeight()));
-    ui->comboBoxCard2->setIconSize(QSize(DeckCard::getCardWidth(), DeckCard::getCardHeight()));
-    ui->comboBoxCard3->setIconSize(QSize(DeckCard::getCardWidth(), DeckCard::getCardHeight()));
 }
 
 
@@ -4558,146 +4227,6 @@ void DraftHandler::clearTierLists()
 }
 
 
-//Funciones para busqueda manual de cartas
-void DraftHandler::editCardName(const QString &text)
-{
-    comboBoxCard[editComboBoxNum]->setEnabled(false);
-    startFindCodeFromText(text);
-}
-
-
-void DraftHandler::editCardNameFinish()
-{
-    if(editComboBoxNum == -1 || comboBoxCard[editComboBoxNum]->isEnabled())
-    {
-        return;
-    }
-
-    comboBoxCard[editComboBoxNum]->setEnabled(true);
-    editComboBoxNum = -1;
-    hideLineEditCardName();
-    showComboBoxesCards();
-}
-
-
-void DraftHandler::startFindCodeFromText(const QString &text)
-{
-    if(!futureFindCodeFromText.isRunning())
-    {
-        lastThreadText = text;
-        futureFindCodeFromText.setFuture(QtConcurrent::run(&DraftHandler::findCodeFromText, this, text));
-    }
-}
-void DraftHandler::finishFindCodeFromText()
-{
-    QString code = futureFindCodeFromText.result();
-    if(!code.isEmpty())
-    {
-        bestMatchesMaps[editComboBoxNum].clear();
-        bestMatchesMaps[editComboBoxNum].insert(0, code);
-        draftCardMaps[editComboBoxNum].clear();
-        draftCardMaps[editComboBoxNum][code] = DraftCard(code);
-        comboBoxCard[editComboBoxNum]->clear();
-        draftCardMaps[editComboBoxNum][code].draw(comboBoxCard[editComboBoxNum]);
-    }
-
-    QString text = ui->lineEditCardName->text();
-    if(!text.isEmpty() && text!=lastThreadText) startFindCodeFromText(text);
-}
-QString DraftHandler::findCodeFromText(QString text)
-{
-    QStringList patterns = Utility::removeAccents(text).toLower().simplified().split(" ");
-    QStringList names = cardsNameMap.keys();
-
-    for(const QString &name: qAsConst(names))
-    {
-        bool found=true;
-        for(const QString &pat: qAsConst(patterns))
-        {
-            if(!name.contains(pat))
-            {
-                found = false;
-                break;
-            }
-        }
-        if(found)   return cardsNameMap[name];
-    }
-    return "";
-}
-
-
-void DraftHandler::showLineEditCardName(const QString &name)
-{
-    ui->lineEditCardName->setText(name);
-    ui->labelDeckScore->hide();
-    ui->lineEditCardName->show();
-    ui->lineEditCardName->setFocus();
-    ui->lineEditCardName->selectAll();
-}
-
-
-void DraftHandler::hideLineEditCardName()
-{
-    ui->lineEditCardName->hide();
-    ui->lineEditCardName->clear();
-    ui->labelDeckScore->show();
-}
-
-
-void DraftHandler::comboBoxHighLight(int index)
-{
-    editCardNameFinish();
-
-    QComboBox* comboBoxCard = (QComboBox*)sender();
-    editComboBoxNum = -1;
-    for(int i=0; i<3; i++)
-        if(comboBoxCard == this->comboBoxCard[i])   editComboBoxNum=i;
-
-    QList<QString> bestCodes = bestMatchesMaps[editComboBoxNum].values();
-    int count = bestCodes.count();
-    if(index >= count || index < 0) return;
-    QString code = bestCodes[index];
-    showLineEditCardName(draftCardMaps[editComboBoxNum][code].getName());
-}
-
-
-void DraftHandler::showComboBoxesCards()
-{
-    DraftCard bestCards[3];
-    showComboBoxesCards(bestCards);
-}
-
-void DraftHandler::showComboBoxesCards(DraftCard bestCards[3])
-{
-    for(int i=0; i<3; i++)
-    {
-        int comboBoxIndex = comboBoxCard[i]->currentIndex();
-        QList<QString> bestCodes = bestMatchesMaps[i].values();
-        int count = bestCodes.count();
-        if(comboBoxIndex >= count || comboBoxIndex < 0) return;
-        QString code = bestCodes[comboBoxIndex];
-        bestCards[i] = draftCardMaps[i][code];
-    }
-
-    if(draftScoreWindow != nullptr)    draftScoreWindow->hideScores();
-    showNewCards(bestCards);
-}
-
-
-void DraftHandler::comboBoxActivated()
-{
-    DraftCard bestCards[3];
-    showComboBoxesCards(bestCards);
-
-    QComboBox* comboBoxCard = (QComboBox*)sender();
-    editComboBoxNum = -1;
-    for(int i=0; i<3; i++)
-        if(comboBoxCard == this->comboBoxCard[i])   editComboBoxNum=i;
-
-    showLineEditCardName(bestCards[editComboBoxNum].getName());
-}
-
-
 //Review Best Cards hebra
 void DraftHandler::startReviewBestCards()
 {
@@ -4707,7 +4236,7 @@ void DraftHandler::startReviewBestCards()
         return;
     }
 
-    //The worker thread gets copies: the maps and combo boxes change in the GUI thread on each pick
+    //The worker thread gets copies: the maps change in the GUI thread on each pick
     QList<QList<DraftCard>> candidates;
     QList<DraftCard> slotCards;
     for(int i=0; i<3; i++)
@@ -4744,11 +4273,6 @@ void DraftHandler::finishReviewBestCards()
             DraftCard newCard = reviewSlot.newCard;
             bestMatchesMaps[i].insert(1, newCode);
             draftCardMaps[i].insert(newCode, newCard);
-            newCard.draw(comboBoxCard[i]);
-        }
-        if(reviewSlot.comboIndex >= 0 && reviewSlot.comboIndex < comboBoxCard[i]->count())
-        {
-            comboBoxCard[i]->setCurrentIndex(reviewSlot.comboIndex);
         }
         bestCodes[i] = reviewSlot.code;
     }
@@ -4861,7 +4385,6 @@ ReviewSlot DraftHandler::getBestMatchManaRarity(QList<DraftCard> candidates, con
         if(candidates[i].getCost() == imgMana &&
                 (imgRarity == INVALID_RARITY || candidates[i].getRarity() == imgRarity))
         {
-            reviewSlot.comboIndex = i;
             //Es la primera opcion, no mostramos warning
             if(i != 0)  reviewSlot.code = candidates[i].getCode();
             return reviewSlot;
@@ -4872,11 +4395,7 @@ ReviewSlot DraftHandler::getBestMatchManaRarity(QList<DraftCard> candidates, con
     DraftCard draftCard = getBestAllMatchManaRarity(screenCardHist, imgMana, imgRarity);
     draftCard.setBestQualityMatch(1, true);
     reviewSlot.code = draftCard.getCode();
-    if(!reviewSlot.code.isEmpty())
-    {
-        reviewSlot.newCard = draftCard;
-        reviewSlot.comboIndex = candidates.count();
-    }
+    if(!reviewSlot.code.isEmpty())  reviewSlot.newCard = draftCard;
     return reviewSlot;
 }
 

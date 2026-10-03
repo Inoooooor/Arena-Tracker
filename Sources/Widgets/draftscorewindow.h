@@ -47,6 +47,8 @@ public:
                    int includedDecks1, int includedDecks2, int includedDecks3, bool restoreWindow);
     void hideScores();
     void setLegendaryGroups(bool legendaryGroups);     //The first pick: the plates sit differently
+    //Global, (-1,-1) for a name not read
+    double setNameCenters(const QList<QPointF> &nameCenters, double scale);
     void setDraftMethod(bool draftMethodHA, bool draftMethodLF);
 
 signals:

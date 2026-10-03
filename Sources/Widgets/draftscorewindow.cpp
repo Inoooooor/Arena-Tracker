@@ -42,6 +42,7 @@ DraftScoreWindow::DraftScoreWindow(QWidget *parent, QRect rect, QSize sizeCard, 
 
     setCentralWidget(new QWidget(this));
     setAttribute(Qt::WA_TranslucentBackground, true);
+    setAttribute(Qt::WA_TransparentForMouseEvents, true);
     setWindowTitle("AT Scores");
 }
 
@@ -156,4 +157,47 @@ QList<QPoint> DraftScoreWindow::plateCenters(bool legendaryGroups)
 void DraftScoreWindow::setLegendaryGroups(bool legendaryGroups)
 {
     platesWindow->setTopCenters(plateCenters(legendaryGroups));
+}
+
+
+//The found art squares can be spaced a bit off from the real cards (seen 517 px against 545 in a 16:10 window):
+//each plate goes under its card's name, and the spacing of the names corrects the scale of the height.
+//Only the outer names measure the scale: a golden or legendary frame moves its banner a bit. Without both,
+//scale is the last measured one (the layout doesn't change between picks). Returns the scale measured, or 0.
+double DraftScoreWindow::setNameCenters(const QList<QPointF> &nameCenters, double scale)
+{
+    QList<int> known;
+    for(int i=0; i<3 && i<nameCenters.count(); i++)     if(nameCenters[i].x() >= 0)    known << i;
+    if(known.isEmpty())     return 0;
+
+    const double artSpacing = artRects[1].center().x() - artRects[0].center().x();
+    double measured = 0;
+    if(known.first() == 0 && known.last() == 2 && artSpacing > 0)
+    {
+        measured = (nameCenters[2].x() - nameCenters[0].x()) / (2 * artSpacing);
+        //A wrong name line, not a different layout
+        if(measured < 0.85 || measured > 1.2)
+        {
+            emit pDebug("Plates: names spacing doesn't fit the cards (scale " + QString::number(measured, 'f', 3) + "), kept.");
+            return 0;
+        }
+        scale = measured;
+    }
+    if(scale <= 0)  scale = 1;
+
+    QList<QPoint> centers = plateCenters(false);
+    const QRect &art = artRects[0];
+    const int top = static_cast<int>(art.top() + (2.63f + 0.04f) * art.height() * scale);
+    for(int i=0; i<3; i++)
+    {
+        //A name not read: from the nearest read one
+        int ref = known.first();
+        for(int k: known)   if(std::abs(k - i) < std::abs(ref - i))     ref = k;
+        const double x = nameCenters[ref].x() + (i - ref) * artSpacing * scale;
+        centers[i] = QPoint(static_cast<int>(x), top);
+    }
+    emit pDebug("Plates by names: scale " + QString::number(scale, 'f', 3) + (measured > 0 ? "" : " (last)") + ", x " +
+                QString::number(centers[0].x()) + "/" + QString::number(centers[1].x()) + "/" + QString::number(centers[2].x()));
+    platesWindow->setTopCenters(centers);
+    return measured;
 }

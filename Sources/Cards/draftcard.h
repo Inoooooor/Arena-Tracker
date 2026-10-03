@@ -4,7 +4,6 @@
 #include "deckcard.h"
 #include <QRadioButton>
 #include <QLabel>
-#include <QComboBox>
 
 
 class DraftCard : public DeckCard
@@ -25,7 +24,6 @@ public:
     void draw(QLabel *label);
     double getBestQualityMatches();
     void setBestQualityMatch(double matchScore, bool force);
-    void draw(QComboBox *comboBox);
     bool isGold();
 };
 

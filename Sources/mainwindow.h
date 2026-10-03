@@ -253,7 +253,6 @@ private slots:
     void transparentFramed();
     void updateTamCard(int value);
     void updateShowDraftScoresOverlay(bool checked);
-    void updateDraftLearningMode(bool checked);
     void updateTooltipScale(int value);
     void closeApp();
     void minimizeToDock();
@@ -296,7 +295,6 @@ private slots:
     void createDetachWindow(QWidget *paneWidget, const QPoint& dropPoint = QPoint());
     void closedDetachWindow(DetachWindow *detachWindow, QWidget *paneWidget);
     void calculateMinimumWidth();
-    void changingTabUpdateDraftSize();
     void openUserGuide();
     void spreadDraftMethod();
     void newGameResult(GameResult gameResult, LoadingScreenState loadingScreen);

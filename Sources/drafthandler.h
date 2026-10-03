@@ -11,7 +11,6 @@
 #include <QObject>
 #include <QFutureWatcher>
 #include <QPointer>
-#include <QPropertyAnimation>
 #include <QElapsedTimer>
 #include <atomic>
 
@@ -26,6 +25,7 @@
 #define REDRAFT_REVIEW_OCR_TIME     1000
 #define FINDSCREEN_LOOP_TIME    1000
 #define FINDSCREEN_STABLE_TIME  400
+#define FINDSCREEN_VERIFY_TIME  1500
 
 #define CAPTUREDRAFT_DELAY_TIME         1500
 #define CAPTUREDRAFT_LOOP_TIME          100
@@ -101,15 +101,14 @@ public:
     QPointF screenScale = QPointF(0,0);
 };
 
-//Mana/rarity review of one draft slot. Computed in a worker thread and applied to the
-//combo box in the GUI thread, as widgets must not be touched from other threads.
+//Mana/rarity review of one draft slot. Computed in a worker thread and applied
+//in the GUI thread, which owns the candidate maps.
 class ReviewSlot
 {
 public:
     QString slotCode;       //Card of the slot when the review started
     QString code;           //Suggested card, empty if the slot card is right
-    int comboIndex = -1;    //Combo box index to select, -1 to keep it
-    DraftCard newCard;      //Card to add to the combo box, empty code if it is already there
+    DraftCard newCard;      //Card to add to the candidates, empty code if it is already there
 };
 
 
@@ -127,9 +126,7 @@ private:
     QPointer<QWidget> redraftTab;   //Owned by the tab widget while shown, so it may be deleted before us
     //Deck cards suggested for removal after a redraft, worst first: one section by Firestone, one by HearthArena
     QLabel *redraftRemoveLabel[REDRAFT_REMOVE_SECTIONS];
-    //What the draft recognition is doing, shown in the draft and redraft tabs (bottom bar in the hero choice)
-    QLabel *draftStatusLabel, *redraftStatusLabel;
-    QPropertyAnimation *draftStatusPulse[2];   //Opacity pulse of each status label while work goes on
+    QString draftStatus;    //What the draft recognition is doing, said by the mascot
     int findScreenFails;
     MoveListWidget *redraftRemoveListWidget[REDRAFT_REMOVE_SECTIONS];
     QList<DeckCard> redraftRemoveCards[REDRAFT_REMOVE_SECTIONS];
@@ -159,20 +156,15 @@ private:
     bool heroesShown = false;   //The current heroes are scored (heroesScored)
     bool redraftPicksSeen = false;  //OCR read card names on the redraft's pick screen: REDRAFTING alone only offers it
     bool bundlePreviewOpen = false; //A legendary group's preview covers the cards: no capture
-    bool mouseInApp;
-    Transparency transparency;
     DraftHeroWindow *draftHeroWindow;
     DraftScoreWindow *draftScoreWindow;
     bool showDraftScoresOverlay;
-    bool learningMode, showMyWR;
+    bool showMyWR;
     QString justPickedCard; //Evita doble pick card en Arena.log
     bool draftMethodHA, draftMethodFire;
     QFutureWatcher<ScreenDetection> futureFindScreenRects;
     QElapsedTimer findScreenClock;         //From the start of findScreenRects to its result
     std::atomic<qint64> findScreenStartMs{0}, findScreenCaptureMs{0};
-    QLabel *labelLFscore[3];
-    QLabel *labelHAscore[3];
-    QComboBox *comboBoxCard[3];
     bool extendedCapture;
     QStringList heroCodesList;
     QMap<QString, float> *fireWRMap;
@@ -181,11 +173,7 @@ private:
     bool needSaveCardHist;
     int cardsJsonWaits;
     ScreenDetection prevScreenDetection;    //Last detection, to wait for a stable screen
-    //Usado en busqueda manual (name -> code)
-    QMap<QString, QString> cardsNameMap;
-    int editComboBoxNum;//Numero de combo box que estamos editando
-    QFutureWatcher<QString> futureFindCodeFromText;
-    QString lastThreadText;
+    QMap<QString, QString> cardsNameMap;    //Name -> code, to match the card names read by OCR
     QFutureWatcher<QList<ReviewSlot>> futureReviewBestCards;
     //Looks for the redraft review screen ("35/30" deck counter) while in the arena menu, in case
     //the redraft picks happened when AT could not see them (Hearthstone restarted in the review screen)
@@ -221,33 +209,31 @@ private:
     QString prevCodes[3];
     QString ocrCodes[3];    //Card of each slot read by its name (OCR, macOS only)
     QString ocrUnmatchedText[3];    //Last OCR reading that matched no card, logged once
+    QString ocrNameCodes[3];        //Card whose name line is at ocrNameCenters (screen capture pixels)
+    QPointF ocrNameCenters[3];
+    double plateScale = 0;          //Real card spacing / found art spacing, from the names read (0: not measured)
     qint64 prevCodesTime;
     QString bestCodesRedraftingReview[5];
 
 
 //Metodos
 private:
-    void completeUI();
     cv::MatND getHist(const QString &code);
     cv::MatND getHist(const Mat &srcBase);
     void initDeckCounters(QList<DeckCard> &deckCardList);
     void initCodesAndHistMaps(QList<DeckCard> &deckCardList, bool skipScreenSettings=false);
-    void resetTab(bool alreadyDrafting);
     void clearLists(bool keepCounters);
     void endDraft(bool createNewArena);
     bool getScreenCardsHist(cv::MatND screenCardsHist[], int length);
     void showNewCards(DraftCard bestCards[]);
-    void updateDeckScore(float cardRatingHA=0, float cardRatingFire=0);
+    void updateDeckScore(float cardRatingHA, float cardRatingFire);
     bool screenFound();
     ScreenDetection findScreenRects();
     bool findHeroRectsByOcr(ScreenDetection &screenDetection);
-    void clearScore(QLabel *label, DraftMethod draftMethod, bool clearText=true);
-    void highlightScore(QLabel *label, DraftMethod draftMethod);
     void deleteDraftHeroWindow();
     void deleteDraftScoreWindow();
     void showOverlay();
     void newCaptureDraftLoop(bool delayed=false);
-    void updateScoresVisibility();
     void initHearthArenaTiers(const CardClass heroClass, const bool multiClassDraft);
     void initLightForgeTiers(const CardClass heroClass, const bool multiClassDraft, const QStringList &arenaCodes, bool buildCodesByClass);
     void createDraftWindows();
@@ -267,10 +253,6 @@ private:
     void addCardHist(QString code, bool premium, bool isHero=false);
     QString degoldCode(QString fileName);
     bool isGoldCode(QString fileName);
-    void connectAllComboBox();
-    void clearAndDisconnectAllComboBox();
-    void clearAndDisconnectComboBox(int index);
-    void updateLabelDeckScore(float deckScoreFire, int deckScoreHA, int numCards);
     void showMessageDeckScore(float deckScoreFire, int deckScoreHA);
     void endHeroDraft();
     void showNewHeroes();
@@ -289,12 +271,6 @@ private:
     CardClass findMulticlassPower(QList<DeckCard> &deckCardList);
     void initCardsNameMap();
     void reduceCardsNameMapMulticlass();
-    void showLineEditCardName(const QString &name);
-    void hideLineEditCardName();
-    QString findCodeFromText(QString text);
-    void startFindCodeFromText(const QString &text);
-    void showComboBoxesCards();
-    void showComboBoxesCards(DraftCard bestCards[]);
     void getBestNManaRarity(int &manaN, CardRarity &cardRarity, const cv::Mat &screenSmall, const QList<Mat> &manaTemplates, const QList<Mat> &rarityTemplates,
                             const cv::Rect &manaRectSmall, const cv::Rect &rarityRectSmall);
     double getL2Mat(const cv::Mat &matSample, const cv::Mat &matTemplate);
@@ -328,7 +304,6 @@ private:
     bool isPickShown();
     bool isRedraftOffered();
     void createRedraftRemoveList();
-    void createDraftStatus();
     void setDraftStatus(const QString &text);
     void updateRedraftRemoveList();
     bool fillRedraftRemoveSection(int section, DraftMethod draftMethod);
@@ -355,12 +330,8 @@ public:
     static QIcon redraftTabIcon();
     void buildHeroCodesList();
     void reHistDownloadedCardImage(const QString &fileNameCode, bool missingOnWeb=false);
-    void setMouseInApp(bool value);
-    void setTransparency(Transparency value);
     void setShowDraftScoresOverlay(bool value);
-    void setLearningMode(bool value);
     void redrawAllCards();
-    void updateTamCard();
     void setDraftMethod(bool draftMethodHA, bool draftMethodFire);
     void setTheme();
     void craftGoldenCopy(int cardIndex);
@@ -422,7 +393,6 @@ public slots:
     // void enterArena();//OLD
     void leaveArena();
     void minimizeScoreWindow();
-    void updateMinimumHeight();
     void redraft();
     void checkRedraft();
 
@@ -434,13 +404,8 @@ private slots:
     void captureDraft();
     void finishFindScreenRects();
     void startFindScreenRects();
-    void comboBoxActivated();
     void refreshDraft();
     void newFindScreenLoop(bool skipScreenSettings=false);
-    void comboBoxHighLight(int index);
-    void editCardName(const QString &text);
-    void editCardNameFinish();
-    void finishFindCodeFromText();
     void finishReviewBestCards();
     void checkRedraftScreen();
     void finishCheckRedraftScreen();
