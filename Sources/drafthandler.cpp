@@ -2006,9 +2006,10 @@ void DraftHandler::readCardNames(const cv::Mat &screenCapture)
                     code + " " + Utility::cardEnNameFromCode(code));
 
         //Where the name is: the plates go right under the card. The banner can also show a neighbour's
-        //name, so the matching line closest to the banner's center. Not on the legendary groups (curved names).
+        //name, so the matching line closest to the banner's center. Not on the legendary groups (curved names),
+        //but yes on the first trio after a group's pick, still read as a legendary pick.
         ocrNameCodes[i] = "";
-        if(legendaryPick)   continue;
+        if(legendaryPick && Utility::getRarityFromCode(code) == LEGENDARY)  continue;
         double bestDist = -1;
         for(const MacOcr::TextLine &line: textLines)
         {
